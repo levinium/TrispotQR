@@ -17,6 +17,18 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
+  <!-- SkiaSharp's native asset packages ship libSkiaSharp.pdb (89 MB, a native debug symbol
+       file with no runtime purpose) next to libSkiaSharp.dll under runtimes/<rid>/native/.
+       That arrives via NativeCopyLocalItems, a NuGet RID-asset item that DebugType=none and
+       AllowedReferenceRelatedFileExtensions do not touch (both only govern managed reference
+       companion files). Strip .pdb from it before the publish file list is computed, so dist
+       holds only the exe, as it did before this phase. -->
+  <Target Name="RemoveNativeSkiaSharpPdb" AfterTargets="ResolvePackageAssets" BeforeTargets="_ComputeResolvedFilesToPublishList;GetCopyToOutputDirectoryItems">
+    <ItemGroup>
+      <NativeCopyLocalItems Remove="@(NativeCopyLocalItems)" Condition="'%(NativeCopyLocalItems.Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <ProjectReference Include="..\TrispotQR.Core\TrispotQR.Core.csproj" />
   </ItemGroup>

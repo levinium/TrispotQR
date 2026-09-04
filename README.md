@@ -13,14 +13,16 @@ the day they do.
 Copy `dist\TrispotQR.exe` anywhere and double-click it. Nothing needs to be installed, and
 nothing gets installed: there is no setup step, no admin prompt and no registry entry. The
 whole app, including the .NET runtime it runs on, is inside that one file, which is why it
-is 62 MB rather than 1 MB. Delete the file and it is gone.
+is around 67 MB. Delete the file and it is gone.
 
 It needs 64-bit Windows and nothing else.
 
-`dist\framework-dependent\TrispotQR.exe` is the same app at about 1 MB, for machines that
-already have the .NET 10 Desktop Runtime. If they do not, Windows shows a dialog naming the
-missing runtime with a download link; it does not install anything on its own. Prefer the
-big one unless you are deploying somewhere the runtime is already managed.
+`dist\framework-dependent\TrispotQR.exe` is the same app at around 13 MB, for machines that
+already have the .NET 10 Desktop Runtime: its size difference from the big build is the .NET
+runtime, not the drawing engine, since the native Skia library ships in both. If the runtime
+is missing, Windows shows a dialog naming it with a download link; it does not install
+anything on its own. Prefer the big one unless you are deploying somewhere the runtime is
+already managed.
 
 ## What it does
 
@@ -71,10 +73,10 @@ tools\               one-off build utilities (the app icon generator)
 
 ### The design that matters
 
-Everything is drawn once into WPF geometry objects measured in **module units**, one unit
-per QR module. That single description then feeds the on-screen preview, the PNG
-rasteriser, and the SVG writer. There is no second renderer to drift out of sync, which is
-why the SVG and the PNG always match what the preview showed.
+Everything is drawn once into Core's own platform-neutral geometry model (`QrPath`), measured
+in **module units**, one unit per QR module. That single description then feeds the
+on-screen preview, the Skia rasteriser, and the SVG writer. There is no second renderer to
+drift out of sync, which is why the SVG and the PNG always match what the preview showed.
 
 ### Why the test suite is shaped the way it is
 
@@ -91,9 +93,11 @@ writes a line to a trace listener nobody reads.
 
 ### Where settings live
 
-`%APPDATA%\TrispotQR\` holds `presets.json` (saved styles) and `settings.json` (last used
-style and window size). A file that will not parse is moved aside and the app starts on the
-built-in styles rather than refusing to open.
+`%APPDATA%\TrispotQR\` on Windows holds `presets.json` (saved styles) and `settings.json`
+(last used style and window size). The location resolves per platform (`~/Library/Application
+Support/TrispotQR` on macOS, `$XDG_CONFIG_HOME/TrispotQR` or `~/.config/TrispotQR` on Linux),
+though only the Windows app ships in this phase. A file that will not parse is moved aside
+and the app starts on the built-in styles rather than refusing to open.
 
 ## Third-party components
 
