@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using System.Windows.Media;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 
 namespace TrispotQR.Core.Styling;
@@ -9,7 +9,7 @@ public sealed record OutlineStyle
 {
     public bool Enabled { get; init; }
 
-    public Color Color { get; init; } = Colors.White;
+    public RgbColor Color { get; init; } = RgbColor.White;
 
     /// <summary>Stroke width as a fraction of one module. Kept relative so it scales with the code.</summary>
     public double ThicknessRatio { get; init; } = 0.08;
@@ -58,16 +58,16 @@ public sealed record QrStyle
 
     public MarkerCenterShape MarkerCenterShape { get; init; } = MarkerCenterShape.Square;
 
-    public Color Foreground { get; init; } = Colors.Black;
+    public RgbColor Foreground { get; init; } = RgbColor.Black;
 
     /// <summary>Background colour, or null for a transparent background.</summary>
-    public Color? Background { get; init; } = Colors.White;
+    public RgbColor? Background { get; init; } = RgbColor.White;
 
     /// <summary>Colour of the marker rings, or null to inherit <see cref="Foreground"/>.</summary>
-    public Color? MarkerFrameColor { get; init; }
+    public RgbColor? MarkerFrameColor { get; init; }
 
     /// <summary>Colour of the marker cores, or null to inherit <see cref="Foreground"/>.</summary>
-    public Color? MarkerCenterColor { get; init; }
+    public RgbColor? MarkerCenterColor { get; init; }
 
     public OutlineStyle Outline { get; init; } = OutlineStyle.Off;
 
@@ -88,11 +88,11 @@ public sealed record QrStyle
 
     /// <summary>The colour the markers actually draw in, after inheritance.</summary>
     [JsonIgnore]
-    public Color EffectiveMarkerFrameColor => MarkerFrameColor ?? Foreground;
+    public RgbColor EffectiveMarkerFrameColor => MarkerFrameColor ?? Foreground;
 
     /// <summary>The colour the marker cores actually draw in, after inheritance.</summary>
     [JsonIgnore]
-    public Color EffectiveMarkerCenterColor => MarkerCenterColor ?? Foreground;
+    public RgbColor EffectiveMarkerCenterColor => MarkerCenterColor ?? Foreground;
 
     /// <summary>
     /// Clamps the free-form numeric values into ranges the renderer can honour, so a bad

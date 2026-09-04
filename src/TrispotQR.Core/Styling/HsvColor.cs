@@ -1,4 +1,4 @@
-using System.Windows.Media;
+using TrispotQR.Core.Primitives;
 
 namespace TrispotQR.Core.Styling;
 
@@ -18,7 +18,7 @@ namespace TrispotQR.Core.Styling;
 /// <param name="Value">0 for black through to 1 for the brightest form of the hue.</param>
 public readonly record struct HsvColor(double Hue, double Saturation, double Value)
 {
-    public static HsvColor FromRgb(Color colour)
+    public static HsvColor FromRgb(RgbColor colour)
     {
         var r = colour.R / 255.0;
         var g = colour.G / 255.0;
@@ -65,7 +65,7 @@ public readonly record struct HsvColor(double Hue, double Saturation, double Val
     /// Builds an RGB colour. Hue wraps, so 360 and 0 are the same and negatives are
     /// accepted; saturation and value are clamped.
     /// </summary>
-    public static Color ToRgb(double hue, double saturation, double value)
+    public static RgbColor ToRgb(double hue, double saturation, double value)
     {
         saturation = Math.Clamp(saturation, 0, 1);
         value = Math.Clamp(value, 0, 1);
@@ -90,10 +90,10 @@ public readonly record struct HsvColor(double Hue, double Saturation, double Val
             _ => (c, 0.0, x),
         };
 
-        return Color.FromRgb(Channel(r + m), Channel(g + m), Channel(b + m));
+        return RgbColor.FromRgb(Channel(r + m), Channel(g + m), Channel(b + m));
     }
 
-    public Color ToRgb() => ToRgb(Hue, Saturation, Value);
+    public RgbColor ToRgb() => ToRgb(Hue, Saturation, Value);
 
     private static byte Channel(double v) => (byte)Math.Clamp(Math.Round(v * 255), 0, 255);
 }

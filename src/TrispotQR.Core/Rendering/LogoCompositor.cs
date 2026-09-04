@@ -1,5 +1,4 @@
-using System.Windows;
-using System.Windows.Media;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Styling;
 
@@ -27,14 +26,14 @@ internal static class LogoCompositor
             return null;
         }
 
-        var image = QrRenderer.LoadImage(style.Logo.Path!);
-        if (image is null || image.PixelWidth == 0 || image.PixelHeight == 0)
+        var size = ImageSize.Read(style.Logo.Path);
+        if (size is not { } dimensions)
         {
             return null;
         }
 
         var box = style.Logo.SizeRatio * matrix.Size;
-        var aspect = (double)image.PixelWidth / image.PixelHeight;
+        var aspect = (double)dimensions.Width / dimensions.Height;
 
         var width = aspect >= 1 ? box : box * aspect;
         var height = aspect >= 1 ? box / aspect : box;
@@ -57,7 +56,7 @@ internal static class LogoCompositor
     /// The area cleared behind the logo: its box plus the configured padding on every
     /// side. Null when the style asks for no punch at all.
     /// </summary>
-    public static Geometry? Punch(LogoPlacement placement, QrStyle style)
+    public static QrPath? Punch(LogoPlacement placement, QrStyle style)
     {
         if (style.Logo.PunchShape == LogoPunchShape.None)
         {
@@ -65,9 +64,8 @@ internal static class LogoCompositor
         }
 
         var rect = PunchRect(placement, style);
-        var geometry = new PathGeometry { FillRule = FillRule.Nonzero };
 
-        geometry.Figures.Add(style.Logo.PunchShape switch
+        var figure = style.Logo.PunchShape switch
         {
             LogoPunchShape.Circle => ShapeFactory.RoundedRect(
                 rect.X, rect.Y, rect.Width, rect.Height,
@@ -78,21 +76,24 @@ internal static class LogoCompositor
                 RoundedRadius(rect), RoundedRadius(rect), RoundedRadius(rect), RoundedRadius(rect)),
 
             _ => ShapeFactory.RoundedRect(rect.X, rect.Y, rect.Width, rect.Height, 0, 0, 0, 0),
-        });
+        };
 
-        geometry.Freeze();
-        return geometry;
+        return new QrPathBuilder().Add(figure).Build(QrFillRule.NonZero);
     }
 
-    private static Rect PunchRect(LogoPlacement placement, QrStyle style)
+    /// <summary>The punched-out box, in module units. Core's own type, so no UI framework
+    /// rectangle leaks into the geometry.</summary>
+    private sealed record PunchArea(double X, double Y, double Width, double Height);
+
+    private static PunchArea PunchRect(LogoPlacement placement, QrStyle style)
     {
         var padding = style.Logo.PunchPadding;
-        return new Rect(
+        return new PunchArea(
             placement.X - padding,
             placement.Y - padding,
             placement.Width + (padding * 2),
             placement.Height + (padding * 2));
     }
 
-    private static double RoundedRadius(Rect rect) => Math.Min(rect.Width, rect.Height) * 0.18;
+    private static double RoundedRadius(PunchArea rect) => Math.Min(rect.Width, rect.Height) * 0.18;
 }

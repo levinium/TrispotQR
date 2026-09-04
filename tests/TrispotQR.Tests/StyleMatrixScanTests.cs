@@ -1,4 +1,5 @@
-using System.Windows.Media;
+using TrispotQR.App.Rendering;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
@@ -148,7 +149,7 @@ public class StyleMatrixScanTests
             Outline = new OutlineStyle
             {
                 Enabled = true,
-                Color = Colors.White,
+                Color = RgbColor.White,
                 ThicknessRatio = 0.08,
                 Target = target,
             },
@@ -162,9 +163,9 @@ public class StyleMatrixScanTests
     {
         var style = QrStyle.Default with
         {
-            Foreground = Color.FromRgb(0x1A, 0x1A, 0x2E),
-            MarkerFrameColor = Color.FromRgb(0x8B, 0x1A, 0x2B),
-            MarkerCenterColor = Color.FromRgb(0x1A, 0x1A, 0x2E),
+            Foreground = RgbColor.FromRgb(0x1A, 0x1A, 0x2E),
+            MarkerFrameColor = RgbColor.FromRgb(0x8B, 0x1A, 0x2B),
+            MarkerCenterColor = RgbColor.FromRgb(0x1A, 0x1A, 0x2E),
             ModuleShape = ModuleShape.Fluid,
             MarkerFrameShape = MarkerFrameShape.RoundedSquare,
             MarkerCenterShape = MarkerCenterShape.Circle,
@@ -195,7 +196,7 @@ public class StyleMatrixScanTests
         {
             var matrix = QrEncoder.Encode(payload, style.Ecc).Matrix!;
             var drawing = QrGeometryBuilder.Build(matrix, style);
-            var bitmap = QrRenderer.RenderToBitmap(drawing, size, Colors.White);
+            var bitmap = WpfQrRenderer.RenderToBitmap(drawing, size, RgbColor.White);
 
             // Deliberately the strict, camera-like pass. The app itself is more forgiving,
             // because that pass has a measurable false-failure rate on clean renders and

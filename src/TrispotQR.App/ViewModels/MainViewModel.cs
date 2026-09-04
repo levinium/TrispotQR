@@ -5,14 +5,16 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
+using TrispotQR.App.Rendering;
 using TrispotQR.App.Services;
+using TrispotQR.App.Validation;
 using TrispotQR.Core.Export;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Payloads;
 using TrispotQR.Core.Presets;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
-using TrispotQR.Core.Validation;
 
 namespace TrispotQR.App.ViewModels;
 
@@ -165,10 +167,15 @@ public sealed class MainViewModel : ObservableObject
 
     #region Style, simple
 
+    /// <summary>
+    /// The style's colours are exposed as WPF colours because that is what the colour
+    /// picker and the XAML bindings speak. This handful of properties is the only place
+    /// the two colour types meet, and every crossing goes through the adapter.
+    /// </summary>
     public Color Foreground
     {
-        get => _style.Foreground;
-        set => UpdateStyle(s => s with { Foreground = value });
+        get => WpfGeometryAdapter.ToColor(_style.Foreground);
+        set => UpdateStyle(s => s with { Foreground = WpfGeometryAdapter.ToRgbColor(value) });
     }
 
     /// <summary>
@@ -201,9 +208,9 @@ public sealed class MainViewModel : ObservableObject
 
             var colour = value switch
             {
-                BackgroundChoice.Transparent => (Color?)null,
-                BackgroundChoice.White => Colors.White,
-                _ => _style.Background ?? Colors.White,
+                BackgroundChoice.Transparent => (RgbColor?)null,
+                BackgroundChoice.White => RgbColor.White,
+                _ => _style.Background ?? RgbColor.White,
             };
 
             UpdateStyle(s => s with { Background = colour });
@@ -212,18 +219,18 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private static bool IsWhite(Color colour) =>
+    private static bool IsWhite(RgbColor colour) =>
         colour is { R: 255, G: 255, B: 255, A: 255 };
 
     public bool IsCustomBackground => BackgroundChoice == BackgroundChoice.Custom;
 
     public Color CustomBackground
     {
-        get => _style.Background ?? Colors.White;
+        get => WpfGeometryAdapter.ToColor(_style.Background ?? RgbColor.White);
         set
         {
             _backgroundIsCustom = true;
-            UpdateStyle(s => s with { Background = value });
+            UpdateStyle(s => s with { Background = WpfGeometryAdapter.ToRgbColor(value) });
             OnPropertyChanged(nameof(BackgroundChoice));
             OnPropertyChanged(nameof(IsCustomBackground));
         }
@@ -280,20 +287,20 @@ public sealed class MainViewModel : ObservableObject
 
     public Color MarkerFrameColor
     {
-        get => _style.EffectiveMarkerFrameColor;
+        get => WpfGeometryAdapter.ToColor(_style.EffectiveMarkerFrameColor);
         set
         {
-            UpdateStyle(s => s with { MarkerFrameColor = value });
+            UpdateStyle(s => s with { MarkerFrameColor = WpfGeometryAdapter.ToRgbColor(value) });
             OnPropertyChanged(nameof(UseCustomMarkerColors));
         }
     }
 
     public Color MarkerCenterColor
     {
-        get => _style.EffectiveMarkerCenterColor;
+        get => WpfGeometryAdapter.ToColor(_style.EffectiveMarkerCenterColor);
         set
         {
-            UpdateStyle(s => s with { MarkerCenterColor = value });
+            UpdateStyle(s => s with { MarkerCenterColor = WpfGeometryAdapter.ToRgbColor(value) });
             OnPropertyChanged(nameof(UseCustomMarkerColors));
         }
     }
@@ -306,8 +313,8 @@ public sealed class MainViewModel : ObservableObject
 
     public Color OutlineColor
     {
-        get => _style.Outline.Color;
-        set => UpdateStyle(s => s with { Outline = s.Outline with { Color = value } });
+        get => WpfGeometryAdapter.ToColor(_style.Outline.Color);
+        set => UpdateStyle(s => s with { Outline = s.Outline with { Color = WpfGeometryAdapter.ToRgbColor(value) } });
     }
 
     public double OutlineThickness
@@ -587,7 +594,7 @@ public sealed class MainViewModel : ObservableObject
         _lastVersion = encoded.Matrix!.Version;
         _lastEcc = encoded.Matrix.EffectiveEcc;
         _drawing = QrGeometryBuilder.Build(encoded.Matrix, _style);
-        Preview = QrRenderer.RenderToDrawingImage(_drawing);
+        Preview = WpfQrRenderer.RenderToDrawingImage(_drawing);
 
         StatusDetail = ContentStatus ?? "Checking that this will scan...";
         NotifyRenderFinished();
@@ -718,7 +725,7 @@ public sealed class MainViewModel : ObservableObject
 
         Guarded(() =>
         {
-            PngExporter.Save(QrRenderer.RenderToBitmap(_drawing!, PixelSize), path);
+            PngExporter.Save(WpfQrRenderer.RenderToBitmap(_drawing!, PixelSize), path);
             _lastSaveDirectory = Path.GetDirectoryName(path);
         }, path);
     }
@@ -754,7 +761,7 @@ public sealed class MainViewModel : ObservableObject
 
         try
         {
-            ClipboardExporter.Copy(QrRenderer.RenderToBitmap(_drawing!, PixelSize));
+            ClipboardExporter.Copy(WpfQrRenderer.RenderToBitmap(_drawing!, PixelSize));
             StatusDetail = "Copied. Paste it straight into Word, PowerPoint or an email.";
             Announce("Copied to clipboard");
         }
@@ -844,7 +851,7 @@ public sealed class MainViewModel : ObservableObject
         var encoded = QrEncoder.Encode("TrispotQR", style.Ecc);
 
         return encoded.Success
-            ? QrRenderer.RenderToDrawingImage(QrGeometryBuilder.Build(encoded.Matrix!, style with { QuietZoneModules = 2 }))
+            ? WpfQrRenderer.RenderToDrawingImage(QrGeometryBuilder.Build(encoded.Matrix!, style with { QuietZoneModules = 2 }))
             : null;
     }
 
@@ -947,7 +954,7 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        if (QrRenderer.LoadImage(path) is null)
+        if (WpfQrRenderer.LoadImage(path) is null)
         {
             _dialogs.ShowError("Could not read that image",
                 $"{Path.GetFileName(path)} could not be opened as an image. Try a PNG or JPG file.");

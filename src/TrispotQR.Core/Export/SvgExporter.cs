@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.IO;
 using System.Text;
-using System.Windows.Media;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Rendering;
 
 namespace TrispotQR.Core.Export;
@@ -66,52 +66,25 @@ public static class SvgExporter
 
     private static void AppendLayer(StringBuilder builder, QrLayer layer)
     {
-        var (data, fillRule) = PathData(layer.Geometry);
+        var data = SvgPathData.ToData(layer.Path);
+
         if (data.Length == 0)
         {
             return;
         }
 
-        var fill = layer.Fill is SolidColorBrush brush ? brush.Color : Colors.Black;
-
         builder.Append(Invariant, $@"  <path id=""{layer.Name}"" d=""{data}""");
-        builder.Append(Invariant, $@" fill=""{Hex(fill)}""{Opacity(fill)}");
-        builder.Append(Invariant, $@" fill-rule=""{fillRule}""");
+        builder.Append(Invariant, $@" fill=""{Hex(layer.Fill)}""{Opacity(layer.Fill)}");
+        builder.Append(Invariant, $@" fill-rule=""{SvgPathData.FillRule(layer.Path.FillRule)}""");
 
-        if (layer.Stroke is { Brush: SolidColorBrush strokeBrush } pen)
+        if (layer.Stroke is { } stroke)
         {
-            builder.Append(Invariant, $@" stroke=""{Hex(strokeBrush.Color)}""");
-            builder.Append(Invariant, $@" stroke-width=""{pen.Thickness.ToString("0.####", Invariant)}""");
+            builder.Append(Invariant, $@" stroke=""{Hex(stroke.Color)}""");
+            builder.Append(Invariant, $@" stroke-width=""{stroke.Thickness.ToString("0.####", Invariant)}""");
             builder.Append(@" stroke-linejoin=""round""");
         }
 
         builder.AppendLine(" />");
-    }
-
-    /// <summary>
-    /// Converts a WPF geometry to SVG path data.
-    ///
-    /// WPF's path mini-language is a superset of the SVG <c>d</c> syntax with one
-    /// difference that matters: it prefixes the string with a fill rule token, F0 for
-    /// even-odd or F1 for nonzero. Left in place, an SVG renderer treats the whole path
-    /// as malformed. So the token is stripped here and re-expressed as the SVG
-    /// <c>fill-rule</c> attribute, which is the only translation the format needs.
-    /// </summary>
-    private static (string Data, string FillRule) PathData(Geometry geometry)
-    {
-        var raw = geometry.ToString(Invariant).Trim();
-
-        // The geometry's own fill rule is the source of truth; the prefix is only how WPF
-        // chose to serialise it, and it may be absent when the rule is the default.
-        var fillRule = geometry is PathGeometry { FillRule: FillRule.EvenOdd } ? "evenodd" : "nonzero";
-
-        if (raw.StartsWith("F0", StringComparison.Ordinal) || raw.StartsWith("F1", StringComparison.Ordinal))
-        {
-            fillRule = raw[1] == '0' ? "evenodd" : "nonzero";
-            raw = raw[2..].TrimStart();
-        }
-
-        return (raw, fillRule);
     }
 
     private static void AppendLogo(StringBuilder builder, QrDrawing drawing)
@@ -142,9 +115,9 @@ public static class SvgExporter
 
     private static string Num(double value) => value.ToString("0.####", Invariant);
 
-    private static string Hex(Color color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+    private static string Hex(RgbColor color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
 
     /// <summary>SVG carries alpha separately, so a partly transparent colour needs the extra attribute.</summary>
-    private static string Opacity(Color color) =>
+    private static string Opacity(RgbColor color) =>
         color.A == 255 ? string.Empty : $@" fill-opacity=""{(color.A / 255.0).ToString("0.###", Invariant)}""";
 }

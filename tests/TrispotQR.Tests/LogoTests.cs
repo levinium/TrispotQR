@@ -2,7 +2,10 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using TrispotQR.App.Rendering;
+using TrispotQR.App.Validation;
 using TrispotQR.Core.Export;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
@@ -88,7 +91,7 @@ public class LogoTests : IDisposable
         });
 
         var centre = new Point(4 + (matrix.Size / 2.0), 4 + (matrix.Size / 2.0));
-        var modules = drawing.Layers.Single(l => l.Name == QrLayerNames.Modules).Geometry;
+        var modules = WpfGeometryAdapter.ToGeometry(drawing.Layers.Single(l => l.Name == QrLayerNames.Modules).Path);
 
         Assert.False(modules.FillContains(centre), "modules should be cleared behind the logo");
     }
@@ -106,7 +109,7 @@ public class LogoTests : IDisposable
 
         Assert.NotNull(drawing.Logo);
         // The placement is still reported so the image gets drawn, but nothing was cut out.
-        var modules = drawing.Layers.Single(l => l.Name == QrLayerNames.Modules).Geometry;
+        var modules = WpfGeometryAdapter.ToGeometry(drawing.Layers.Single(l => l.Name == QrLayerNames.Modules).Path);
         Assert.False(modules.Bounds.IsEmpty);
     }
 
@@ -155,7 +158,8 @@ public class LogoTests : IDisposable
         var drawing = StaThread.Run(() => Build(style));
 
         Assert.Null(drawing.Logo);
-        Assert.False(drawing.Layers.Single(l => l.Name == QrLayerNames.Modules).Geometry.Bounds.IsEmpty);
+        Assert.False(WpfGeometryAdapter.ToGeometry(
+            drawing.Layers.Single(l => l.Name == QrLayerNames.Modules).Path).Bounds.IsEmpty);
     }
 
     [Theory]
@@ -173,7 +177,7 @@ public class LogoTests : IDisposable
         var decoded = StaThread.Run(() =>
         {
             var drawing = Build(style);
-            return QrDecoder.Decode(QrRenderer.RenderToBitmap(drawing, 700, Colors.White));
+            return QrDecoder.Decode(WpfQrRenderer.RenderToBitmap(drawing, 700, RgbColor.White));
         });
 
         Assert.Equal(Payload, decoded);
@@ -195,7 +199,7 @@ public class LogoTests : IDisposable
         var decoded = StaThread.Run(() =>
         {
             var drawing = Build(style);
-            return QrDecoder.Decode(QrRenderer.RenderToBitmap(drawing, 700, Colors.White));
+            return QrDecoder.Decode(WpfQrRenderer.RenderToBitmap(drawing, 700, RgbColor.White));
         });
 
         Assert.Equal(Payload, decoded);

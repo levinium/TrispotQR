@@ -1,8 +1,9 @@
 using System.IO;
-using System.Windows.Media;
+using TrispotQR.App.Rendering;
 using TrispotQR.App.Services;
 using TrispotQR.App.ViewModels;
 using TrispotQR.Core.Presets;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
@@ -40,12 +41,12 @@ public class ExportGuardTests : IDisposable
 
         if (style is { } s)
         {
-            vm.Foreground = s.Foreground;
+            vm.Foreground = WpfGeometryAdapter.ToColor(s.Foreground);
             vm.BackgroundChoice = s.Background is null ? BackgroundChoice.Transparent : BackgroundChoice.Custom;
 
             if (s.Background is { } bg)
             {
-                vm.CustomBackground = bg;
+                vm.CustomBackground = WpfGeometryAdapter.ToColor(bg);
             }
 
             vm.QuietZone = s.QuietZoneModules;
@@ -59,8 +60,8 @@ public class ExportGuardTests : IDisposable
     /// <summary>Light grey on white: decodes here, but nowhere near enough contrast for a camera.</summary>
     private static QrStyle LowContrast => QrStyle.Default with
     {
-        Foreground = Color.FromRgb(0xC8, 0xC8, 0xC8),
-        Background = Colors.White,
+        Foreground = RgbColor.FromRgb(0xC8, 0xC8, 0xC8),
+        Background = RgbColor.White,
     };
 
     [Fact]

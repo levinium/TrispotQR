@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Media;
+using TrispotQR.App.Rendering;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
@@ -47,7 +49,7 @@ public class QrGeometryBuilderTests
         var matrix = Matrix();
         var style = QrStyle.Default with { QuietZoneModules = 4 };
         var drawing = QrGeometryBuilder.Build(matrix, style);
-        var modules = drawing.Layers.Single(l => l.Name == QrLayerNames.Modules).Geometry;
+        var modules = AsGeometry(drawing.Layers.Single(l => l.Name == QrLayerNames.Modules));
 
         // Centre of each finder pattern, in drawing units.
         foreach (var (ox, oy) in matrix.FinderOrigins)
@@ -62,7 +64,7 @@ public class QrGeometryBuilderTests
     {
         var matrix = Matrix();
         var drawing = QrGeometryBuilder.Build(matrix, QrStyle.Default with { QuietZoneModules = 4 });
-        var centers = drawing.Layers.Single(l => l.Name == QrLayerNames.MarkerCenters).Geometry;
+        var centers = AsGeometry(drawing.Layers.Single(l => l.Name == QrLayerNames.MarkerCenters));
 
         foreach (var (ox, oy) in matrix.FinderOrigins)
         {
@@ -75,7 +77,7 @@ public class QrGeometryBuilderTests
     {
         var matrix = Matrix();
         var drawing = QrGeometryBuilder.Build(matrix, QrStyle.Default with { QuietZoneModules = 4 });
-        var frames = drawing.Layers.Single(l => l.Name == QrLayerNames.MarkerFrames).Geometry;
+        var frames = AsGeometry(drawing.Layers.Single(l => l.Name == QrLayerNames.MarkerFrames));
 
         // Dark on the outer ring, hollow in the light ring just inside it.
         Assert.True(frames.FillContains(new Point(4 + 0.5, 4 + 3.5)), "outer ring should be filled");
@@ -101,15 +103,15 @@ public class QrGeometryBuilderTests
     {
         var style = QrStyle.Default with
         {
-            Foreground = Colors.DarkSlateBlue,
+            Foreground = WpfGeometryAdapter.ToRgbColor(Colors.DarkSlateBlue),
             MarkerFrameColor = null,
             MarkerCenterColor = null,
         };
 
         var drawing = QrGeometryBuilder.Build(Matrix(), style);
 
-        Assert.Equal(Colors.DarkSlateBlue, LayerFill(drawing, QrLayerNames.MarkerFrames));
-        Assert.Equal(Colors.DarkSlateBlue, LayerFill(drawing, QrLayerNames.MarkerCenters));
+        Assert.Equal(WpfGeometryAdapter.ToRgbColor(Colors.DarkSlateBlue), LayerFill(drawing, QrLayerNames.MarkerFrames));
+        Assert.Equal(WpfGeometryAdapter.ToRgbColor(Colors.DarkSlateBlue), LayerFill(drawing, QrLayerNames.MarkerCenters));
     }
 
     [Fact]
@@ -117,16 +119,16 @@ public class QrGeometryBuilderTests
     {
         var style = QrStyle.Default with
         {
-            Foreground = Colors.Black,
-            MarkerFrameColor = Colors.Crimson,
-            MarkerCenterColor = Colors.Goldenrod,
+            Foreground = RgbColor.Black,
+            MarkerFrameColor = WpfGeometryAdapter.ToRgbColor(Colors.Crimson),
+            MarkerCenterColor = WpfGeometryAdapter.ToRgbColor(Colors.Goldenrod),
         };
 
         var drawing = QrGeometryBuilder.Build(Matrix(), style);
 
-        Assert.Equal(Colors.Black, LayerFill(drawing, QrLayerNames.Modules));
-        Assert.Equal(Colors.Crimson, LayerFill(drawing, QrLayerNames.MarkerFrames));
-        Assert.Equal(Colors.Goldenrod, LayerFill(drawing, QrLayerNames.MarkerCenters));
+        Assert.Equal(RgbColor.Black, LayerFill(drawing, QrLayerNames.Modules));
+        Assert.Equal(WpfGeometryAdapter.ToRgbColor(Colors.Crimson), LayerFill(drawing, QrLayerNames.MarkerFrames));
+        Assert.Equal(WpfGeometryAdapter.ToRgbColor(Colors.Goldenrod), LayerFill(drawing, QrLayerNames.MarkerCenters));
     }
 
     [Fact]
@@ -153,7 +155,7 @@ public class QrGeometryBuilderTests
             Outline = new OutlineStyle
             {
                 Enabled = true,
-                Color = Colors.White,
+                Color = RgbColor.White,
                 ThicknessRatio = 0.1,
                 Target = OutlineTarget.Both,
             },
@@ -173,7 +175,7 @@ public class QrGeometryBuilderTests
             Outline = new OutlineStyle
             {
                 Enabled = true,
-                Color = Colors.White,
+                Color = RgbColor.White,
                 ThicknessRatio = 0.08,
                 Target = OutlineTarget.Markers,
             },
@@ -197,7 +199,7 @@ public class QrGeometryBuilderTests
         var style = QrStyle.Default with { ModuleShape = shape, QuietZoneModules = 4 };
 
         var drawing = QrGeometryBuilder.Build(matrix, style);
-        var bounds = drawing.Layers.Single(l => l.Name == QrLayerNames.Modules).Geometry.Bounds;
+        var bounds = AsGeometry(drawing.Layers.Single(l => l.Name == QrLayerNames.Modules)).Bounds;
 
         Assert.False(bounds.IsEmpty);
         Assert.True(bounds.Width > 0 && bounds.Height > 0);
@@ -224,8 +226,8 @@ public class QrGeometryBuilderTests
         };
 
         var drawing = QrGeometryBuilder.Build(matrix, style);
-        var frames = drawing.Layers.Single(l => l.Name == QrLayerNames.MarkerFrames).Geometry;
-        var centers = drawing.Layers.Single(l => l.Name == QrLayerNames.MarkerCenters).Geometry;
+        var frames = AsGeometry(drawing.Layers.Single(l => l.Name == QrLayerNames.MarkerFrames));
+        var centers = AsGeometry(drawing.Layers.Single(l => l.Name == QrLayerNames.MarkerCenters));
 
         // The centre of a finder is always hollow in the frame layer and solid in the centre layer.
         Assert.False(frames.FillContains(new Point(4 + 3.5, 4 + 3.5)));
@@ -250,15 +252,16 @@ public class QrGeometryBuilderTests
         Assert.True(fluidArea > squareArea * 0.85, $"fluid {fluidArea} should stay close to square {squareArea}");
     }
 
-    private static double LayerArea(QrDrawing drawing, string name)
-    {
-        var geometry = drawing.Layers.Single(l => l.Name == name).Geometry;
-        return geometry.GetArea(0.001, ToleranceType.Absolute);
-    }
+    private static double LayerArea(QrDrawing drawing, string name) =>
+        AsGeometry(drawing.Layers.Single(l => l.Name == name)).GetArea(0.001, ToleranceType.Absolute);
 
-    private static Color LayerFill(QrDrawing drawing, string name)
-    {
-        var brush = (SolidColorBrush)drawing.Layers.Single(l => l.Name == name).Fill;
-        return brush.Color;
-    }
+    /// <summary>
+    /// The layer's path as WPF geometry, so these assertions keep asking exactly what they
+    /// asked before the model became framework neutral. FillContains and GetArea have no
+    /// equivalent on the model itself, and inventing one here would test the test.
+    /// </summary>
+    private static Geometry AsGeometry(QrLayer layer) => WpfGeometryAdapter.ToGeometry(layer.Path);
+
+    private static RgbColor LayerFill(QrDrawing drawing, string name) =>
+        drawing.Layers.Single(l => l.Name == name).Fill;
 }

@@ -1,9 +1,11 @@
-using System.Windows.Media;
+using TrispotQR.App.Rendering;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
+using TrispotQR.Core.Validation;
 
-namespace TrispotQR.Core.Validation;
+namespace TrispotQR.App.Validation;
 
 /// <summary>How confident we are that the current style will scan in the real world.</summary>
 public enum ScanVerdict
@@ -34,6 +36,10 @@ public sealed record ScanCheckResult(
 /// no perspective and no print bleed. So low contrast, an inverted palette and a missing
 /// quiet zone are flagged even when the decode succeeds, because those are exactly the
 /// codes that read on a monitor and then fail on a printed flyer.
+///
+/// TEMPORARILY IN THE APP. The judgement here is platform-neutral and belongs in Core; it
+/// sits here only because the render step still goes through WPF, and Core is being freed
+/// of WPF. It returns to Core as soon as the check rasterises through Skia.
 /// </summary>
 public static class ScannabilityChecker
 {
@@ -65,10 +71,11 @@ public static class ScannabilityChecker
     {
         ArgumentNullException.ThrowIfNull(drawing);
 
-        var decodedText = QrDecoder.Decode(QrRenderer.RenderToBitmap(drawing, CheckSize(drawing), Colors.White));
+        var decodedText = QrDecoder.Decode(
+            WpfQrRenderer.RenderToBitmap(drawing, CheckSize(drawing), RgbColor.White));
         var decoded = string.Equals(decodedText, expectedText, StringComparison.Ordinal);
 
-        var background = style.Background ?? Colors.White;
+        var background = style.Background ?? RgbColor.White;
         var contrast = ContrastRatio(style.Foreground, background);
         var inverted = RelativeLuminance(style.Foreground) > RelativeLuminance(background);
 
@@ -127,7 +134,7 @@ public static class ScannabilityChecker
         (int)Math.Clamp(drawing.SizeInUnits * 4, 400, 1200);
 
     /// <summary>WCAG 2.1 contrast ratio, from 1 (identical) to 21 (black on white).</summary>
-    public static double ContrastRatio(Color a, Color b)
+    public static double ContrastRatio(RgbColor a, RgbColor b)
     {
         var first = RelativeLuminance(a);
         var second = RelativeLuminance(b);
@@ -137,7 +144,7 @@ public static class ScannabilityChecker
         return (lighter + 0.05) / (darker + 0.05);
     }
 
-    private static double RelativeLuminance(Color color) =>
+    private static double RelativeLuminance(RgbColor color) =>
         (0.2126 * Linearise(color.R)) + (0.7152 * Linearise(color.G)) + (0.0722 * Linearise(color.B));
 
     private static double Linearise(byte channel)

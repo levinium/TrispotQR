@@ -1,6 +1,6 @@
 using System.IO;
-using System.Windows.Media;
 using TrispotQR.Core.Presets;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Styling;
 
@@ -79,14 +79,14 @@ public class PresetStoreTests : IDisposable
         ModuleScale = 0.88,
         MarkerFrameShape = MarkerFrameShape.Leaf,
         MarkerCenterShape = MarkerCenterShape.Circle,
-        Foreground = Color.FromRgb(0x1B, 0x2A, 0x4A),
+        Foreground = RgbColor.FromRgb(0x1B, 0x2A, 0x4A),
         Background = null,
-        MarkerFrameColor = Color.FromRgb(0x8A, 0x6D, 0x3B),
+        MarkerFrameColor = RgbColor.FromRgb(0x8A, 0x6D, 0x3B),
         MarkerCenterColor = null,
         Outline = new OutlineStyle
         {
             Enabled = true,
-            Color = Colors.White,
+            Color = RgbColor.White,
             ThicknessRatio = 0.09,
             Target = OutlineTarget.Markers,
         },

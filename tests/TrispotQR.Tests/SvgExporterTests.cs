@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows.Media;
 using System.Xml.Linq;
 using TrispotQR.Core.Export;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
@@ -85,7 +86,7 @@ public class SvgExporterTests
     [Fact]
     public void ToSvg_WhiteBackground_EmitsABackgroundRect()
     {
-        var document = XDocument.Parse(Export(QrStyle.Default with { Background = Colors.White }, 512));
+        var document = XDocument.Parse(Export(QrStyle.Default with { Background = RgbColor.White }, 512));
 
         var rect = document.Root!.Element(Svg + "rect");
         Assert.NotNull(rect);
@@ -105,9 +106,9 @@ public class SvgExporterTests
     {
         var style = QrStyle.Default with
         {
-            Foreground = Color.FromRgb(0x1B, 0x2A, 0x4A),
-            MarkerFrameColor = Color.FromRgb(0x8A, 0x6D, 0x3B),
-            MarkerCenterColor = Color.FromRgb(0x1B, 0x2A, 0x4A),
+            Foreground = RgbColor.FromRgb(0x1B, 0x2A, 0x4A),
+            MarkerFrameColor = RgbColor.FromRgb(0x8A, 0x6D, 0x3B),
+            MarkerCenterColor = RgbColor.FromRgb(0x1B, 0x2A, 0x4A),
         };
 
         var document = XDocument.Parse(Export(style, 512));
@@ -126,7 +127,7 @@ public class SvgExporterTests
             Outline = new OutlineStyle
             {
                 Enabled = true,
-                Color = Colors.White,
+                Color = RgbColor.White,
                 ThicknessRatio = 0.08,
                 Target = OutlineTarget.Both,
             },

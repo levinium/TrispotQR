@@ -1,4 +1,4 @@
-using System.Windows.Media;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Styling;
 
 namespace TrispotQR.Tests;
@@ -14,7 +14,7 @@ public class HsvColorTests
     [InlineData(255, 0, 255, 300)]  // magenta
     public void FromRgb_PrimariesAndSecondaries_LandOnTheirHue(byte r, byte g, byte b, double hue)
     {
-        var hsv = HsvColor.FromRgb(Color.FromRgb(r, g, b));
+        var hsv = HsvColor.FromRgb(RgbColor.FromRgb(r, g, b));
 
         Assert.Equal(hue, hsv.Hue, 3);
         Assert.Equal(1.0, hsv.Saturation, 3);
@@ -24,7 +24,7 @@ public class HsvColorTests
     [Fact]
     public void FromRgb_White_IsFullValueAndNoSaturation()
     {
-        var hsv = HsvColor.FromRgb(Colors.White);
+        var hsv = HsvColor.FromRgb(RgbColor.White);
 
         Assert.Equal(1.0, hsv.Value, 3);
         Assert.Equal(0.0, hsv.Saturation, 3);
@@ -33,7 +33,7 @@ public class HsvColorTests
     [Fact]
     public void FromRgb_Black_IsAllZero()
     {
-        var hsv = HsvColor.FromRgb(Colors.Black);
+        var hsv = HsvColor.FromRgb(RgbColor.Black);
 
         Assert.Equal(0.0, hsv.Value, 3);
         Assert.Equal(0.0, hsv.Saturation, 3);
@@ -47,7 +47,7 @@ public class HsvColorTests
     [InlineData(255)]
     public void FromRgb_AnyGrey_HasNoSaturation(byte level)
     {
-        var hsv = HsvColor.FromRgb(Color.FromRgb(level, level, level));
+        var hsv = HsvColor.FromRgb(RgbColor.FromRgb(level, level, level));
 
         Assert.Equal(0.0, hsv.Saturation, 3);
         Assert.Equal(level / 255.0, hsv.Value, 3);
@@ -69,7 +69,7 @@ public class HsvColorTests
             {
                 for (var b = 0; b <= 255; b += 17)
                 {
-                    var original = Color.FromRgb((byte)r, (byte)g, (byte)b);
+                    var original = RgbColor.FromRgb((byte)r, (byte)g, (byte)b);
                     var back = HsvColor.FromRgb(original).ToRgb();
 
                     if (back != original)
@@ -115,7 +115,7 @@ public class HsvColorTests
     {
         foreach (var hue in new double[] { 0, 90, 180, 270 })
         {
-            Assert.Equal(Colors.Black, HsvColor.ToRgb(hue, 1, 0));
+            Assert.Equal(RgbColor.Black, HsvColor.ToRgb(hue, 1, 0));
         }
     }
 

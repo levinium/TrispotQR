@@ -1,4 +1,4 @@
-using System.Windows.Media;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Styling;
 
@@ -44,19 +44,15 @@ public static class QrGeometryBuilder
     }
 
     /// <summary>
-    /// Cuts the logo's clear area out of a layer. The boolean combine is only paid for
-    /// when a logo is actually present.
+    /// Cuts the logo's clear area out of a layer. The boolean op is only paid for when a
+    /// logo is actually present.
     /// </summary>
-    private static QrLayer Punched(QrLayer layer, Geometry punch)
-    {
-        var combined = Geometry.Combine(layer.Geometry, punch, GeometryCombineMode.Exclude, null);
-        combined.Freeze();
-        return new QrLayer(layer.Name, combined, layer.Fill, layer.Stroke);
-    }
+    private static QrLayer Punched(QrLayer layer, QrPath punch) =>
+        new(layer.Name, SkiaPathOps.Exclude(layer.Path, punch), layer.Fill, layer.Stroke);
 
     private static QrLayer BuildModuleLayer(QrMatrix matrix, QrStyle style, int quiet)
     {
-        var geometry = new PathGeometry { FillRule = FillRule.Nonzero };
+        var builder = new QrPathBuilder();
 
         for (var y = 0; y < matrix.Size; y++)
         {
@@ -67,15 +63,18 @@ public static class QrGeometryBuilder
                     continue;
                 }
 
-                geometry.Figures.Add(ModuleFigure(matrix, style, x, y, quiet));
+                builder.Add(ModuleFigure(matrix, style, x, y, quiet));
             }
         }
 
-        var stroke = PenFor(style, OutlineTarget.Modules);
-        return new QrLayer(QrLayerNames.Modules, Normalise(geometry), Brush(style.Foreground), stroke);
+        return new QrLayer(
+            QrLayerNames.Modules,
+            builder.Build(QrFillRule.NonZero),
+            style.Foreground,
+            StrokeFor(style, OutlineTarget.Modules));
     }
 
-    private static PathFigure ModuleFigure(QrMatrix matrix, QrStyle style, int x, int y, int quiet)
+    private static QrFigure ModuleFigure(QrMatrix matrix, QrStyle style, int x, int y, int quiet)
     {
         var scale = style.ModuleScale;
         var inset = (1.0 - scale) / 2.0;
@@ -98,7 +97,7 @@ public static class QrGeometryBuilder
     /// with no dark neighbours becomes a dot; a run of dark modules keeps its shared
     /// edges square and so merges into one continuous outline.
     /// </summary>
-    private static PathFigure FluidFigure(QrMatrix matrix, int x, int y, double left, double top, double scale)
+    private static QrFigure FluidFigure(QrMatrix matrix, int x, int y, double left, double top, double scale)
     {
         var up = IsJoined(matrix, x, y - 1);
         var down = IsJoined(matrix, x, y + 1);
@@ -125,9 +124,7 @@ public static class QrGeometryBuilder
 
     private static QrLayer BuildMarkerFrameLayer(QrMatrix matrix, QrStyle style, int quiet)
     {
-        // Even-odd fill: the inner figure punches a hole in the outer one, giving the ring
-        // without paying for a boolean geometry combine.
-        var geometry = new PathGeometry { FillRule = FillRule.EvenOdd };
+        var builder = new QrPathBuilder();
 
         foreach (var (ox, oy) in matrix.FinderOrigins)
         {
@@ -135,19 +132,20 @@ public static class QrGeometryBuilder
             var y = oy + quiet;
             var corner = OuterCorner(matrix, ox, oy);
 
-            geometry.Figures.Add(FrameFigure(style.MarkerFrameShape, x, y, 7, corner));
-            geometry.Figures.Add(FrameFigure(style.MarkerFrameShape, x + 1, y + 1, 5, corner));
+            builder.Add(FrameFigure(style.MarkerFrameShape, x, y, 7, corner));
+            builder.Add(FrameFigure(style.MarkerFrameShape, x + 1, y + 1, 5, corner));
         }
 
-        var stroke = PenFor(style, OutlineTarget.Markers);
+        // Even-odd fill: the inner figure punches a hole in the outer one, giving the ring
+        // without paying for a boolean path op.
         return new QrLayer(
             QrLayerNames.MarkerFrames,
-            Normalise(geometry),
-            Brush(style.EffectiveMarkerFrameColor),
-            stroke);
+            builder.Build(QrFillRule.EvenOdd),
+            style.EffectiveMarkerFrameColor,
+            StrokeFor(style, OutlineTarget.Markers));
     }
 
-    private static PathFigure FrameFigure(MarkerFrameShape shape, double x, double y, double size, Corner outer)
+    private static QrFigure FrameFigure(MarkerFrameShape shape, double x, double y, double size, Corner outer)
     {
         // Radii are kept proportional to the ring so the outer and inner outlines stay
         // concentric and the ring reads as an even thickness all the way round.
@@ -167,7 +165,7 @@ public static class QrGeometryBuilder
     /// Three rounded corners and one square one. The square corner faces away from the
     /// centre of the code, so the three markers point outwards as a set.
     /// </summary>
-    private static PathFigure LeafFigure(double x, double y, double size, double radius, Corner outer) =>
+    private static QrFigure LeafFigure(double x, double y, double size, double radius, Corner outer) =>
         ShapeFactory.RoundedRect(
             x, y, size, size,
             topLeft: outer == Corner.TopLeft ? 0 : radius,
@@ -177,7 +175,7 @@ public static class QrGeometryBuilder
 
     private static QrLayer BuildMarkerCenterLayer(QrMatrix matrix, QrStyle style, int quiet)
     {
-        var geometry = new PathGeometry { FillRule = FillRule.Nonzero };
+        var builder = new QrPathBuilder();
 
         foreach (var (ox, oy) in matrix.FinderOrigins)
         {
@@ -185,7 +183,7 @@ public static class QrGeometryBuilder
             var x = ox + quiet + 2;
             var y = oy + quiet + 2;
 
-            geometry.Figures.Add(style.MarkerCenterShape switch
+            builder.Add(style.MarkerCenterShape switch
             {
                 MarkerCenterShape.Square => ShapeFactory.RoundedRect(x, y, 3, 0),
                 MarkerCenterShape.RoundedSquare => ShapeFactory.RoundedRect(x, y, 3, 0.9),
@@ -194,12 +192,11 @@ public static class QrGeometryBuilder
             });
         }
 
-        var stroke = PenFor(style, OutlineTarget.Markers);
         return new QrLayer(
             QrLayerNames.MarkerCenters,
-            Normalise(geometry),
-            Brush(style.EffectiveMarkerCenterColor),
-            stroke);
+            builder.Build(QrFillRule.NonZero),
+            style.EffectiveMarkerCenterColor,
+            StrokeFor(style, OutlineTarget.Markers));
     }
 
     private enum Corner
@@ -221,9 +218,11 @@ public static class QrGeometryBuilder
         return oy >= far ? Corner.BottomLeft : Corner.TopLeft;
     }
 
-    private static Pen? PenFor(QrStyle style, OutlineTarget part)
+    /// <summary>The outline for a layer, or null when this style does not outline it.</summary>
+    private static QrStroke? StrokeFor(QrStyle style, OutlineTarget part)
     {
         var outline = style.Outline;
+
         if (!outline.Enabled)
         {
             return null;
@@ -235,30 +234,6 @@ public static class QrGeometryBuilder
             return null;
         }
 
-        var pen = new Pen(Brush(outline.Color), outline.ThicknessRatio)
-        {
-            LineJoin = PenLineJoin.Round,
-        };
-
-        pen.Freeze();
-        return pen;
-    }
-
-    /// <summary>
-    /// Flattens a geometry to a plain path. Everything downstream, the WPF renderer and
-    /// the SVG exporter alike, then works on one shape of data, and path mini-language
-    /// serialisation is guaranteed to round-trip.
-    /// </summary>
-    private static Geometry Normalise(PathGeometry geometry)
-    {
-        geometry.Freeze();
-        return geometry;
-    }
-
-    private static SolidColorBrush Brush(Color color)
-    {
-        var brush = new SolidColorBrush(color);
-        brush.Freeze();
-        return brush;
+        return new QrStroke(outline.Color, outline.ThicknessRatio);
     }
 }

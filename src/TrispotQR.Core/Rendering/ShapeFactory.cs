@@ -1,13 +1,11 @@
-using System.Windows;
-using System.Windows.Media;
+using TrispotQR.Core.Primitives;
 
 namespace TrispotQR.Core.Rendering;
 
 /// <summary>
 /// Builds the primitive figures the code is drawn from. Everything is expressed in module
-/// units, and everything comes back as a <see cref="PathFigure"/> so layers can be
-/// assembled into a single path geometry that both the renderer and the SVG exporter
-/// understand without special cases.
+/// units and comes back as a <see cref="QrFigure"/>, so a layer can be assembled into one
+/// path that the rasteriser and the SVG writer both understand without special cases.
 /// </summary>
 internal static class ShapeFactory
 {
@@ -16,7 +14,7 @@ internal static class ShapeFactory
     /// radius stay sharp. This one primitive covers squares, rounded squares, circles
     /// (all four radii at half the width), leaves and every fluid module.
     /// </summary>
-    public static PathFigure RoundedRect(
+    public static QrFigure RoundedRect(
         double x, double y, double width, double height,
         double topLeft, double topRight, double bottomRight, double bottomLeft)
     {
@@ -30,46 +28,47 @@ internal static class ShapeFactory
 
         var right = x + width;
         var bottom = y + height;
+        var segments = new List<QrSegment>(8);
 
-        var figure = new PathFigure { StartPoint = new Point(x + topLeft, y), IsClosed = true, IsFilled = true };
+        segments.Add(new QrLineTo(new QrPoint(right - topRight, y)));
+        AddCorner(segments, topRight, right, y + topRight);
 
-        figure.Segments.Add(Line(right - topRight, y));
-        AddCorner(figure, topRight, right, y + topRight);
+        segments.Add(new QrLineTo(new QrPoint(right, bottom - bottomRight)));
+        AddCorner(segments, bottomRight, right - bottomRight, bottom);
 
-        figure.Segments.Add(Line(right, bottom - bottomRight));
-        AddCorner(figure, bottomRight, right - bottomRight, bottom);
+        segments.Add(new QrLineTo(new QrPoint(x + bottomLeft, bottom)));
+        AddCorner(segments, bottomLeft, x, bottom - bottomLeft);
 
-        figure.Segments.Add(Line(x + bottomLeft, bottom));
-        AddCorner(figure, bottomLeft, x, bottom - bottomLeft);
+        segments.Add(new QrLineTo(new QrPoint(x, y + topLeft)));
+        AddCorner(segments, topLeft, x + topLeft, y);
 
-        figure.Segments.Add(Line(x, y + topLeft));
-        AddCorner(figure, topLeft, x + topLeft, y);
-
-        figure.Freeze();
-        return figure;
+        return new QrFigure(new QrPoint(x + topLeft, y), segments, IsClosed: true);
     }
 
     /// <summary>A square with every corner rounded by the same amount.</summary>
-    public static PathFigure RoundedRect(double x, double y, double size, double radius) =>
+    public static QrFigure RoundedRect(double x, double y, double size, double radius) =>
         RoundedRect(x, y, size, size, radius, radius, radius, radius);
 
     /// <summary>A circle inscribed in the given square, drawn as a fully rounded rectangle.</summary>
-    public static PathFigure Circle(double x, double y, double size) =>
+    public static QrFigure Circle(double x, double y, double size) =>
         RoundedRect(x, y, size, size, size / 2, size / 2, size / 2, size / 2);
 
     /// <summary>A square rotated 45 degrees, with its points touching the middle of each edge.</summary>
-    public static PathFigure Diamond(double x, double y, double size)
+    public static QrFigure Diamond(double x, double y, double size)
     {
         var half = size / 2;
-        var figure = new PathFigure { StartPoint = new Point(x + half, y), IsClosed = true, IsFilled = true };
-        figure.Segments.Add(Line(x + size, y + half));
-        figure.Segments.Add(Line(x + half, y + size));
-        figure.Segments.Add(Line(x, y + half));
-        figure.Freeze();
-        return figure;
+
+        return new QrFigure(
+            new QrPoint(x + half, y),
+            [
+                new QrLineTo(new QrPoint(x + size, y + half)),
+                new QrLineTo(new QrPoint(x + half, y + size)),
+                new QrLineTo(new QrPoint(x, y + half)),
+            ],
+            IsClosed: true);
     }
 
-    private static void AddCorner(PathFigure figure, double radius, double endX, double endY)
+    private static void AddCorner(List<QrSegment> segments, double radius, double endX, double endY)
     {
         if (radius <= 0)
         {
@@ -77,15 +76,6 @@ internal static class ShapeFactory
             return;
         }
 
-        figure.Segments.Add(new ArcSegment
-        {
-            Point = new Point(endX, endY),
-            Size = new Size(radius, radius),
-            SweepDirection = SweepDirection.Clockwise,
-            IsLargeArc = false,
-            RotationAngle = 0,
-        });
+        segments.Add(new QrArcTo(new QrPoint(endX, endY), radius, Clockwise: true));
     }
-
-    private static LineSegment Line(double x, double y) => new(new Point(x, y), true);
 }

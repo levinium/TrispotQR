@@ -2,15 +2,20 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using TrispotQR.Core.Primitives;
+using TrispotQR.Core.Rendering;
 
-namespace TrispotQR.Core.Rendering;
+namespace TrispotQR.App.Rendering;
 
 /// <summary>
 /// Paints a <see cref="QrDrawing"/>. The same two methods feed the on-screen preview, the
 /// preset thumbnails, the PNG export and the scannability check, so what the user sees is
 /// always exactly what gets saved.
+///
+/// THROWAWAY. Lives in the app rather than in Core so Core owes nothing to WPF. Phase 2
+/// deletes it along with the rest of the WPF window.
 /// </summary>
-public static class QrRenderer
+public static class WpfQrRenderer
 {
     /// <summary>
     /// Builds a scalable visual. The drawing is authored in module units, so the single
@@ -20,7 +25,7 @@ public static class QrRenderer
     /// Forces a background colour regardless of the drawing's own. Used to flatten a
     /// transparent code onto white before decoding, which is what a scanner would see.
     /// </param>
-    public static DrawingVisual RenderToVisual(QrDrawing drawing, double pixelSize, Color? backgroundOverride = null)
+    public static DrawingVisual RenderToVisual(QrDrawing drawing, double pixelSize, RgbColor? backgroundOverride = null)
     {
         ArgumentNullException.ThrowIfNull(drawing);
 
@@ -34,14 +39,16 @@ public static class QrRenderer
             var background = backgroundOverride ?? drawing.Background;
             if (background is { } colour && colour.A > 0)
             {
-                var brush = new SolidColorBrush(colour);
-                brush.Freeze();
+                var brush = WpfGeometryAdapter.ToBrush(colour);
                 context.DrawRectangle(brush, null, new Rect(0, 0, drawing.SizeInUnits, drawing.SizeInUnits));
             }
 
             foreach (var layer in drawing.Layers)
             {
-                context.DrawGeometry(layer.Fill, layer.Stroke, layer.Geometry);
+                context.DrawGeometry(
+                    WpfGeometryAdapter.ToBrush(layer.Fill),
+                    WpfGeometryAdapter.ToPen(layer.Stroke),
+                    WpfGeometryAdapter.ToGeometry(layer.Path));
             }
 
             DrawLogo(context, drawing);
@@ -71,14 +78,16 @@ public static class QrRenderer
 
         if (drawing.Background is { A: > 0 } colour)
         {
-            var brush = new SolidColorBrush(colour);
-            brush.Freeze();
-            group.Children.Add(new GeometryDrawing(brush, null, new RectangleGeometry(bounds)));
+            group.Children.Add(new GeometryDrawing(
+                WpfGeometryAdapter.ToBrush(colour), null, new RectangleGeometry(bounds)));
         }
 
         foreach (var layer in drawing.Layers)
         {
-            group.Children.Add(new GeometryDrawing(layer.Fill, layer.Stroke, layer.Geometry));
+            group.Children.Add(new GeometryDrawing(
+                WpfGeometryAdapter.ToBrush(layer.Fill),
+                WpfGeometryAdapter.ToPen(layer.Stroke),
+                WpfGeometryAdapter.ToGeometry(layer.Path)));
         }
 
         if (drawing.Logo is { } logo && LoadImage(logo.Path) is { } image)
@@ -94,7 +103,7 @@ public static class QrRenderer
     }
 
     /// <summary>Renders to a square bitmap with a real alpha channel.</summary>
-    public static RenderTargetBitmap RenderToBitmap(QrDrawing drawing, int pixelSize, Color? backgroundOverride = null)
+    public static RenderTargetBitmap RenderToBitmap(QrDrawing drawing, int pixelSize, RgbColor? backgroundOverride = null)
     {
         if (pixelSize <= 0)
         {

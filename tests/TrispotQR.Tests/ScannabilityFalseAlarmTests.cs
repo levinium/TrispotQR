@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Media;
+using TrispotQR.App.Rendering;
+using TrispotQR.App.Validation;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
@@ -110,7 +112,10 @@ public class ScannabilityFalseAlarmTests
 
                 foreach (var layer in drawing.Layers)
                 {
-                    context.DrawGeometry(layer.Fill, layer.Stroke, layer.Geometry);
+                    context.DrawGeometry(
+                        WpfGeometryAdapter.ToBrush(layer.Fill),
+                        WpfGeometryAdapter.ToPen(layer.Stroke),
+                        WpfGeometryAdapter.ToGeometry(layer.Path));
                 }
 
                 foreach (var (ox, oy) in matrix.FinderOrigins)

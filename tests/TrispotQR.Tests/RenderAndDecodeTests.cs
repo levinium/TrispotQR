@@ -1,7 +1,10 @@
 using System.IO;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using TrispotQR.App.Rendering;
+using TrispotQR.App.Validation;
 using TrispotQR.Core.Export;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
@@ -23,7 +26,7 @@ public class RenderAndDecodeTests
         var decoded = StaThread.Run(() =>
         {
             var drawing = BuildDrawing(QrStyle.Default);
-            var bitmap = QrRenderer.RenderToBitmap(drawing, 512);
+            var bitmap = WpfQrRenderer.RenderToBitmap(drawing, 512);
             return QrDecoder.Decode(bitmap);
         });
 
@@ -36,7 +39,7 @@ public class RenderAndDecodeTests
         var alpha = StaThread.Run(() =>
         {
             var drawing = BuildDrawing(QrStyle.Default with { Background = null });
-            var bitmap = QrRenderer.RenderToBitmap(drawing, 256);
+            var bitmap = WpfQrRenderer.RenderToBitmap(drawing, 256);
 
             // Top-left pixel sits in the quiet zone, so it is background and nothing else.
             var pixels = new byte[4];
@@ -53,8 +56,8 @@ public class RenderAndDecodeTests
     {
         var pixel = StaThread.Run(() =>
         {
-            var drawing = BuildDrawing(QrStyle.Default with { Background = Colors.White });
-            var bitmap = QrRenderer.RenderToBitmap(drawing, 256);
+            var drawing = BuildDrawing(QrStyle.Default with { Background = RgbColor.White });
+            var bitmap = WpfQrRenderer.RenderToBitmap(drawing, 256);
 
             var pixels = new byte[4];
             var converted = new FormatConvertedBitmap(bitmap, PixelFormats.Bgra32, null, 0);
@@ -73,7 +76,7 @@ public class RenderAndDecodeTests
     {
         var (width, height) = StaThread.Run(() =>
         {
-            var bitmap = QrRenderer.RenderToBitmap(BuildDrawing(QrStyle.Default), 777);
+            var bitmap = WpfQrRenderer.RenderToBitmap(BuildDrawing(QrStyle.Default), 777);
             return (bitmap.PixelWidth, bitmap.PixelHeight);
         });
 
@@ -90,7 +93,7 @@ public class RenderAndDecodeTests
         {
             StaThread.Run(() =>
             {
-                var bitmap = QrRenderer.RenderToBitmap(BuildDrawing(QrStyle.Default), 320);
+                var bitmap = WpfQrRenderer.RenderToBitmap(BuildDrawing(QrStyle.Default), 320);
                 PngExporter.Save(bitmap, path);
                 return true;
             });
@@ -127,7 +130,7 @@ public class RenderAndDecodeTests
             var decoded = StaThread.Run(() =>
             {
                 var drawing = BuildDrawing(QrStyle.Default with { Background = null });
-                PngExporter.Save(QrRenderer.RenderToBitmap(drawing, 512), path);
+                PngExporter.Save(WpfQrRenderer.RenderToBitmap(drawing, 512), path);
 
                 var frame = new PngBitmapDecoder(
                     new Uri(path),
@@ -160,8 +163,8 @@ public class RenderAndDecodeTests
     {
         var style = QrStyle.Default with
         {
-            Foreground = Color.FromRgb(0xC8, 0xC8, 0xC8),
-            Background = Colors.White,
+            Foreground = RgbColor.FromRgb(0xC8, 0xC8, 0xC8),
+            Background = RgbColor.White,
         };
 
         var result = StaThread.Run(() => ScannabilityChecker.Check(Payload, style));
@@ -175,7 +178,7 @@ public class RenderAndDecodeTests
     {
         // Light modules on a dark background have plenty of contrast but are the classic
         // way a good looking code fails on a real phone.
-        var style = QrStyle.Default with { Foreground = Colors.White, Background = Colors.Black };
+        var style = QrStyle.Default with { Foreground = RgbColor.White, Background = RgbColor.Black };
 
         var result = StaThread.Run(() => ScannabilityChecker.Check(Payload, style));
 

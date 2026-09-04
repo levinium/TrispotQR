@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows.Media;
+using TrispotQR.App.Rendering;
 using TrispotQR.App.Services;
 using TrispotQR.App.ViewModels;
 using TrispotQR.Core.Payloads;
@@ -288,7 +289,7 @@ public class MainViewModelTests : IDisposable
 
         Assert.Equal(QrStyle.Default.ModuleShape, vm.ModuleShape);
         Assert.Equal(QrStyle.Default.QuietZoneModules, vm.QuietZone);
-        Assert.Equal(QrStyle.Default.Foreground, vm.Foreground);
+        Assert.Equal(WpfGeometryAdapter.ToColor(QrStyle.Default.Foreground), vm.Foreground);
     }
 
     [Fact]

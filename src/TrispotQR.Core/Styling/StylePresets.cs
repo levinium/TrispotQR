@@ -1,4 +1,4 @@
-using System.Windows.Media;
+using TrispotQR.Core.Primitives;
 
 namespace TrispotQR.Core.Styling;
 
@@ -23,8 +23,8 @@ public static class StylePresets
     /// clear the contrast threshold comfortably, so the preset is a safe starting point
     /// for someone swapping in their own brand colours.
     /// </summary>
-    private static readonly Color DeepNavy = Color.FromRgb(0x1B, 0x2A, 0x4A);
-    private static readonly Color WarmGold = Color.FromRgb(0x8A, 0x6D, 0x3B);
+    private static readonly RgbColor DeepNavy = RgbColor.FromRgb(0x1B, 0x2A, 0x4A);
+    private static readonly RgbColor WarmGold = RgbColor.FromRgb(0x8A, 0x6D, 0x3B);
 
     public static IReadOnlyList<StylePreset> BuiltIn { get; } =
     [
@@ -81,7 +81,7 @@ public static class StylePresets
                 Outline = new OutlineStyle
                 {
                     Enabled = true,
-                    Color = Colors.White,
+                    Color = RgbColor.White,
                     ThicknessRatio = 0.07,
                     Target = OutlineTarget.Both,
                 },

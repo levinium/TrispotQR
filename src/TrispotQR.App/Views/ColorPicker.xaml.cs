@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using TrispotQR.App.Rendering;
 using TrispotQR.Core.Styling;
 
 namespace TrispotQR.App.Views;
@@ -127,7 +128,7 @@ public partial class ColorPicker : UserControl
 
             // The square's backdrop is the pure form of the current hue; the two gradient
             // layers above it supply the saturation and the darkening.
-            SvHueLayer.Fill = new SolidColorBrush(HsvColor.ToRgb(_hue, 1, 1));
+            SvHueLayer.Fill = new SolidColorBrush(WpfGeometryAdapter.ToColor(HsvColor.ToRgb(_hue, 1, 1)));
 
             PositionMarkers();
         }
@@ -145,7 +146,7 @@ public partial class ColorPicker : UserControl
     /// </summary>
     private void AdoptHsvFrom(Color colour)
     {
-        var hsv = HsvColor.FromRgb(colour);
+        var hsv = HsvColor.FromRgb(WpfGeometryAdapter.ToRgbColor(colour));
 
         if (hsv.Saturation > 0)
         {
@@ -194,7 +195,7 @@ public partial class ColorPicker : UserControl
 
         try
         {
-            SelectedColor = HsvColor.ToRgb(_hue, _saturation, _value);
+            SelectedColor = WpfGeometryAdapter.ToColor(HsvColor.ToRgb(_hue, _saturation, _value));
             Sync();
         }
         finally

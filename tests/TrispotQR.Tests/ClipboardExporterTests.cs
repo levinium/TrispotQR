@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using TrispotQR.App.Rendering;
 using TrispotQR.Core.Export;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
@@ -154,6 +155,6 @@ public class ClipboardExporterTests
     private static RenderTargetBitmap Render(string payload, QrStyle style)
     {
         var matrix = QrEncoder.Encode(payload, style.Ecc).Matrix!;
-        return QrRenderer.RenderToBitmap(QrGeometryBuilder.Build(matrix, style), 512);
+        return WpfQrRenderer.RenderToBitmap(QrGeometryBuilder.Build(matrix, style), 512);
     }
 }
