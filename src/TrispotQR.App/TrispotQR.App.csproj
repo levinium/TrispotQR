@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>TrispotQR.App</RootNamespace>
+    <AssemblyName>TrispotQR</AssemblyName>
+    <Product>Trispot QR</Product>
+    <Description>Standalone QR code generator with styling, PNG/SVG export and live scannability checking.</Description>
+    <Version>1.0.0</Version>
+    <ApplicationIcon Condition="Exists('Resources\app.ico')">Resources\app.ico</ApplicationIcon>
+    <!-- Required for single-file self-contained WPF: the native WPF libraries must be
+         extracted to disk rather than loaded from the bundle. -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TrispotQR.Core\TrispotQR.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Lets the tests reach ColorPicker's retained hue and saturation, which are the
+         part of it most likely to regress without anyone noticing. -->
+    <InternalsVisibleTo Include="TrispotQR.Tests" />
+  </ItemGroup>
+
+</Project>

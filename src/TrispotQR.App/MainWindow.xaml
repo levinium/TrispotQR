@@ -1,0 +1,543 @@
+<Window x:Class="TrispotQR.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:TrispotQR.App.ViewModels"
+        xmlns:views="clr-namespace:TrispotQR.App.Views"
+        xmlns:conv="clr-namespace:TrispotQR.App.Converters"
+        mc:Ignorable="d"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        Title="Trispot QR"
+        Width="1180" Height="800"
+        MinWidth="960" MinHeight="660"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource PageBrush}"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <conv:StringToVisibilityConverter x:Key="StringToVisibility" />
+        <conv:ColorToBrushConverter x:Key="ColorToBrush" />
+        <conv:VerdictToBrushConverter x:Key="VerdictToBrush" />
+        <conv:EqualityConverter x:Key="Equality" />
+        <conv:FriendlyNameConverter x:Key="Friendly" />
+
+        <!-- Enum dropdowns all render through the friendly-name converter, so the UI can
+             say "Dots" while the code and the saved files keep saying Circle. -->
+        <DataTemplate x:Key="FriendlyEnumTemplate">
+            <TextBlock Text="{Binding Converter={StaticResource Friendly}}" />
+        </DataTemplate>
+
+        <!--
+            One template per content type. The dropdown swaps these in.
+
+            Every input is a FieldBox, which finds its own validation problem by matching
+            its FieldName against the editor's issues, and draws the red border and message
+            itself. The names have to match the editor's property names; EditorValidationTests
+            asserts that no editor reports an issue against a field that does not exist.
+        -->
+        <DataTemplate DataType="{x:Type vm:PlainTextEditor}">
+            <views:FieldBox Text="{Binding Text}" FieldName="Text" InputHeight="92" />
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:LinkEditor}">
+            <views:FieldBox Label="Web address" Text="{Binding Address}" FieldName="Address" />
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:WifiEditor}">
+            <StackPanel>
+                <views:FieldBox Label="Network name" Text="{Binding Ssid}" FieldName="Ssid" />
+
+                <TextBlock Text="Security" Style="{StaticResource FieldLabelStyle}" />
+                <ComboBox ItemsSource="{Binding SecurityOptions}"
+                          SelectedItem="{Binding Security}"
+                          ItemTemplate="{StaticResource FriendlyEnumTemplate}" />
+
+                <views:FieldBox Label="Password" Text="{Binding Password}" FieldName="Password"
+                                Visibility="{Binding NeedsPassword, Converter={StaticResource BoolToVisibility}}" />
+
+                <CheckBox Content="This is a hidden network" IsChecked="{Binding Hidden}" Margin="0,10,0,0" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:EmailEditor}">
+            <StackPanel>
+                <views:FieldBox Label="To" Text="{Binding Address}" FieldName="Address" />
+                <views:FieldBox Label="Subject" IsOptional="True" Text="{Binding Subject}" FieldName="Subject" />
+                <views:FieldBox Label="Message" IsOptional="True" Text="{Binding Body}"
+                                FieldName="Body" InputHeight="60" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:PhoneEditor}">
+            <views:FieldBox Label="Phone number" Text="{Binding Number}" FieldName="Number" />
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:SmsEditor}">
+            <StackPanel>
+                <views:FieldBox Label="Phone number" Text="{Binding Number}" FieldName="Number" />
+                <views:FieldBox Label="Message" IsOptional="True" Text="{Binding Text}"
+                                FieldName="Text" InputHeight="60" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:ContactEditor}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <views:FieldBox Grid.Row="0" Grid.Column="0" Label="First name"
+                                Text="{Binding FirstName}" FieldName="FirstName" />
+                <views:FieldBox Grid.Row="0" Grid.Column="2" Label="Last name"
+                                Text="{Binding LastName}" FieldName="LastName" />
+
+                <views:FieldBox Grid.Row="1" Grid.Column="0" Label="Organisation"
+                                Text="{Binding Organization}" FieldName="Organization" />
+                <views:FieldBox Grid.Row="1" Grid.Column="2" Label="Job title" IsOptional="True"
+                                Text="{Binding JobTitle}" FieldName="JobTitle" />
+
+                <views:FieldBox Grid.Row="2" Grid.Column="0" Label="Phone" IsOptional="True"
+                                Text="{Binding Phone}" FieldName="Phone" />
+                <views:FieldBox Grid.Row="2" Grid.Column="2" Label="Email" IsOptional="True"
+                                Text="{Binding Email}" FieldName="Email" />
+
+                <views:FieldBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Label="Website"
+                                IsOptional="True" Text="{Binding Website}" FieldName="Website" />
+            </Grid>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" MinWidth="360" />
+            <ColumnDefinition Width="16" />
+            <ColumnDefinition Width="470" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ============ Preview ============ -->
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Border Style="{StaticResource CardStyle}" Padding="20" Margin="0,0,0,10">
+                <Grid>
+                    <Border CornerRadius="6" ClipToBounds="True" Background="{DynamicResource CheckerBrush}" />
+
+                    <Image x:Name="PreviewImage"
+                           Source="{Binding Preview}"
+                           Margin="24"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           Stretch="Uniform" />
+
+                    <TextBlock Text="Enter something on the right to see your code here."
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               MaxWidth="240">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource CaptionStyle}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Preview}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </Border>
+
+            <!-- Scannability badge. The whole point of the left column: the app tells you
+                 whether the pretty thing you just made actually works. -->
+            <Border Grid.Row="1" Style="{StaticResource CardStyle}" Margin="0">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="11" Height="11" VerticalAlignment="Center"
+                                 Fill="{Binding Verdict, Converter={StaticResource VerdictToBrush}}" />
+                        <TextBlock Text="{Binding StatusText}"
+                                   Margin="8,0,0,0"
+                                   FontWeight="SemiBold" FontSize="13"
+                                   VerticalAlignment="Center"
+                                   Foreground="{Binding Verdict, Converter={StaticResource VerdictToBrush}}" />
+                        <TextBlock Text="{Binding SizeSummary}" Margin="12,0,0,0"
+                                   VerticalAlignment="Center" Style="{StaticResource CaptionStyle}" />
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding StatusDetail}"
+                               Style="{StaticResource CaptionStyle}"
+                               Margin="19,5,0,0" />
+
+                    <Button Content="Raise error correction to Highest"
+                            Command="{Binding RaiseEccCommand}"
+                            Style="{StaticResource LinkButtonStyle}"
+                            Margin="19,6,0,0"
+                            Visibility="{Binding ShowRaiseEcc, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ============ Controls ============ -->
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
+            <StackPanel>
+
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="Trispot QR" Style="{StaticResource HeadingStyle}" Margin="0,0,0,2" />
+                        <TextBlock Text="Make a QR code, style it, and check that it scans before you print it."
+                                   Style="{StaticResource CaptionStyle}" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="VersionLabel" Grid.Column="1"
+                               VerticalAlignment="Center" Margin="0,0,10,0"
+                               Style="{StaticResource CaptionStyle}"
+                               ToolTip="The version of Trispot QR you are running" />
+
+                    <!-- Opens its own context menu on a left click, so it behaves like the
+                         menu button it looks like rather than needing a right click. -->
+                    <Button x:Name="GearButton" Grid.Column="2"
+                            Width="32" Height="32" Padding="0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            ToolTip="Settings and about"
+                            Click="OnGearClicked">
+                        <!-- A gear drawn as a path, so there is no icon font to ship. -->
+                        <Path Width="17" Height="17" Stretch="Uniform"
+                              Fill="{DynamicResource MutedTextBrush}"
+                              Data="M19.14,12.94a7.07,7.07,0,0,0,0-1.88l2-1.58a0.5,0.5,0,0,0,.12-0.61l-1.9-3.29a0.5,0.5,0,0,0-.6-0.22l-2.39,1a7,7,0,0,0-1.62-.94l-0.36-2.54A0.5,0.5,0,0,0,13.9,2H10.1a0.5,0.5,0,0,0-.49.42L9.25,4.96a7,7,0,0,0-1.62.94l-2.39-1a0.5,0.5,0,0,0-.6.22L2.74,8.41a0.5,0.5,0,0,0,.12.61l2,1.58a7.07,7.07,0,0,0,0,1.88l-2,1.58a0.5,0.5,0,0,0-.12.61l1.9,3.29a0.5,0.5,0,0,0,.6.22l2.39-1a7,7,0,0,0,1.62.94l0.36,2.54a0.5,0.5,0,0,0,.49.42h3.8a0.5,0.5,0,0,0,.49-0.42l0.36-2.54a7,7,0,0,0,1.62-.94l2.39,1a0.5,0.5,0,0,0,.6-0.22l1.9-3.29a0.5,0.5,0,0,0-.12-0.61ZM12,15.6A3.6,3.6,0,1,1,15.6,12,3.6,3.6,0,0,1,12,15.6Z" />
+                        <Button.ContextMenu>
+                            <ContextMenu x:Name="GearMenu">
+                                <MenuItem Header="Settings..." Click="OnSettingsClicked" />
+                                <Separator />
+                                <MenuItem Header="About Trispot QR" Click="OnAboutClicked" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                </Grid>
+
+                <!-- Step 1 -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="1. What goes in the code" Style="{StaticResource StepHeadingStyle}" />
+
+                        <!--
+                            An explicit ItemTemplate rather than DisplayMemberPath. The
+                            content editors have implicit DataTemplates declared above, and
+                            with DisplayMemberPath the combo's selection box finds one of
+                            those and renders an entire editor inside itself. Naming the
+                            template leaves nothing for the implicit lookup to hijack.
+                        -->
+                        <ComboBox ItemsSource="{Binding ContentEditors}"
+                                  SelectedItem="{Binding SelectedContent}"
+                                  Margin="0,8,0,0">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Title}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <TextBlock Text="{Binding SelectedContent.Hint}"
+                                   Style="{StaticResource CaptionStyle}" Margin="0,6,0,8" />
+
+                        <ContentControl Content="{Binding SelectedContent}" />
+
+                        <!--
+                            Problems belonging to the form rather than to any one box, and
+                            otherwise the informational note. A per-field problem is shown
+                            by the field itself, not here.
+                        -->
+                        <TextBlock Text="{Binding SelectedContent.FormMessage}"
+                                   Margin="0,8,0,0"
+                                   Visibility="{Binding SelectedContent.FormMessage, Converter={StaticResource StringToVisibility}}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource CaptionStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedContent.FormMessageIsProblem}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <TextBlock Text="{Binding CapacityText}" Style="{StaticResource CaptionStyle}" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Step 2 -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="2. How it looks" Style="{StaticResource StepHeadingStyle}" />
+                        <TextBlock Text="Pick a style. Every one of these has been tested to make sure it still scans."
+                                   Style="{StaticResource CaptionStyle}" Margin="0,0,0,10" />
+
+                        <ItemsControl ItemsSource="{Binding Presets}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource PresetCardStyle}"
+                                            ToolTip="{Binding Description}"
+                                            Command="{Binding DataContext.ApplyPresetCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}">
+                                        <StackPanel Width="64">
+                                            <Image Source="{Binding Thumbnail}" Width="54" Height="54"
+                                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                                            <TextBlock Text="{Binding Name}" TextAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Style="{StaticResource CaptionStyle}" Margin="0,4,0,0" />
+                                        </StackPanel>
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Delete this saved style"
+                                                          Command="{Binding DeletePresetCommand}"
+                                                          CommandParameter="{Binding}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Text="Code colour" VerticalAlignment="Center"
+                                       Style="{StaticResource CaptionStyle}" Width="86" />
+                            <views:ColorPicker Grid.Column="1" HorizontalAlignment="Left"
+                                               SelectedColor="{Binding Foreground, Mode=TwoWay}" />
+                        </Grid>
+
+                        <TextBlock Text="Background" Style="{StaticResource FieldLabelStyle}" />
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton GroupName="Background" Content="White" Style="{StaticResource SegmentStyle}"
+                                          IsChecked="{Binding BackgroundChoice, Converter={StaticResource Equality},
+                                                      ConverterParameter=White, Mode=TwoWay}" />
+                            <RadioButton GroupName="Background" Content="Transparent" Style="{StaticResource SegmentStyle}"
+                                          ToolTip="No background at all, so the code sits on whatever is behind it"
+                                          IsChecked="{Binding BackgroundChoice, Converter={StaticResource Equality},
+                                                      ConverterParameter=Transparent, Mode=TwoWay}" />
+                            <RadioButton GroupName="Background" Content="Custom" Style="{StaticResource SegmentStyle}"
+                                          IsChecked="{Binding BackgroundChoice, Converter={StaticResource Equality},
+                                                      ConverterParameter=Custom, Mode=TwoWay}" />
+                            <views:ColorPicker VerticalAlignment="Center"
+                                               SelectedColor="{Binding CustomBackground, Mode=TwoWay}"
+                                               Visibility="{Binding IsCustomBackground,
+                                                            Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Step 3 -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="3. Save it" Style="{StaticResource StepHeadingStyle}" />
+
+                        <TextBlock Text="Size" Style="{StaticResource FieldLabelStyle}" />
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton GroupName="Size" Content="Small" ToolTip="512 pixels. Good for a web page or an email."
+                                          Style="{StaticResource SegmentStyle}"
+                                          IsChecked="{Binding PixelSize, Converter={StaticResource Equality},
+                                                      ConverterParameter=512, Mode=TwoWay}" />
+                            <RadioButton GroupName="Size" Content="Medium" ToolTip="1024 pixels. Good for a slide or a document."
+                                          Style="{StaticResource SegmentStyle}"
+                                          IsChecked="{Binding PixelSize, Converter={StaticResource Equality},
+                                                      ConverterParameter=1024, Mode=TwoWay}" />
+                            <RadioButton GroupName="Size" Content="Print" ToolTip="2048 pixels. Good for a printed flyer or a sign."
+                                          Style="{StaticResource SegmentStyle}"
+                                          IsChecked="{Binding PixelSize, Converter={StaticResource Equality},
+                                                      ConverterParameter=2048, Mode=TwoWay}" />
+                        </StackPanel>
+
+                        <!-- A WrapPanel rather than a row of fixed widths: the buttons size
+                             to their labels and drop to a second line if the window is
+                             narrowed, instead of being clipped. -->
+                        <WrapPanel Margin="0,12,0,-8">
+                            <Button Content="Save PNG..." Command="{Binding SavePngCommand}"
+                                    Style="{StaticResource PrimaryButtonStyle}" MinWidth="112"
+                                    Margin="0,0,8,8" />
+                            <Button Content="Save SVG..." Command="{Binding SaveSvgCommand}"
+                                    ToolTip="Vector file. Stays sharp at any size, best for print."
+                                    Style="{StaticResource SecondaryButtonStyle}" MinWidth="112"
+                                    Margin="0,0,8,8" />
+                            <Button Content="Copy to clipboard" Command="{Binding CopyCommand}"
+                                    ToolTip="Copy the image so you can paste it straight into Word or PowerPoint"
+                                    Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,0,8" />
+                        </WrapPanel>
+
+                        <!-- A disabled button with no explanation is its own bug report. -->
+                        <TextBlock Text="{Binding ExportBlockedReason}" Margin="0,10,0,-4"
+                                   Style="{StaticResource CaptionStyle}"
+                                   Foreground="{DynamicResource DangerBrush}"
+                                   Visibility="{Binding ExportBlockedReason, Converter={StaticResource StringToVisibility}}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Advanced -->
+                <Expander Header="Advanced options" Margin="0,4,0,20">
+                    <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
+                        <StackPanel>
+
+                            <TextBlock Text="Shapes" Style="{StaticResource StepHeadingStyle}" Margin="0,0,0,4" />
+
+                            <TextBlock Text="Dot shape" Style="{StaticResource FieldLabelStyle}" />
+                            <ComboBox ItemsSource="{Binding ModuleShapes}" SelectedItem="{Binding ModuleShape}"
+                                      ItemTemplate="{StaticResource FriendlyEnumTemplate}" />
+
+                            <TextBlock Text="Gap between dots" Style="{StaticResource FieldLabelStyle}"
+                                       ToolTip="A bigger gap looks lighter. Too big and the code stops scanning." />
+                            <Slider Minimum="0.55" Maximum="1.0" Value="{Binding ModuleScale}" />
+
+                            <TextBlock Text="Corner ring shape" Style="{StaticResource FieldLabelStyle}" />
+                            <ComboBox ItemsSource="{Binding MarkerFrameShapes}" SelectedItem="{Binding MarkerFrameShape}"
+                                      ItemTemplate="{StaticResource FriendlyEnumTemplate}" />
+
+                            <TextBlock Text="Corner centre shape" Style="{StaticResource FieldLabelStyle}" />
+                            <ComboBox ItemsSource="{Binding MarkerCenterShapes}" SelectedItem="{Binding MarkerCenterShape}"
+                                      ItemTemplate="{StaticResource FriendlyEnumTemplate}" />
+
+                            <Separator Margin="0,14,0,4" />
+                            <TextBlock Text="Corner colours" Style="{StaticResource StepHeadingStyle}" Margin="0,6,0,4" />
+
+                            <CheckBox Content="Give the corners their own colours"
+                                      IsChecked="{Binding UseCustomMarkerColors}" Margin="0,4,0,0" />
+
+                            <Grid Margin="0,8,0,0"
+                                  Visibility="{Binding UseCustomMarkerColors, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Ring" VerticalAlignment="Center" Style="{StaticResource CaptionStyle}" />
+                                <views:ColorPicker Grid.Column="1" Margin="8,0,18,0"
+                                                   SelectedColor="{Binding MarkerFrameColor, Mode=TwoWay}" />
+                                <TextBlock Grid.Column="2" Text="Centre" VerticalAlignment="Center"
+                                           Style="{StaticResource CaptionStyle}" />
+                                <views:ColorPicker Grid.Column="3" Margin="8,0,0,0"
+                                                   SelectedColor="{Binding MarkerCenterColor, Mode=TwoWay}" />
+                            </Grid>
+
+                            <Separator Margin="0,14,0,4" />
+                            <TextBlock Text="Outline" Style="{StaticResource StepHeadingStyle}" Margin="0,6,0,4" />
+
+                            <CheckBox Content="Draw an outline around the shapes"
+                                      IsChecked="{Binding OutlineEnabled}" Margin="0,4,0,0" />
+
+                            <StackPanel Visibility="{Binding OutlineEnabled, Converter={StaticResource BoolToVisibility}}">
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Colour" VerticalAlignment="Center" Width="86"
+                                               Style="{StaticResource CaptionStyle}" />
+                                    <views:ColorPicker Grid.Column="1" HorizontalAlignment="Left"
+                                                       SelectedColor="{Binding OutlineColor, Mode=TwoWay}" />
+                                </Grid>
+
+                                <TextBlock Text="Thickness" Style="{StaticResource FieldLabelStyle}" />
+                                <Slider Minimum="0.01" Maximum="0.25" Value="{Binding OutlineThickness}" />
+
+                                <TextBlock Text="Applies to" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox ItemsSource="{Binding OutlineTargets}" SelectedItem="{Binding OutlineTarget}"
+                                          ItemTemplate="{StaticResource FriendlyEnumTemplate}" />
+                            </StackPanel>
+
+                            <Separator Margin="0,14,0,4" />
+                            <TextBlock Text="Logo" Style="{StaticResource StepHeadingStyle}" Margin="0,6,0,4" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Button Content="Choose image..." Command="{Binding ChooseLogoCommand}"
+                                        Style="{StaticResource SecondaryButtonStyle}" />
+                                <Button Content="Remove" Command="{Binding ClearLogoCommand}"
+                                        Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" />
+                                <TextBlock Text="{Binding LogoName}" VerticalAlignment="Center" Margin="10,0,0,0"
+                                           MaxWidth="150" TextTrimming="CharacterEllipsis"
+                                           Style="{StaticResource CaptionStyle}" />
+                            </StackPanel>
+
+                            <StackPanel Visibility="{Binding HasLogo, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Logo size" Style="{StaticResource FieldLabelStyle}" />
+                                <Slider Minimum="0.05" Maximum="0.40" Value="{Binding LogoSize}" />
+
+                                <TextBlock Text="Space cleared behind it" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox ItemsSource="{Binding LogoPunchShapes}" SelectedItem="{Binding LogoPunchShape}"
+                                          ItemTemplate="{StaticResource FriendlyEnumTemplate}" />
+                            </StackPanel>
+
+                            <Separator Margin="0,14,0,4" />
+                            <TextBlock Text="Reliability" Style="{StaticResource StepHeadingStyle}" Margin="0,6,0,4" />
+
+                            <TextBlock Text="Error correction" Style="{StaticResource FieldLabelStyle}"
+                                       ToolTip="How much damage the code can survive. Higher means it still scans if it is scratched or partly covered, but the code becomes denser." />
+                            <ComboBox ItemsSource="{Binding EccLevels}" SelectedItem="{Binding Ecc}"
+                                      ItemTemplate="{StaticResource FriendlyEnumTemplate}" />
+
+                            <TextBlock Text="Margin around the code" Style="{StaticResource FieldLabelStyle}"
+                                       ToolTip="Clear space scanners need to find the code. 4 is the standard." />
+                            <Slider Minimum="0" Maximum="8" TickFrequency="1" IsSnapToTickEnabled="True"
+                                    Value="{Binding QuietZone}" />
+
+                            <Separator Margin="0,14,0,4" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Content="Save this style..." Command="{Binding SavePresetCommand}"
+                                        Style="{StaticResource SecondaryButtonStyle}" />
+                                <Button Content="Reset everything" Command="{Binding ResetCommand}"
+                                        Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" />
+                            </StackPanel>
+
+                        </StackPanel>
+                    </Border>
+                </Expander>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Brief confirmation that fades away on its own. Not hit testable, so it can
+             never swallow a click on whatever it happens to float over. -->
+        <Border x:Name="Toast"
+                Grid.Column="0" Grid.ColumnSpan="3"
+                HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                Margin="0,0,0,26"
+                Padding="18,10"
+                CornerRadius="18"
+                Opacity="0"
+                IsHitTestVisible="False"
+                Background="#E61B1F27"
+                Effect="{DynamicResource SoftShadow}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="&#x2713;" Foreground="#7BE495" FontSize="13"
+                           FontWeight="Bold" VerticalAlignment="Center" />
+                <TextBlock x:Name="ToastText" Foreground="White" FontSize="12.5"
+                           Margin="8,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

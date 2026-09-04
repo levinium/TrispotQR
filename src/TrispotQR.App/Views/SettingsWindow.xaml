@@ -1,0 +1,90 @@
+<Window x:Class="TrispotQR.App.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        SizeToContent="Height"
+        Width="470"
+        Background="{DynamicResource PageBrush}"
+        Title="Settings">
+
+    <StackPanel Margin="18">
+
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Text="Appearance" Style="{StaticResource StepHeadingStyle}" />
+                <TextBlock Text="Light or dark theming, applied as soon as you choose it."
+                           Style="{StaticResource CaptionStyle}" Margin="0,0,0,8"
+                           TextWrapping="Wrap" />
+
+                <ComboBox x:Name="ThemeChoice" SelectionChanged="OnThemeChanged">
+                    <ComboBoxItem Content="Follow Windows" />
+                    <ComboBoxItem Content="Light" />
+                    <ComboBoxItem Content="Dark" />
+                </ComboBox>
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Text="Warnings" Style="{StaticResource StepHeadingStyle}" />
+
+                <CheckBox x:Name="WarnRisky" Margin="0,8,0,0"
+                          Content="Warn me about codes that may not scan" />
+                <TextBlock Text="Codes that do not scan at all always warn, and that cannot be turned off."
+                           Style="{StaticResource CaptionStyle}" Margin="24,4,0,0" />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Text="Saving" Style="{StaticResource StepHeadingStyle}" />
+
+                <TextBlock Text="Size for new codes" Style="{StaticResource FieldLabelStyle}" />
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="SizeSmall" GroupName="Size" Content="Small"
+                                 Style="{StaticResource SegmentStyle}" />
+                    <RadioButton x:Name="SizeMedium" GroupName="Size" Content="Medium"
+                                 Style="{StaticResource SegmentStyle}" />
+                    <RadioButton x:Name="SizePrint" GroupName="Size" Content="Print"
+                                 Style="{StaticResource SegmentStyle}" />
+                </StackPanel>
+
+                <TextBlock Text="Always save to this folder" Style="{StaticResource FieldLabelStyle}" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="SaveFolder" Style="{StaticResource InputStyle}" IsReadOnly="True" />
+                    <Button Grid.Column="1" Content="Browse..." Margin="8,0,0,0"
+                            Style="{StaticResource SecondaryButtonStyle}" Click="OnBrowseFolder" />
+                    <Button Grid.Column="2" Content="Clear" Margin="8,0,0,0"
+                            Style="{StaticResource SecondaryButtonStyle}" Click="OnClearFolder" />
+                </Grid>
+                <TextBlock Text="Leave this empty to keep using whichever folder you saved to last."
+                           Style="{StaticResource CaptionStyle}" Margin="0,6,0,0" />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Text="Starting up" Style="{StaticResource StepHeadingStyle}" />
+
+                <CheckBox x:Name="RememberStyle" Margin="0,8,0,0"
+                          Content="Remember my last style when I reopen" />
+                <TextBlock Text="Off means every launch starts from the Classic style. The size above is applied either way."
+                           Style="{StaticResource CaptionStyle}" Margin="24,4,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+            <Button Content="Reset to defaults" Style="{StaticResource SecondaryButtonStyle}"
+                    Click="OnResetDefaults" />
+            <Button Content="Done" IsDefault="True" MinWidth="92" Margin="8,0,0,0"
+                    Style="{StaticResource PrimaryButtonStyle}" Click="OnDone" />
+        </StackPanel>
+    </StackPanel>
+</Window>

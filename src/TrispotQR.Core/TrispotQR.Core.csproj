@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Windows-targeted with UseWPF because the renderer is built on System.Windows.Media
+      geometry types (PresentationCore). No XAML lives here; this is pure logic and is
+      exercised headlessly by the test project.
+    -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>TrispotQR.Core</RootNamespace>
+    <Description>QR encoding, styling, geometry building, export and scannability validation.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="3.1.0" />
+    <PackageReference Include="ZXing.Net" Version="0.16.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Lets the tests drive the settings-folder carry-over against temp directories
+         rather than against the real %APPDATA%. -->
+    <InternalsVisibleTo Include="TrispotQR.Tests" />
+  </ItemGroup>
+
+</Project>

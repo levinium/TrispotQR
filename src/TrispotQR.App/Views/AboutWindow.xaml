@@ -1,0 +1,53 @@
+<Window x:Class="TrispotQR.App.Views.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        SizeToContent="Height"
+        Width="440"
+        Background="{DynamicResource PageBrush}"
+        Title="About Trispot QR">
+
+    <StackPanel Margin="18">
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Image x:Name="AppIcon" Width="48" Height="48" VerticalAlignment="Top"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
+                    <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="Trispot QR" Style="{StaticResource HeadingStyle}" />
+                        <TextBlock x:Name="VersionText" Style="{StaticResource CaptionStyle}" Margin="0,2,0,0" />
+                    </StackPanel>
+                </StackPanel>
+
+                <TextBlock Margin="0,14,0,0" TextWrapping="Wrap" LineHeight="18"
+                           Foreground="{DynamicResource TextBrush}"
+                           Text="Makes QR codes from anything you type, styles them, and checks that they actually scan before you print them. Everything happens on this machine; nothing is sent anywhere." />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Text="Where your settings live" Style="{StaticResource StepHeadingStyle}" />
+                <TextBlock x:Name="SettingsPath" Style="{StaticResource CaptionStyle}"
+                           Margin="0,6,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Text="Built with" Style="{StaticResource StepHeadingStyle}" />
+                <TextBlock Style="{StaticResource CaptionStyle}" Margin="0,6,0,0" TextWrapping="Wrap"
+                           Text="Net.Codecrete.QrCodeGenerator (MIT) generates the codes." />
+                <TextBlock Style="{StaticResource CaptionStyle}" Margin="0,3,0,0" TextWrapping="Wrap"
+                           Text="ZXing.Net (Apache 2.0) reads them back, which is how the scannability check works." />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+            <Button Content="Close" IsDefault="True" IsCancel="True" MinWidth="92"
+                    Style="{StaticResource PrimaryButtonStyle}" Click="OnClose" />
+        </StackPanel>
+    </StackPanel>
+</Window>
