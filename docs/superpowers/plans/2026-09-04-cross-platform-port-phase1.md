@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Remove every WPF dependency from `TrispotQR.Core` so it targets plain `net10.0`, rasterising with SkiaSharp, while the existing WPF app keeps running on top of it and all 599 tests stay green.
+**Goal:** Remove every WPF dependency from `TrispotQR.Core` so it targets plain `net10.0`, rasterising with SkiaSharp, while the existing WPF app keeps running on top of it and the whole test suite stays green.
 
 **Architecture:** Core gains two primitives, `RgbColor` and `QrPath`, and stops speaking WPF's `Color` and `Geometry`. `QrPath` is the single geometry model in module units; it converts to an `SKPath` for rasterising, to SVG path data for export, and (temporarily, from the app only) to a WPF `Geometry` for the existing preview. Rasterising moves to SkiaSharp, which draws offscreen with no window and behaves identically on every platform. Nothing about the UI changes in this phase.
 
@@ -12,14 +12,37 @@
 
 ## Global Constraints
 
-- **Core must not reference WPF.** No `System.Windows`, no `UseWPF`, no `net10.0-windows`. Task 15 flips the target framework, and that flip is the proof.
+- **Core must not reference WPF.** No `System.Windows`, no `UseWPF`, no `net10.0-windows`. Task 12 flips the target framework, and that flip is the proof.
 - **Behaviour is preserved.** This phase changes no user-visible behaviour. Any difference is a bug, except antialiasing, where pixel-identical output is explicitly not the goal and decoding correctly is.
+- **Every task leaves a compiling tree and a green suite.** Never commit red.
 - **The preset file format does not change.** Colours are stored as `#RRGGBB`, or `#AARRGGBB` when alpha is below 255. Existing `presets.json` and `settings.json` must keep loading.
-- **The test suite stays green at every commit.** 599 tests today. Never commit red.
+- **`System.IO` is NOT in the implicit usings while Core is still a `UseWPF` project.** Add `using System.IO;` explicitly in any Core file that touches the filesystem, until Task 12.
 - **Commit style:** author is `levinium`, no `Co-Authored-By` trailer, no mention of Claude.
-- **Geometry is in module units** with the quiet zone included, exactly as now. Pixel size is applied by a single scale at render time.
-- **Line endings are LF.** `.gitattributes` enforces this; do not fight it.
-- **Mobile rules from the spec apply from this phase onward.** Core takes bytes and streams, never paths or dialogs. Storage goes behind an interface. No desktop-only assumptions in Core.
+- **Geometry is in module units** with the quiet zone included. Pixel size is applied by a single scale at render time.
+- **Line endings are LF**, enforced by `.gitattributes`.
+- **Mobile rules from the spec apply now:** Core takes bytes and streams, never paths or dialogs; storage goes behind an interface; no desktop assumptions in Core.
+
+## Existing API this plan must respect
+
+Verified against the tree before writing. Do not invent alternatives.
+
+```csharp
+// Styling/QrStyle.cs
+OutlineStyle { bool Enabled; Color Color; double ThicknessRatio; OutlineTarget Target; }
+LogoStyle    { string? Path; double SizeRatio; LogoPunchShape PunchShape; double PunchPadding; bool HasImage; }
+QrStyle      { ... Color Foreground; Color? Background; Color? MarkerFrameColor; Color? MarkerCenterColor;
+               Color EffectiveMarkerFrameColor; Color EffectiveMarkerCenterColor; }
+
+// Styling/Shapes.cs
+enum OutlineTarget   { Modules, Markers, Both }
+enum LogoPunchShape  { None, Circle, RoundedSquare }
+```
+
+The outline predicate, currently inside `QrGeometryBuilder.PenFor`, is exactly:
+
+```csharp
+var applies = outline.Target == OutlineTarget.Both || outline.Target == part;
+```
 
 ---
 
@@ -29,21 +52,22 @@
 
 | File | Responsibility |
 |---|---|
-| `Primitives/RgbColor.cs` | Colour value type, replacing `System.Windows.Media.Color`. Hex parse and format |
-| `Primitives/QrPath.cs` | The neutral geometry model: points, segments, figures, fill rule |
+| `Primitives/RgbColor.cs` | Colour value type replacing `System.Windows.Media.Color` |
+| `Primitives/QrPath.cs` | Points, segments, figures, fill rule |
 | `Primitives/QrPathBuilder.cs` | Accumulates figures into a `QrPath` |
 | `Rendering/SkiaPath.cs` | `QrPath` to `SKPath` and back |
 | `Rendering/SkiaPathOps.cs` | Boolean exclude, for the logo punch-out |
+| `Rendering/ImageSize.cs` | Pixel dimensions of an image file, without decoding it |
 | `Rendering/SkiaRasterizer.cs` | `QrDrawing` to pixels. No window, no display |
 | `Export/SvgPathData.cs` | `QrPath` to an SVG `d` attribute |
-| `Presets/ISettingsLocation.cs` | Where settings live, behind an interface |
-| `Presets/DesktopSettingsLocation.cs` | Per-OS resolution of that folder |
+| `Export/IImageClipboard.cs` | Clipboard behind an interface |
+| `Presets/ISettingsLocation.cs`, `Presets/DesktopSettingsLocation.cs` | Where settings live |
 
-**Rewritten in Core:** `Rendering/ShapeFactory.cs`, `Rendering/QrDrawing.cs`, `Rendering/QrGeometryBuilder.cs`, `Rendering/LogoCompositor.cs`, `Export/PngExporter.cs`, `Export/SvgExporter.cs`, `Validation/QrDecoder.cs`, `Validation/ScannabilityChecker.cs`, `Presets/ColorJsonConverter.cs`, `Styling/QrStyle.cs`, `Styling/StylePresets.cs`, `Styling/HsvColor.cs`.
+**Rewritten in Core:** `Rendering/ShapeFactory.cs`, `Rendering/QrDrawing.cs`, `Rendering/QrGeometryBuilder.cs`, `Rendering/LogoCompositor.cs`, `Export/PngExporter.cs`, `Export/SvgExporter.cs`, `Validation/QrDecoder.cs`, `Validation/ScannabilityChecker.cs`, `Presets/ColorJsonConverter.cs`, `Presets/PresetStore.cs`, `Styling/QrStyle.cs`, `Styling/StylePresets.cs`, `Styling/HsvColor.cs`.
 
-**Deleted from Core:** `Rendering/QrRenderer.cs` (moves to the app), `Rendering/StaThread.cs` (Windows-only), `Export/ClipboardExporter.cs` (moves to the app).
+**Deleted from Core:** `Rendering/QrRenderer.cs` (moves to the app), `Rendering/StaThread.cs`, `Export/ClipboardExporter.cs` (moves to the app).
 
-**New in `src/TrispotQR.App/`:** `Rendering/WpfGeometryAdapter.cs` and `Rendering/WpfQrRenderer.cs`, both **throwaway**, deleted in Phase 2 with the rest of the WPF app. `Export/WpfClipboardExporter.cs`, which stays conceptually and is reimplemented for Avalonia in Phase 2.
+**New in `src/TrispotQR.App/`:** `Rendering/WpfGeometryAdapter.cs`, `Rendering/WpfQrRenderer.cs` (both **throwaway**, deleted in Phase 2), `Export/WpfImageClipboard.cs`.
 
 ---
 
@@ -55,7 +79,7 @@
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `readonly record struct RgbColor(byte A, byte R, byte G, byte B)` with statics `FromRgb(byte,byte,byte)`, `FromArgb(byte,byte,byte,byte)`, `Black`, `White`, `Transparent`; instance `ToHex()`; static `TryParse(string?, out RgbColor)` and `Parse(string)`.
+- Produces: `readonly record struct RgbColor(byte A, byte R, byte G, byte B)`; statics `FromRgb`, `FromArgb`, `Black`, `White`, `Transparent`; `bool IsTransparent`; `string ToHex()`; `static bool TryParse(string?, out RgbColor)`; `static RgbColor Parse(string)`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -67,8 +91,7 @@ namespace TrispotQR.Tests;
 public class RgbColorTests
 {
     [Fact]
-    public void FromRgb_IsFullyOpaque() =>
-        Assert.Equal(255, RgbColor.FromRgb(1, 2, 3).A);
+    public void FromRgb_IsFullyOpaque() => Assert.Equal(255, RgbColor.FromRgb(1, 2, 3).A);
 
     [Fact]
     public void ToHex_OmitsAlphaWhenOpaque() =>
@@ -88,7 +111,7 @@ public class RgbColorTests
         Assert.Equal(new RgbColor((byte)a, (byte)r, (byte)g, (byte)b), colour);
     }
 
-    /// <summary>Presets written before the port used WPF colour names in hand edits.</summary>
+    /// <summary>A hand-edited preset file may carry a WPF colour name.</summary>
     [Theory]
     [InlineData("Black", 0, 0, 0)]
     [InlineData("White", 255, 255, 255)]
@@ -103,8 +126,7 @@ public class RgbColorTests
     [InlineData(null)]
     [InlineData("nonsense")]
     [InlineData("#12345")]
-    public void TryParse_RejectsTheRest(string? text) =>
-        Assert.False(RgbColor.TryParse(text, out _));
+    public void TryParse_RejectsTheRest(string? text) => Assert.False(RgbColor.TryParse(text, out _));
 
     [Fact]
     public void RoundTrip_SurvivesHex()
@@ -113,12 +135,19 @@ public class RgbColorTests
         Assert.True(RgbColor.TryParse(original.ToHex(), out var parsed));
         Assert.Equal(original, parsed);
     }
+
+    [Fact]
+    public void Transparent_KnowsItIs()
+    {
+        Assert.True(RgbColor.Transparent.IsTransparent);
+        Assert.False(RgbColor.Black.IsTransparent);
+    }
 }
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~RgbColorTests"`
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~RgbColorTests"`
 Expected: FAIL to compile, "The type or namespace name 'RgbColor' could not be found".
 
 - [ ] **Step 3: Write minimal implementation**
@@ -131,9 +160,9 @@ namespace TrispotQR.Core.Primitives;
 /// <summary>
 /// A colour, with no dependency on any UI framework.
 ///
-/// This replaces System.Windows.Media.Color, which is the single thing that kept most of
-/// this project's styling code tied to Windows. Channel order matches the old type (A, R,
-/// G, B) so the swap reads the same at every call site.
+/// This replaces System.Windows.Media.Color, the single thing that kept most of this
+/// project's styling code tied to Windows. Channel order matches the old type (A, R, G, B)
+/// so the swap reads the same at every call site.
 /// </summary>
 public readonly record struct RgbColor(byte A, byte R, byte G, byte B)
 {
@@ -165,8 +194,7 @@ public readonly record struct RgbColor(byte A, byte R, byte G, byte B)
     /// The format the preset file has always used: alpha is written only when it is not
     /// fully opaque, so the common case stays a readable six-digit hex.
     /// </summary>
-    public string ToHex() =>
-        A == 255 ? $"#{R:X2}{G:X2}{B:X2}" : $"#{A:X2}{R:X2}{G:X2}{B:X2}";
+    public string ToHex() => A == 255 ? $"#{R:X2}{G:X2}{B:X2}" : $"#{A:X2}{R:X2}{G:X2}{B:X2}";
 
     public static RgbColor Parse(string text) =>
         TryParse(text, out var colour) ? colour : throw new FormatException($"\"{text}\" is not a colour.");
@@ -216,14 +244,14 @@ public readonly record struct RgbColor(byte A, byte R, byte G, byte B)
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~RgbColorTests"`
-Expected: PASS, 14 tests.
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~RgbColorTests"`
+Expected: PASS, 16 tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C TrispotQR add src/TrispotQR.Core/Primitives/RgbColor.cs tests/TrispotQR.Tests/RgbColorTests.cs
-git -C TrispotQR commit -m "Add RgbColor, a colour type with no UI framework behind it"
+git add src/TrispotQR.Core/Primitives/RgbColor.cs tests/TrispotQR.Tests/RgbColorTests.cs
+git commit -m "Add RgbColor, a colour type with no UI framework behind it"
 ```
 
 ---
@@ -231,13 +259,12 @@ git -C TrispotQR commit -m "Add RgbColor, a colour type with no UI framework beh
 ## Task 2: The QrPath geometry model
 
 **Files:**
-- Create: `src/TrispotQR.Core/Primitives/QrPath.cs`
-- Create: `src/TrispotQR.Core/Primitives/QrPathBuilder.cs`
+- Create: `src/TrispotQR.Core/Primitives/QrPath.cs`, `src/TrispotQR.Core/Primitives/QrPathBuilder.cs`
 - Test: `tests/TrispotQR.Tests/QrPathTests.cs`
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `readonly record struct QrPoint(double X, double Y)`; `abstract record QrSegment` with `QrLineTo(QrPoint To)`, `QrArcTo(QrPoint To, double Radius, bool Clockwise)`, `QrCubicTo(QrPoint C1, QrPoint C2, QrPoint To)`; `sealed record QrFigure(QrPoint Start, IReadOnlyList<QrSegment> Segments, bool IsClosed)`; `enum QrFillRule { NonZero, EvenOdd }`; `sealed record QrPath(IReadOnlyList<QrFigure> Figures, QrFillRule FillRule)` with `static QrPath Empty` and `bool IsEmpty`; `sealed class QrPathBuilder` with `Add(QrFigure)`, `AddRange(IEnumerable<QrFigure>)`, `Build(QrFillRule)`.
+- Produces: `readonly record struct QrPoint(double X, double Y)`; `abstract record QrSegment` with `QrLineTo(QrPoint To)`, `QrArcTo(QrPoint To, double Radius, bool Clockwise)`, `QrCubicTo(QrPoint C1, QrPoint C2, QrPoint To)`; `sealed record QrFigure(QrPoint Start, IReadOnlyList<QrSegment> Segments, bool IsClosed)`; `enum QrFillRule { NonZero, EvenOdd }`; `sealed record QrPath(IReadOnlyList<QrFigure> Figures, QrFillRule FillRule)` with `static QrPath Empty` and `bool IsEmpty`; `sealed class QrPathBuilder` with `Add`, `AddRange`, `Build(QrFillRule)`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -267,10 +294,7 @@ public class QrPathTests
     [Fact]
     public void Builder_CollectsFiguresInOrder()
     {
-        var path = new QrPathBuilder()
-            .Add(Square(0, 0, 1))
-            .Add(Square(2, 0, 1))
-            .Build(QrFillRule.NonZero);
+        var path = new QrPathBuilder().Add(Square(0, 0, 1)).Add(Square(2, 0, 1)).Build(QrFillRule.NonZero);
 
         Assert.Equal(2, path.Figures.Count);
         Assert.Equal(new QrPoint(0, 0), path.Figures[0].Start);
@@ -283,10 +307,14 @@ public class QrPathTests
     public void Builder_CarriesTheFillRule() =>
         Assert.Equal(QrFillRule.EvenOdd, new QrPathBuilder().Build(QrFillRule.EvenOdd).FillRule);
 
-    /// <summary>
-    /// Segments are compared by value, which is what lets tests assert on a shape without
-    /// reaching into it.
-    /// </summary>
+    [Fact]
+    public void Builder_AddRangeAppends()
+    {
+        var path = new QrPathBuilder().AddRange([Square(0, 0, 1), Square(1, 0, 1)]).Build(QrFillRule.NonZero);
+        Assert.Equal(2, path.Figures.Count);
+    }
+
+    /// <summary>Segments compare by value, which lets tests assert a shape without reaching into it.</summary>
     [Fact]
     public void Segments_CompareByValue()
     {
@@ -305,7 +333,7 @@ public class QrPathTests
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~QrPathTests"`
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~QrPathTests"`
 Expected: FAIL to compile, "The type or namespace name 'QrPoint' could not be found".
 
 - [ ] **Step 3: Write minimal implementation**
@@ -328,16 +356,16 @@ public enum QrFillRule
 /// <summary>One step along a figure, starting wherever the previous step ended.</summary>
 public abstract record QrSegment;
 
-/// <summary>A straight line to <paramref name="To"/>.</summary>
+/// <summary>A straight line.</summary>
 public sealed record QrLineTo(QrPoint To) : QrSegment;
 
 /// <summary>
-/// A circular arc to <paramref name="To"/>. Always the small arc: every corner this app
-/// draws is a quarter circle or less, so there is no large-arc flag to carry around.
+/// A circular arc. Always the small arc: every corner this app draws is a quarter circle
+/// or less, so there is no large-arc flag to carry around.
 /// </summary>
 public sealed record QrArcTo(QrPoint To, double Radius, bool Clockwise) : QrSegment;
 
-/// <summary>A cubic bezier. Not produced today, carried because SkiaSharp emits them.</summary>
+/// <summary>A cubic bezier. Not produced by ShapeFactory; needed because Skia emits them.</summary>
 public sealed record QrCubicTo(QrPoint C1, QrPoint C2, QrPoint To) : QrSegment;
 
 /// <summary>One continuous outline.</summary>
@@ -386,31 +414,598 @@ public sealed class QrPathBuilder
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~QrPathTests"`
-Expected: PASS, 5 tests.
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~QrPathTests"`
+Expected: PASS, 7 tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C TrispotQR add src/TrispotQR.Core/Primitives/QrPath.cs src/TrispotQR.Core/Primitives/QrPathBuilder.cs tests/TrispotQR.Tests/QrPathTests.cs
-git -C TrispotQR commit -m "Add QrPath, the geometry model that replaces WPF Geometry"
+git add src/TrispotQR.Core/Primitives/QrPath.cs src/TrispotQR.Core/Primitives/QrPathBuilder.cs tests/TrispotQR.Tests/QrPathTests.cs
+git commit -m "Add QrPath, the geometry model that replaces WPF Geometry"
 ```
 
 ---
 
-## Task 3: ShapeFactory emits QrFigure
+## Task 3: QrPath to SKPath and back
+
+Deliberately before the `ShapeFactory` change: this needs only `QrPath`, so its tests build
+geometry from `QrFigure` literals and the tree keeps compiling.
 
 **Files:**
-- Modify: `src/TrispotQR.Core/Rendering/ShapeFactory.cs` (whole file)
-- Test: `tests/TrispotQR.Tests/ShapeFactoryTests.cs`
+- Modify: `src/TrispotQR.Core/TrispotQR.Core.csproj` (add SkiaSharp)
+- Create: `src/TrispotQR.Core/Rendering/SkiaPath.cs`
+- Test: `tests/TrispotQR.Tests/SkiaPathTests.cs`
 
 **Interfaces:**
-- Consumes: `QrFigure`, `QrPoint`, `QrLineTo`, `QrArcTo` from Task 2.
-- Produces: `internal static class ShapeFactory` with `QrFigure RoundedRect(double x, double y, double width, double height, double topLeft, double topRight, double bottomRight, double bottomLeft)`, `QrFigure RoundedRect(double x, double y, double size, double radius)`, `QrFigure Circle(double x, double y, double size)`, `QrFigure Diamond(double x, double y, double size)`. Signatures are unchanged apart from the return type.
-
-`ShapeFactory` is `internal`, so the test project reaches it through the `InternalsVisibleTo` already present in `TrispotQR.Core.csproj`.
+- Consumes: `QrPath` and its segment records from Task 2.
+- Produces: `internal static class SkiaPath` with `SKPath ToSKPath(QrPath)` and `QrPath ToQrPath(SKPath, QrFillRule)`.
 
 - [ ] **Step 1: Write the failing test**
+
+```csharp
+using SkiaSharp;
+using TrispotQR.Core.Primitives;
+using TrispotQR.Core.Rendering;
+
+namespace TrispotQR.Tests;
+
+public class SkiaPathTests
+{
+    /// <summary>
+    /// Built by hand rather than through ShapeFactory: this task runs before ShapeFactory
+    /// changes, and depending on it would couple two independent pieces of work.
+    /// </summary>
+    private static QrPath Square(double x, double y, double size, QrFillRule rule = QrFillRule.NonZero) =>
+        new QrPathBuilder()
+            .Add(new QrFigure(
+                new QrPoint(x, y),
+                [
+                    new QrLineTo(new QrPoint(x + size, y)),
+                    new QrLineTo(new QrPoint(x + size, y + size)),
+                    new QrLineTo(new QrPoint(x, y + size)),
+                ],
+                IsClosed: true))
+            .Build(rule);
+
+    [Fact]
+    public void ASquare_KeepsItsBoundsThroughSkia()
+    {
+        using var sk = SkiaPath.ToSKPath(Square(1, 2, 10));
+
+        Assert.Equal(1f, sk.Bounds.Left, 3);
+        Assert.Equal(2f, sk.Bounds.Top, 3);
+        Assert.Equal(11f, sk.Bounds.Right, 3);
+        Assert.Equal(12f, sk.Bounds.Bottom, 3);
+    }
+
+    [Fact]
+    public void FillRule_IsCarriedAcross()
+    {
+        using var nonZero = SkiaPath.ToSKPath(Square(0, 0, 1));
+        using var evenOdd = SkiaPath.ToSKPath(Square(0, 0, 1, QrFillRule.EvenOdd));
+
+        Assert.Equal(SKPathFillType.Winding, nonZero.FillType);
+        Assert.Equal(SKPathFillType.EvenOdd, evenOdd.FillType);
+    }
+
+    [Fact]
+    public void AnArc_IsDrawnAsAnArc()
+    {
+        var path = new QrPathBuilder()
+            .Add(new QrFigure(
+                new QrPoint(0, 2),
+                [new QrArcTo(new QrPoint(2, 0), 2, Clockwise: true)],
+                IsClosed: false))
+            .Build(QrFillRule.NonZero);
+
+        using var sk = SkiaPath.ToSKPath(path);
+
+        Assert.Equal(0f, sk.Bounds.Left, 2);
+        Assert.Equal(2f, sk.Bounds.Right, 2);
+        Assert.False(sk.IsEmpty);
+    }
+
+    /// <summary>
+    /// The reverse trip exists for the logo punch-out, which is a Skia boolean op whose
+    /// result has to come back into the model so SVG export sees the same shape.
+    /// </summary>
+    [Fact]
+    public void RoundTrip_PreservesBounds()
+    {
+        var original = Square(3, 4, 6);
+        using var sk = SkiaPath.ToSKPath(original);
+        var back = SkiaPath.ToQrPath(sk, QrFillRule.NonZero);
+
+        Assert.NotEmpty(back.Figures);
+
+        using var again = SkiaPath.ToSKPath(back);
+        Assert.Equal(sk.Bounds.Left, again.Bounds.Left, 3);
+        Assert.Equal(sk.Bounds.Right, again.Bounds.Right, 3);
+        Assert.Equal(sk.Bounds.Bottom, again.Bounds.Bottom, 3);
+    }
+
+    [Fact]
+    public void RoundTrip_KeepsTheFigureClosed()
+    {
+        using var sk = SkiaPath.ToSKPath(Square(0, 0, 1));
+        var back = SkiaPath.ToQrPath(sk, QrFillRule.NonZero);
+
+        Assert.True(back.Figures[0].IsClosed);
+    }
+
+    [Fact]
+    public void AnEmptyPath_MakesAnEmptySKPath()
+    {
+        using var sk = SkiaPath.ToSKPath(QrPath.Empty);
+        Assert.True(sk.IsEmpty);
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~SkiaPathTests"`
+Expected: FAIL to compile, "The type or namespace name 'SkiaSharp' could not be found".
+
+- [ ] **Step 3: Write minimal implementation**
+
+Add inside the existing `PackageReference` `ItemGroup` of `src/TrispotQR.Core/TrispotQR.Core.csproj`:
+
+```xml
+    <PackageReference Include="SkiaSharp" Version="4.151.2" />
+    <!--
+      Native binaries are per-platform and the main package brings in only the host's.
+      Naming all three keeps a self-contained publish working for any RID, which Phase 3
+      depends on.
+    -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.151.2" />
+    <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="4.151.2" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.151.2" />
+```
+
+Create `src/TrispotQR.Core/Rendering/SkiaPath.cs`:
+
+```csharp
+using SkiaSharp;
+using TrispotQR.Core.Primitives;
+
+namespace TrispotQR.Core.Rendering;
+
+/// <summary>
+/// Converts between the app's own geometry model and Skia's.
+///
+/// The reverse direction exists for one reason: the logo punch-out is a boolean operation
+/// only Skia can do, and its result has to come back into <see cref="QrPath"/> so the SVG
+/// writer serialises exactly the shape the rasteriser paints.
+/// </summary>
+internal static class SkiaPath
+{
+    public static SKPath ToSKPath(QrPath path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+
+        var result = new SKPath
+        {
+            FillType = path.FillRule == QrFillRule.EvenOdd ? SKPathFillType.EvenOdd : SKPathFillType.Winding,
+        };
+
+        foreach (var figure in path.Figures)
+        {
+            result.MoveTo((float)figure.Start.X, (float)figure.Start.Y);
+
+            foreach (var segment in figure.Segments)
+            {
+                switch (segment)
+                {
+                    case QrLineTo line:
+                        result.LineTo((float)line.To.X, (float)line.To.Y);
+                        break;
+
+                    case QrArcTo arc:
+                        result.ArcTo(
+                            new SKPoint((float)arc.Radius, (float)arc.Radius),
+                            0,
+                            SKPathArcSize.Small,
+                            arc.Clockwise ? SKPathDirection.Clockwise : SKPathDirection.CounterClockwise,
+                            new SKPoint((float)arc.To.X, (float)arc.To.Y));
+                        break;
+
+                    case QrCubicTo cubic:
+                        result.CubicTo(
+                            (float)cubic.C1.X, (float)cubic.C1.Y,
+                            (float)cubic.C2.X, (float)cubic.C2.Y,
+                            (float)cubic.To.X, (float)cubic.To.Y);
+                        break;
+                }
+            }
+
+            if (figure.IsClosed)
+            {
+                result.Close();
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Reads a Skia path back into the model. Skia has already turned arcs into conics or
+    /// cubics by this point, which is why <see cref="QrCubicTo"/> exists: the model has to
+    /// express whatever comes back, or the punch-out would lose its rounded corners.
+    /// </summary>
+    public static QrPath ToQrPath(SKPath path, QrFillRule fillRule)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+
+        var figures = new List<QrFigure>();
+        var segments = new List<QrSegment>();
+        var start = new QrPoint();
+        var open = false;
+
+        using var iterator = path.CreateRawIterator();
+        var points = new SKPoint[4];
+
+        while (true)
+        {
+            var verb = iterator.Next(points);
+
+            if (verb == SKPathVerb.Done)
+            {
+                break;
+            }
+
+            switch (verb)
+            {
+                case SKPathVerb.Move:
+                    Flush(figures, ref segments, start, open, closed: false);
+                    start = Point(points[0]);
+                    open = true;
+                    break;
+
+                case SKPathVerb.Line:
+                    segments.Add(new QrLineTo(Point(points[1])));
+                    break;
+
+                case SKPathVerb.Quad:
+                case SKPathVerb.Conic:
+                    // Raised to a cubic so the model needs only one curve type. A conic is
+                    // approximated; a quadratic converts exactly.
+                    segments.Add(QuadToCubic(Point(points[0]), Point(points[1]), Point(points[2])));
+                    break;
+
+                case SKPathVerb.Cubic:
+                    segments.Add(new QrCubicTo(Point(points[1]), Point(points[2]), Point(points[3])));
+                    break;
+
+                case SKPathVerb.Close:
+                    Flush(figures, ref segments, start, open, closed: true);
+                    open = false;
+                    break;
+            }
+        }
+
+        Flush(figures, ref segments, start, open, closed: false);
+        return new QrPath(figures, fillRule);
+    }
+
+    private static void Flush(
+        List<QrFigure> figures, ref List<QrSegment> segments, QrPoint start, bool open, bool closed)
+    {
+        if (!open || segments.Count == 0)
+        {
+            segments = [];
+            return;
+        }
+
+        figures.Add(new QrFigure(start, segments, closed));
+        segments = [];
+    }
+
+    /// <summary>A quadratic raised to an equivalent cubic, which is exact rather than approximate.</summary>
+    private static QrCubicTo QuadToCubic(QrPoint from, QrPoint control, QrPoint to) =>
+        new(
+            new QrPoint(from.X + (2.0 / 3.0 * (control.X - from.X)), from.Y + (2.0 / 3.0 * (control.Y - from.Y))),
+            new QrPoint(to.X + (2.0 / 3.0 * (control.X - to.X)), to.Y + (2.0 / 3.0 * (control.Y - to.Y))),
+            to);
+
+    private static QrPoint Point(SKPoint p) => new(p.X, p.Y);
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~SkiaPathTests"`
+Expected: PASS, 6 tests. The rest of the suite must still pass too; nothing else changed.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/TrispotQR.Core/TrispotQR.Core.csproj src/TrispotQR.Core/Rendering/SkiaPath.cs tests/TrispotQR.Tests/SkiaPathTests.cs
+git commit -m "Convert between QrPath and SKPath"
+```
+
+---
+
+## Task 4: SVG path data from QrPath
+
+Also before the `ShapeFactory` change, for the same reason. Tests build geometry by hand.
+
+**Files:**
+- Create: `src/TrispotQR.Core/Export/SvgPathData.cs`
+- Test: `tests/TrispotQR.Tests/SvgPathDataTests.cs`
+
+**Interfaces:**
+- Consumes: `QrPath` and its segment records.
+- Produces: `internal static class SvgPathData` with `string ToData(QrPath)` and `string FillRule(QrFillRule)`.
+
+This replaces stripping WPF's `F0`/`F1` prefix off `Geometry.ToString()`, a WPF-specific
+debug-string behaviour that would not have survived the port.
+
+- [ ] **Step 1: Write the failing test**
+
+```csharp
+using TrispotQR.Core.Export;
+using TrispotQR.Core.Primitives;
+
+namespace TrispotQR.Tests;
+
+public class SvgPathDataTests
+{
+    private static QrPath Of(QrFigure figure) => new QrPathBuilder().Add(figure).Build(QrFillRule.NonZero);
+
+    [Fact]
+    public void AClosedSquare_IsMoveLinesAndZ()
+    {
+        var figure = new QrFigure(
+            new QrPoint(0, 0),
+            [
+                new QrLineTo(new QrPoint(2, 0)),
+                new QrLineTo(new QrPoint(2, 2)),
+                new QrLineTo(new QrPoint(0, 2)),
+            ],
+            IsClosed: true);
+
+        Assert.Equal("M0,0 L2,0 L2,2 L0,2 Z", SvgPathData.ToData(Of(figure)));
+    }
+
+    [Fact]
+    public void AnArc_UsesTheSvgArcCommand()
+    {
+        var figure = new QrFigure(
+            new QrPoint(0, 2),
+            [new QrArcTo(new QrPoint(2, 0), 2, Clockwise: true)],
+            IsClosed: false);
+
+        // rx,ry rotation large-arc sweep x,y
+        Assert.Equal("M0,2 A2,2 0 0 1 2,0", SvgPathData.ToData(Of(figure)));
+    }
+
+    [Fact]
+    public void ACounterClockwiseArc_FlipsTheSweepFlag()
+    {
+        var figure = new QrFigure(
+            new QrPoint(0, 2),
+            [new QrArcTo(new QrPoint(2, 0), 2, Clockwise: false)],
+            IsClosed: false);
+
+        Assert.Contains(" 0 0 0 ", SvgPathData.ToData(Of(figure)));
+    }
+
+    [Fact]
+    public void ACubic_UsesTheCurveCommand()
+    {
+        var figure = new QrFigure(
+            new QrPoint(0, 0),
+            [new QrCubicTo(new QrPoint(1, 0), new QrPoint(2, 1), new QrPoint(2, 2))],
+            IsClosed: false);
+
+        Assert.Equal("M0,0 C1,0 2,1 2,2", SvgPathData.ToData(Of(figure)));
+    }
+
+    [Fact]
+    public void Numbers_AreInvariantAndTrimmed()
+    {
+        var figure = new QrFigure(
+            new QrPoint(1.5, 2.25), [new QrLineTo(new QrPoint(3.0, 4.123456))], IsClosed: false);
+
+        Assert.Equal("M1.5,2.25 L3,4.1235", SvgPathData.ToData(Of(figure)));
+    }
+
+    [Fact]
+    public void AnEmptyPath_ProducesNothing() => Assert.Equal(string.Empty, SvgPathData.ToData(QrPath.Empty));
+
+    [Fact]
+    public void MultipleFigures_EachStartWithAMove()
+    {
+        var one = new QrFigure(new QrPoint(0, 0), [new QrLineTo(new QrPoint(1, 0))], IsClosed: true);
+        var two = new QrFigure(new QrPoint(5, 5), [new QrLineTo(new QrPoint(6, 5))], IsClosed: true);
+        var data = SvgPathData.ToData(new QrPathBuilder().Add(one).Add(two).Build(QrFillRule.NonZero));
+
+        Assert.Equal("M0,0 L1,0 Z M5,5 L6,5 Z", data);
+    }
+
+    [Fact]
+    public void FillRule_MapsToTheSvgKeywords()
+    {
+        Assert.Equal("nonzero", SvgPathData.FillRule(QrFillRule.NonZero));
+        Assert.Equal("evenodd", SvgPathData.FillRule(QrFillRule.EvenOdd));
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~SvgPathDataTests"`
+Expected: FAIL to compile, "The name 'SvgPathData' does not exist".
+
+- [ ] **Step 3: Write minimal implementation**
+
+```csharp
+using System.Globalization;
+using System.Text;
+using TrispotQR.Core.Primitives;
+
+namespace TrispotQR.Core.Export;
+
+/// <summary>
+/// Serialises a <see cref="QrPath"/> to the SVG <c>d</c> attribute.
+///
+/// The previous version took WPF's path mini-language from Geometry.ToString and stripped
+/// its leading fill-rule token. That worked, and it depended on the debug-string format of
+/// a Windows-only type. Writing the data is a dozen lines and owes nothing to anything.
+/// </summary>
+internal static class SvgPathData
+{
+    private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
+
+    public static string FillRule(QrFillRule rule) => rule == QrFillRule.EvenOdd ? "evenodd" : "nonzero";
+
+    public static string ToData(QrPath path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+
+        var builder = new StringBuilder();
+
+        foreach (var figure in path.Figures)
+        {
+            if (builder.Length > 0)
+            {
+                builder.Append(' ');
+            }
+
+            builder.Append('M').Append(Pair(figure.Start));
+
+            foreach (var segment in figure.Segments)
+            {
+                builder.Append(' ');
+
+                switch (segment)
+                {
+                    case QrLineTo line:
+                        builder.Append('L').Append(Pair(line.To));
+                        break;
+
+                    case QrArcTo arc:
+                        builder.Append('A')
+                            .Append(Num(arc.Radius)).Append(',').Append(Num(arc.Radius))
+                            .Append(" 0 0 ")
+                            .Append(arc.Clockwise ? '1' : '0')
+                            .Append(' ')
+                            .Append(Pair(arc.To));
+                        break;
+
+                    case QrCubicTo cubic:
+                        builder.Append('C')
+                            .Append(Pair(cubic.C1)).Append(' ')
+                            .Append(Pair(cubic.C2)).Append(' ')
+                            .Append(Pair(cubic.To));
+                        break;
+                }
+            }
+
+            if (figure.IsClosed)
+            {
+                builder.Append(" Z");
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static string Pair(QrPoint point) => $"{Num(point.X)},{Num(point.Y)}";
+
+    private static string Num(double value) => value.ToString("0.####", Invariant);
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~SvgPathDataTests"`
+Expected: PASS, 8 tests.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/TrispotQR.Core/Export/SvgPathData.cs tests/TrispotQR.Tests/SvgPathDataTests.cs
+git commit -m "Write SVG path data from the geometry model"
+```
+
+---
+
+## Task 5: The switch
+
+The largest task, and necessarily atomic: geometry and colour both run through
+`QrDrawing`, so the tree cannot compile with only one of them changed. Ends green.
+
+**Files:**
+- Modify: `src/TrispotQR.Core/Rendering/ShapeFactory.cs`, `Rendering/QrDrawing.cs`, `Rendering/QrGeometryBuilder.cs`, `Rendering/LogoCompositor.cs`
+- Create: `src/TrispotQR.Core/Rendering/SkiaPathOps.cs`, `src/TrispotQR.Core/Rendering/ImageSize.cs`
+- Modify: `src/TrispotQR.Core/Styling/QrStyle.cs`, `Styling/StylePresets.cs`, `Styling/HsvColor.cs`, `Presets/ColorJsonConverter.cs`
+- Move: `src/TrispotQR.Core/Rendering/QrRenderer.cs` → `src/TrispotQR.App/Rendering/WpfQrRenderer.cs`
+- Create: `src/TrispotQR.App/Rendering/WpfGeometryAdapter.cs`
+- Modify: every app and test file naming `QrRenderer` or a style `Color`
+- Test: `tests/TrispotQR.Tests/SkiaPathOpsTests.cs`, `tests/TrispotQR.Tests/ShapeFactoryTests.cs`
+
+**Interfaces:**
+- Consumes: `RgbColor`, `QrPath`, `SkiaPath`.
+- Produces:
+  - `internal static class ShapeFactory` returning `QrFigure` from the same four signatures
+  - `sealed record QrStroke(RgbColor Color, double Thickness)`
+  - `sealed class QrLayer(string name, QrPath path, RgbColor fill, QrStroke? stroke)` with `Name`, `Path`, `Fill`, `Stroke`
+  - `sealed class QrDrawing(double sizeInUnits, RgbColor? background, IReadOnlyList<QrLayer> layers, LogoPlacement? logo)`
+  - `internal static class SkiaPathOps` with `QrPath Exclude(QrPath subject, QrPath punch)`
+  - `internal static class ImageSize` with `(int Width, int Height)? Read(string path)`
+  - `LogoCompositor.Punch` returning `QrPath?`
+  - App-side `WpfGeometryAdapter.ToColor/ToBrush/ToPen/ToGeometry` and `WpfQrRenderer.RenderToVisual/RenderToDrawingImage/RenderToBitmap`, each taking `RgbColor?` where the old signature took `Color?`
+
+- [ ] **Step 1: Write the failing tests**
+
+`tests/TrispotQR.Tests/SkiaPathOpsTests.cs`:
+
+```csharp
+using TrispotQR.Core.Primitives;
+using TrispotQR.Core.Rendering;
+
+namespace TrispotQR.Tests;
+
+public class SkiaPathOpsTests
+{
+    private static QrPath Square(double x, double y, double size) =>
+        new QrPathBuilder().Add(ShapeFactory.RoundedRect(x, y, size, 0)).Build(QrFillRule.NonZero);
+
+    /// <summary>
+    /// The logo punch-out. A hole in the middle of a shape is the whole point, and it has
+    /// to come back as a QrPath so the SVG export shows the same hole the PNG does.
+    /// </summary>
+    [Fact]
+    public void Exclude_CutsAHoleAndKeepsTheOutline()
+    {
+        var result = SkiaPathOps.Exclude(Square(0, 0, 10), Square(4, 4, 2));
+
+        using var sk = SkiaPath.ToSKPath(result);
+        Assert.Equal(0f, sk.Bounds.Left, 3);
+        Assert.Equal(10f, sk.Bounds.Right, 3);
+        Assert.False(sk.Contains(5f, 5f));
+        Assert.True(sk.Contains(1f, 1f));
+    }
+
+    [Fact]
+    public void Exclude_LeavesTheSubjectAloneWhenNothingOverlaps()
+    {
+        var result = SkiaPathOps.Exclude(Square(0, 0, 2), Square(50, 50, 2));
+
+        using var sk = SkiaPath.ToSKPath(result);
+        Assert.True(sk.Contains(1f, 1f));
+        Assert.Equal(2f, sk.Bounds.Right, 3);
+    }
+
+    [Fact]
+    public void Exclude_OfAnEmptySubjectIsEmpty() =>
+        Assert.True(SkiaPathOps.Exclude(QrPath.Empty, Square(0, 0, 1)).IsEmpty);
+}
+```
+
+`tests/TrispotQR.Tests/ShapeFactoryTests.cs`:
 
 ```csharp
 using TrispotQR.Core.Primitives;
@@ -427,8 +1022,8 @@ public class ShapeFactoryTests
 
         Assert.Equal(new QrPoint(0, 0), figure.Start);
         Assert.True(figure.IsClosed);
-        Assert.All(figure.Segments, s => Assert.IsType<QrLineTo>(s));
         Assert.Equal(4, figure.Segments.Count);
+        Assert.All(figure.Segments, s => Assert.IsType<QrLineTo>(s));
     }
 
     [Fact]
@@ -453,7 +1048,6 @@ public class ShapeFactoryTests
     public void Radius_IsClampedToHalfTheShorterSide()
     {
         var figure = ShapeFactory.RoundedRect(0, 0, 10, 4, 99, 99, 99, 99);
-
         Assert.All(figure.Segments.OfType<QrArcTo>(), a => Assert.Equal(2, a.Radius));
     }
 
@@ -461,8 +1055,6 @@ public class ShapeFactoryTests
     public void Circle_IsARectangleRoundedByHalfItsSize()
     {
         var figure = ShapeFactory.Circle(0, 0, 8);
-
-        Assert.Equal(4, figure.Segments.OfType<QrArcTo>().Count());
         Assert.All(figure.Segments.OfType<QrArcTo>(), a => Assert.Equal(4, a.Radius));
     }
 
@@ -478,22 +1070,19 @@ public class ShapeFactoryTests
     }
 
     [Fact]
-    public void Offsets_ArePlacedWhereAsked()
-    {
-        var figure = ShapeFactory.RoundedRect(3, 7, 2, 0);
-        Assert.Equal(new QrPoint(3, 7), figure.Start);
-    }
+    public void Offsets_ArePlacedWhereAsked() =>
+        Assert.Equal(new QrPoint(3, 7), ShapeFactory.RoundedRect(3, 7, 2, 0).Start);
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run tests to verify they fail**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~ShapeFactoryTests"`
-Expected: FAIL to compile, `PathFigure` cannot convert to `QrFigure`.
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~ShapeFactoryTests|FullyQualifiedName~SkiaPathOpsTests"`
+Expected: FAIL to compile, `SkiaPathOps` does not exist and `PathFigure` will not convert to `QrFigure`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3a: ShapeFactory returns QrFigure**
 
-Replace the whole of `ShapeFactory.cs`:
+Replace the whole file. The maths is unchanged; only the types are.
 
 ```csharp
 using TrispotQR.Core.Primitives;
@@ -579,128 +1168,7 @@ internal static class ShapeFactory
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~ShapeFactoryTests"`
-Expected: PASS, 6 tests. The rest of the solution will not compile yet; that is expected and Task 6 fixes it. To see only this task's result, temporarily run with `dotnet build src/TrispotQR.Core` and note that `QrGeometryBuilder` errors are the next task's work.
-
-**Note for the implementer:** Tasks 3 through 6 leave the solution uncompilable in between, because `QrGeometryBuilder` consumes `ShapeFactory` and produces WPF geometry. Do Tasks 3, 4, 5 and 6 as one working session and commit at the end of Task 6. Steps 5 below stages the change without committing.
-
-- [ ] **Step 5: Stage, do not commit yet**
-
-```bash
-git -C TrispotQR add src/TrispotQR.Core/Rendering/ShapeFactory.cs tests/TrispotQR.Tests/ShapeFactoryTests.cs
-```
-
----
-
-## Task 4: QrPath to SKPath and back
-
-**Files:**
-- Modify: `src/TrispotQR.Core/TrispotQR.Core.csproj` (add SkiaSharp)
-- Create: `src/TrispotQR.Core/Rendering/SkiaPath.cs`
-- Test: `tests/TrispotQR.Tests/SkiaPathTests.cs`
-
-**Interfaces:**
-- Consumes: `QrPath`, `QrFigure`, `QrPoint`, `QrLineTo`, `QrArcTo`, `QrCubicTo`, `QrFillRule`.
-- Produces: `internal static class SkiaPath` with `SKPath ToSKPath(QrPath path)` and `QrPath ToQrPath(SKPath path, QrFillRule fillRule)`.
-
-- [ ] **Step 1: Write the failing test**
-
-```csharp
-using SkiaSharp;
-using TrispotQR.Core.Primitives;
-using TrispotQR.Core.Rendering;
-
-namespace TrispotQR.Tests;
-
-public class SkiaPathTests
-{
-    private static QrPath Square(double x, double y, double size) =>
-        new QrPathBuilder()
-            .Add(ShapeFactory.RoundedRect(x, y, size, 0))
-            .Build(QrFillRule.NonZero);
-
-    [Fact]
-    public void ASquare_KeepsItsBoundsThroughSkia()
-    {
-        using var sk = SkiaPath.ToSKPath(Square(1, 2, 10));
-
-        Assert.Equal(1f, sk.Bounds.Left, 3);
-        Assert.Equal(2f, sk.Bounds.Top, 3);
-        Assert.Equal(11f, sk.Bounds.Right, 3);
-        Assert.Equal(12f, sk.Bounds.Bottom, 3);
-    }
-
-    [Fact]
-    public void FillRule_IsCarriedAcross()
-    {
-        using var nonZero = SkiaPath.ToSKPath(Square(0, 0, 1));
-        Assert.Equal(SKPathFillType.Winding, nonZero.FillType);
-
-        var evenOdd = new QrPathBuilder().Add(ShapeFactory.RoundedRect(0, 0, 1, 0)).Build(QrFillRule.EvenOdd);
-        using var sk = SkiaPath.ToSKPath(evenOdd);
-        Assert.Equal(SKPathFillType.EvenOdd, sk.FillType);
-    }
-
-    [Fact]
-    public void ARoundedShape_SurvivesTheTrip()
-    {
-        var original = new QrPathBuilder().Add(ShapeFactory.Circle(0, 0, 8)).Build(QrFillRule.NonZero);
-        using var sk = SkiaPath.ToSKPath(original);
-
-        Assert.Equal(0f, sk.Bounds.Left, 2);
-        Assert.Equal(8f, sk.Bounds.Right, 2);
-    }
-
-    /// <summary>
-    /// The reverse trip exists for the logo punch-out, which is a Skia boolean op whose
-    /// result has to come back into the model so SVG export sees the same shape.
-    /// </summary>
-    [Fact]
-    public void RoundTrip_PreservesBounds()
-    {
-        var original = Square(3, 4, 6);
-        using var sk = SkiaPath.ToSKPath(original);
-        var back = SkiaPath.ToQrPath(sk, QrFillRule.NonZero);
-
-        using var again = SkiaPath.ToSKPath(back);
-        Assert.Equal(sk.Bounds.Left, again.Bounds.Left, 3);
-        Assert.Equal(sk.Bounds.Right, again.Bounds.Right, 3);
-        Assert.NotEmpty(back.Figures);
-    }
-
-    [Fact]
-    public void AnEmptyPath_MakesAnEmptySKPath()
-    {
-        using var sk = SkiaPath.ToSKPath(QrPath.Empty);
-        Assert.True(sk.IsEmpty);
-    }
-}
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~SkiaPathTests"`
-Expected: FAIL to compile, "The type or namespace name 'SkiaSharp' could not be found".
-
-- [ ] **Step 3: Write minimal implementation**
-
-Add to `src/TrispotQR.Core/TrispotQR.Core.csproj`, inside the existing `PackageReference` `ItemGroup`:
-
-```xml
-    <PackageReference Include="SkiaSharp" Version="4.151.2" />
-    <!--
-      The native binaries are per-platform and are not pulled in by the main package for
-      anything but the host. Naming all three keeps a self-contained publish for any RID
-      working, which Phase 3 depends on.
-    -->
-    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.151.2" />
-    <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="4.151.2" />
-    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.151.2" />
-```
-
-Create `src/TrispotQR.Core/Rendering/SkiaPath.cs`:
+- [ ] **Step 3b: SkiaPathOps**
 
 ```csharp
 using SkiaSharp;
@@ -709,440 +1177,8 @@ using TrispotQR.Core.Primitives;
 namespace TrispotQR.Core.Rendering;
 
 /// <summary>
-/// Converts between the app's own geometry model and Skia's.
-///
-/// The reverse direction exists for one reason: the logo punch-out is a boolean operation
-/// only Skia can do, and its result has to come back into <see cref="QrPath"/> so the SVG
-/// writer serialises exactly the shape the rasteriser paints.
-/// </summary>
-internal static class SkiaPath
-{
-    public static SKPath ToSKPath(QrPath path)
-    {
-        ArgumentNullException.ThrowIfNull(path);
-
-        var result = new SKPath
-        {
-            FillType = path.FillRule == QrFillRule.EvenOdd ? SKPathFillType.EvenOdd : SKPathFillType.Winding,
-        };
-
-        foreach (var figure in path.Figures)
-        {
-            result.MoveTo((float)figure.Start.X, (float)figure.Start.Y);
-
-            foreach (var segment in figure.Segments)
-            {
-                switch (segment)
-                {
-                    case QrLineTo line:
-                        result.LineTo((float)line.To.X, (float)line.To.Y);
-                        break;
-
-                    case QrArcTo arc:
-                        // Always the small arc: every corner this app draws is a quarter
-                        // circle or less.
-                        result.ArcTo(
-                            new SKPoint((float)arc.Radius, (float)arc.Radius),
-                            0,
-                            SKPathArcSize.Small,
-                            arc.Clockwise ? SKPathDirection.Clockwise : SKPathDirection.CounterClockwise,
-                            new SKPoint((float)arc.To.X, (float)arc.To.Y));
-                        break;
-
-                    case QrCubicTo cubic:
-                        result.CubicTo(
-                            (float)cubic.C1.X, (float)cubic.C1.Y,
-                            (float)cubic.C2.X, (float)cubic.C2.Y,
-                            (float)cubic.To.X, (float)cubic.To.Y);
-                        break;
-                }
-            }
-
-            if (figure.IsClosed)
-            {
-                result.Close();
-            }
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Reads a Skia path back into the model. Skia has already flattened arcs into cubics
-    /// by this point, which is why <see cref="QrCubicTo"/> exists: the model has to be able
-    /// to express whatever comes back or the punch-out would lose its rounded corners.
-    /// </summary>
-    public static QrPath ToQrPath(SKPath path, QrFillRule fillRule)
-    {
-        ArgumentNullException.ThrowIfNull(path);
-
-        var figures = new List<QrFigure>();
-        var segments = new List<QrSegment>();
-        var start = new QrPoint();
-        var open = false;
-
-        using var iterator = path.CreateRawIterator();
-        var points = new SKPoint[4];
-
-        while (true)
-        {
-            var verb = iterator.Next(points);
-
-            if (verb == SKPathVerb.Done)
-            {
-                break;
-            }
-
-            switch (verb)
-            {
-                case SKPathVerb.Move:
-                    Flush(figures, ref segments, start, open, closed: false);
-                    start = Point(points[0]);
-                    open = true;
-                    break;
-
-                case SKPathVerb.Line:
-                    segments.Add(new QrLineTo(Point(points[1])));
-                    break;
-
-                case SKPathVerb.Quad:
-                    // Raised to a cubic so the model needs only one curve type.
-                    segments.Add(QuadToCubic(Point(points[0]), Point(points[1]), Point(points[2])));
-                    break;
-
-                case SKPathVerb.Cubic:
-                    segments.Add(new QrCubicTo(Point(points[1]), Point(points[2]), Point(points[3])));
-                    break;
-
-                case SKPathVerb.Conic:
-                    // Skia uses conics for true circular arcs. Approximated as a cubic,
-                    // which is what every consumer of this path can draw.
-                    segments.Add(QuadToCubic(Point(points[0]), Point(points[1]), Point(points[2])));
-                    break;
-
-                case SKPathVerb.Close:
-                    Flush(figures, ref segments, start, open, closed: true);
-                    open = false;
-                    break;
-            }
-        }
-
-        Flush(figures, ref segments, start, open, closed: false);
-        return new QrPath(figures, fillRule);
-    }
-
-    private static void Flush(
-        List<QrFigure> figures, ref List<QrSegment> segments, QrPoint start, bool open, bool closed)
-    {
-        if (!open || segments.Count == 0)
-        {
-            segments = [];
-            return;
-        }
-
-        figures.Add(new QrFigure(start, segments, closed));
-        segments = [];
-    }
-
-    /// <summary>A quadratic raised to an equivalent cubic, which is exact rather than approximate.</summary>
-    private static QrCubicTo QuadToCubic(QrPoint from, QrPoint control, QrPoint to) =>
-        new(
-            new QrPoint(from.X + (2.0 / 3.0 * (control.X - from.X)), from.Y + (2.0 / 3.0 * (control.Y - from.Y))),
-            new QrPoint(to.X + (2.0 / 3.0 * (control.X - to.X)), to.Y + (2.0 / 3.0 * (control.Y - to.Y))),
-            to);
-
-    private static QrPoint Point(SKPoint p) => new(p.X, p.Y);
-}
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~SkiaPathTests"`
-Expected: PASS, 5 tests.
-
-- [ ] **Step 5: Stage, do not commit yet**
-
-```bash
-git -C TrispotQR add src/TrispotQR.Core/TrispotQR.Core.csproj src/TrispotQR.Core/Rendering/SkiaPath.cs tests/TrispotQR.Tests/SkiaPathTests.cs
-```
-
----
-
-## Task 5: SVG path data from QrPath
-
-**Files:**
-- Create: `src/TrispotQR.Core/Export/SvgPathData.cs`
-- Test: `tests/TrispotQR.Tests/SvgPathDataTests.cs`
-
-**Interfaces:**
-- Consumes: `QrPath`, `QrFigure`, segment records, `QrFillRule`.
-- Produces: `internal static class SvgPathData` with `string ToData(QrPath path)` and `string FillRule(QrFillRule rule)`.
-
-This replaces the trick of stripping WPF's `F0`/`F1` prefix off `Geometry.ToString()`, which was a WPF-specific debug-string behaviour that would not have survived the port.
-
-- [ ] **Step 1: Write the failing test**
-
-```csharp
-using TrispotQR.Core.Export;
-using TrispotQR.Core.Primitives;
-using TrispotQR.Core.Rendering;
-
-namespace TrispotQR.Tests;
-
-public class SvgPathDataTests
-{
-    [Fact]
-    public void ASharpSquare_IsMoveLinesAndClose()
-    {
-        var path = new QrPathBuilder().Add(ShapeFactory.RoundedRect(0, 0, 2, 0)).Build(QrFillRule.NonZero);
-
-        Assert.Equal("M0,0 L2,0 L2,2 L0,2 L0,0 Z", SvgPathData.ToData(path));
-    }
-
-    [Fact]
-    public void AnArc_UsesTheSvgArcCommand()
-    {
-        var path = new QrPathBuilder().Add(ShapeFactory.RoundedRect(0, 0, 4, 1)).Build(QrFillRule.NonZero);
-        var data = SvgPathData.ToData(path);
-
-        // A 1-unit radius, no rotation, small arc, clockwise sweep.
-        Assert.Contains("A1,1 0 0 1 ", data);
-    }
-
-    [Fact]
-    public void Numbers_AreInvariantAndTrimmed()
-    {
-        var figure = new QrFigure(new QrPoint(1.5, 2.25), [new QrLineTo(new QrPoint(3.0, 4.123456))], IsClosed: false);
-        var path = new QrPathBuilder().Add(figure).Build(QrFillRule.NonZero);
-
-        Assert.Equal("M1.5,2.25 L3,4.1235", SvgPathData.ToData(path));
-    }
-
-    [Fact]
-    public void AnEmptyPath_ProducesNothing() =>
-        Assert.Equal(string.Empty, SvgPathData.ToData(QrPath.Empty));
-
-    [Fact]
-    public void FillRule_MapsToTheSvgKeywords()
-    {
-        Assert.Equal("nonzero", SvgPathData.FillRule(QrFillRule.NonZero));
-        Assert.Equal("evenodd", SvgPathData.FillRule(QrFillRule.EvenOdd));
-    }
-
-    [Fact]
-    public void MultipleFigures_AreSeparatedBySpaces()
-    {
-        var path = new QrPathBuilder()
-            .Add(ShapeFactory.RoundedRect(0, 0, 1, 0))
-            .Add(ShapeFactory.RoundedRect(2, 0, 1, 0))
-            .Build(QrFillRule.NonZero);
-
-        Assert.Equal(2, SvgPathData.ToData(path).Split('M', StringSplitOptions.RemoveEmptyEntries).Length);
-    }
-
-    [Fact]
-    public void ACubic_UsesTheCurveCommand()
-    {
-        var figure = new QrFigure(
-            new QrPoint(0, 0),
-            [new QrCubicTo(new QrPoint(1, 0), new QrPoint(2, 1), new QrPoint(2, 2))],
-            IsClosed: false);
-
-        Assert.Equal("M0,0 C1,0 2,1 2,2", SvgPathData.ToData(new QrPathBuilder().Add(figure).Build(QrFillRule.NonZero)));
-    }
-}
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~SvgPathDataTests"`
-Expected: FAIL to compile, "The name 'SvgPathData' does not exist".
-
-- [ ] **Step 3: Write minimal implementation**
-
-```csharp
-using System.Globalization;
-using System.Text;
-using TrispotQR.Core.Primitives;
-
-namespace TrispotQR.Core.Export;
-
-/// <summary>
-/// Serialises a <see cref="QrPath"/> to the SVG <c>d</c> attribute.
-///
-/// The previous version of this took WPF's path mini-language from Geometry.ToString and
-/// stripped its leading fill-rule token. That worked, and it depended on a debug-string
-/// format of a Windows-only type. Writing the data is a dozen lines and owes nothing to
-/// anything.
-/// </summary>
-internal static class SvgPathData
-{
-    private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
-
-    public static string FillRule(QrFillRule rule) => rule == QrFillRule.EvenOdd ? "evenodd" : "nonzero";
-
-    public static string ToData(QrPath path)
-    {
-        ArgumentNullException.ThrowIfNull(path);
-
-        var builder = new StringBuilder();
-
-        foreach (var figure in path.Figures)
-        {
-            if (builder.Length > 0)
-            {
-                builder.Append(' ');
-            }
-
-            builder.Append('M').Append(Pair(figure.Start));
-
-            foreach (var segment in figure.Segments)
-            {
-                builder.Append(' ');
-
-                switch (segment)
-                {
-                    case QrLineTo line:
-                        builder.Append('L').Append(Pair(line.To));
-                        break;
-
-                    case QrArcTo arc:
-                        // rx,ry x-rotation large-arc-flag sweep-flag x,y
-                        builder.Append('A')
-                            .Append(Num(arc.Radius)).Append(',').Append(Num(arc.Radius))
-                            .Append(" 0 0 ")
-                            .Append(arc.Clockwise ? '1' : '0')
-                            .Append(' ')
-                            .Append(Pair(arc.To));
-                        break;
-
-                    case QrCubicTo cubic:
-                        builder.Append('C')
-                            .Append(Pair(cubic.C1)).Append(' ')
-                            .Append(Pair(cubic.C2)).Append(' ')
-                            .Append(Pair(cubic.To));
-                        break;
-                }
-            }
-
-            if (figure.IsClosed)
-            {
-                builder.Append(" Z");
-            }
-        }
-
-        return builder.ToString();
-    }
-
-    private static string Pair(QrPoint point) => $"{Num(point.X)},{Num(point.Y)}";
-
-    private static string Num(double value) => value.ToString("0.####", Invariant);
-}
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~SvgPathDataTests"`
-Expected: PASS, 7 tests.
-
-- [ ] **Step 5: Stage, do not commit yet**
-
-```bash
-git -C TrispotQR add src/TrispotQR.Core/Export/SvgPathData.cs tests/TrispotQR.Tests/SvgPathDataTests.cs
-```
-
----
-
-## Task 6: QrDrawing, QrGeometryBuilder and LogoCompositor move to QrPath and RgbColor
-
-This is the largest task and the one that makes the solution compile again. It ends with a commit.
-
-**Files:**
-- Modify: `src/TrispotQR.Core/Rendering/QrDrawing.cs` (whole file)
-- Create: `src/TrispotQR.Core/Rendering/SkiaPathOps.cs`
-- Modify: `src/TrispotQR.Core/Rendering/QrGeometryBuilder.cs` (geometry types throughout)
-- Modify: `src/TrispotQR.Core/Rendering/LogoCompositor.cs` (geometry types)
-- Modify: `src/TrispotQR.Core/Styling/QrStyle.cs`, `Styling/StylePresets.cs`, `Styling/HsvColor.cs`, `Presets/ColorJsonConverter.cs` (`Color` becomes `RgbColor`)
-- Create: `src/TrispotQR.App/Rendering/WpfGeometryAdapter.cs`
-- Create: `src/TrispotQR.App/Rendering/WpfQrRenderer.cs`
-- Modify: every app and test file that referenced `System.Windows.Media.Color` for a style
-- Test: `tests/TrispotQR.Tests/SkiaPathOpsTests.cs`
-
-**Interfaces:**
-- Consumes: `RgbColor`, `QrPath`, `SkiaPath`, `ShapeFactory`.
-- Produces:
-  - `sealed record QrStroke(RgbColor Color, double Thickness)`
-  - `sealed class QrLayer(string name, QrPath path, RgbColor fill, QrStroke? stroke)` with properties `Name`, `Path`, `Fill`, `Stroke`
-  - `sealed class QrDrawing(double sizeInUnits, RgbColor? background, IReadOnlyList<QrLayer> layers, LogoPlacement? logo)`
-  - `internal static class SkiaPathOps` with `QrPath Exclude(QrPath subject, QrPath punch)`
-  - App-side: `static Geometry WpfGeometryAdapter.ToGeometry(QrPath)`, `static Color WpfGeometryAdapter.ToColor(RgbColor)`, and `WpfQrRenderer` with the three methods `QrRenderer` had.
-
-- [ ] **Step 1: Write the failing test for the boolean op**
-
-```csharp
-using TrispotQR.Core.Primitives;
-using TrispotQR.Core.Rendering;
-
-namespace TrispotQR.Tests;
-
-public class SkiaPathOpsTests
-{
-    private static QrPath Square(double x, double y, double size) =>
-        new QrPathBuilder().Add(ShapeFactory.RoundedRect(x, y, size, 0)).Build(QrFillRule.NonZero);
-
-    /// <summary>
-    /// The logo punch-out. A hole in the middle of a shape is the whole point, and it has
-    /// to come back as a QrPath so the SVG export shows the same hole the PNG does.
-    /// </summary>
-    [Fact]
-    public void Exclude_CutsAHoleAndKeepsTheOutline()
-    {
-        var result = SkiaPathOps.Exclude(Square(0, 0, 10), Square(4, 4, 2));
-
-        Assert.True(result.Figures.Count >= 2, "expected an outer outline and a hole");
-
-        using var sk = SkiaPath.ToSKPath(result);
-        Assert.Equal(0f, sk.Bounds.Left, 3);
-        Assert.Equal(10f, sk.Bounds.Right, 3);
-
-        // The centre of the punched area is no longer painted.
-        Assert.False(sk.Contains(5f, 5f));
-        Assert.True(sk.Contains(1f, 1f));
-    }
-
-    [Fact]
-    public void Exclude_LeavesTheSubjectAloneWhenNothingOverlaps()
-    {
-        var result = SkiaPathOps.Exclude(Square(0, 0, 2), Square(50, 50, 2));
-
-        using var sk = SkiaPath.ToSKPath(result);
-        Assert.Equal(0f, sk.Bounds.Left, 3);
-        Assert.Equal(2f, sk.Bounds.Right, 3);
-        Assert.True(sk.Contains(1f, 1f));
-    }
-
-    [Fact]
-    public void Exclude_OfAnEmptySubjectIsEmpty() =>
-        Assert.True(SkiaPathOps.Exclude(QrPath.Empty, Square(0, 0, 1)).IsEmpty);
-}
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~SkiaPathOpsTests"`
-Expected: FAIL to compile, "The name 'SkiaPathOps' does not exist".
-
-- [ ] **Step 3a: Implement SkiaPathOps**
-
-```csharp
-using SkiaSharp;
-using TrispotQR.Core.Primitives;
-
-namespace TrispotQR.Core.Rendering;
-
-/// <summary>
-/// Boolean operations on paths, which is the one piece of geometry work the model cannot
-/// do for itself. Used only for the logo punch-out, and only when a logo is present.
+/// Boolean operations on paths, the one piece of geometry work the model cannot do for
+/// itself. Used only for the logo punch-out, and only when a logo is present.
 /// </summary>
 internal static class SkiaPathOps
 {
@@ -1169,7 +1205,54 @@ internal static class SkiaPathOps
 }
 ```
 
-- [ ] **Step 3b: Rewrite QrDrawing.cs**
+- [ ] **Step 3c: ImageSize**
+
+`LogoCompositor.Place` currently reads the logo's pixel dimensions through
+`QrRenderer.LoadImage`, which is WPF and is leaving Core. This replaces it.
+
+```csharp
+using System.IO;
+using SkiaSharp;
+
+namespace TrispotQR.Core.Rendering;
+
+/// <summary>
+/// The pixel dimensions of an image file.
+///
+/// Only the header is read, not the pixels, because the one thing Core needs from a logo
+/// file before drawing it is its aspect ratio. Returns null for a missing or unreadable
+/// file, which is what lets an unusable logo degrade into a plain code rather than a crash.
+/// </summary>
+internal static class ImageSize
+{
+    public static (int Width, int Height)? Read(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var stream = File.OpenRead(path);
+            using var codec = SKCodec.Create(stream);
+
+            if (codec is null || codec.Info.Width <= 0 || codec.Info.Height <= 0)
+            {
+                return null;
+            }
+
+            return (codec.Info.Width, codec.Info.Height);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
+        }
+    }
+}
+```
+
+- [ ] **Step 3d: QrDrawing**
 
 ```csharp
 using TrispotQR.Core.Primitives;
@@ -1184,7 +1267,7 @@ public static class QrLayerNames
     public const string MarkerCenters = "marker-centers";
 }
 
-/// <summary>An outline drawn around a layer, in module units.</summary>
+/// <summary>An outline drawn around a layer. Thickness is in module units.</summary>
 public sealed record QrStroke(RgbColor Color, double Thickness);
 
 /// <summary>
@@ -1247,98 +1330,150 @@ public sealed class QrDrawing
 }
 ```
 
-- [ ] **Step 3c: Update QrGeometryBuilder**
+- [ ] **Step 3e: QrGeometryBuilder**
 
-Mechanical throughout. The three changes that matter:
+Change `using System.Windows.Media;` to `using TrispotQR.Core.Primitives;`. Each of the three
+layer builders swaps its `PathGeometry` for a `QrPathBuilder`; the loops and the shape
+selection are untouched. For the module layer:
 
 ```csharp
-// Was: using System.Windows.Media;
-using TrispotQR.Core.Primitives;
-
-// Layer construction: a PathGeometry becomes a QrPathBuilder.
-private static QrLayer BuildModuleLayer(QrMatrix matrix, QrStyle style, int quiet)
-{
-    var builder = new QrPathBuilder();
-
-    for (var y = 0; y < matrix.Size; y++)
+    private static QrLayer BuildModuleLayer(QrMatrix matrix, QrStyle style, int quiet)
     {
-        for (var x = 0; x < matrix.Size; x++)
+        var builder = new QrPathBuilder();
+
+        for (var y = 0; y < matrix.Size; y++)
         {
-            if (!matrix.IsDark(x, y) || matrix.IsFinderPattern(x, y))
+            for (var x = 0; x < matrix.Size; x++)
             {
-                continue;
+                if (!matrix.IsDark(x, y) || matrix.IsFinderPattern(x, y))
+                {
+                    continue;
+                }
+
+                builder.Add(ModuleFigure(matrix, style, x, y, quiet));
             }
-
-            builder.Add(ModuleFigure(matrix, style, x, y, quiet));
         }
+
+        return new QrLayer(
+            QrLayerNames.Modules,
+            builder.Build(QrFillRule.NonZero),
+            style.Foreground,
+            StrokeFor(style, OutlineTarget.Modules));
     }
-
-    return new QrLayer(
-        QrLayerNames.Modules,
-        builder.Build(QrFillRule.NonZero),
-        style.Foreground,
-        StrokeFor(style, OutlineTarget.Modules));
-}
-
-// The punch: Geometry.Combine becomes the Skia op.
-private static QrLayer Punched(QrLayer layer, QrPath punch) =>
-    new(layer.Name, SkiaPathOps.Exclude(layer.Path, punch), layer.Fill, layer.Stroke);
 ```
 
-Replace the old `PenFor` helper with `StrokeFor`, returning `QrStroke?`:
+Apply the same change to `BuildMarkerFrameLayer` (fill `style.EffectiveMarkerFrameColor`,
+stroke target `OutlineTarget.Markers`) and `BuildMarkerCenterLayer` (fill
+`style.EffectiveMarkerCenterColor`, same stroke target). `ModuleFigure`, `FrameFigure`,
+`OuterCorner` and the `Corner` enum change only their return type from `PathFigure` to
+`QrFigure`.
+
+Replace `PenFor` with `StrokeFor`, **preserving the existing predicate exactly**:
 
 ```csharp
-/// <summary>The outline for a layer, or null when this style does not outline it.</summary>
-private static QrStroke? StrokeFor(QrStyle style, OutlineTarget target)
-{
-    var outline = style.Outline;
-
-    if (!outline.Enabled || !outline.Applies(target))
+    /// <summary>The outline for a layer, or null when this style does not outline it.</summary>
+    private static QrStroke? StrokeFor(QrStyle style, OutlineTarget part)
     {
-        return null;
-    }
+        var outline = style.Outline;
 
-    return new QrStroke(outline.Color, outline.Thickness);
-}
+        if (!outline.Enabled)
+        {
+            return null;
+        }
+
+        var applies = outline.Target == OutlineTarget.Both || outline.Target == part;
+        if (!applies)
+        {
+            return null;
+        }
+
+        return new QrStroke(outline.Color, outline.ThicknessRatio);
+    }
 ```
 
-Apply the same `QrPathBuilder` change to `BuildMarkerFrameLayer` and `BuildMarkerCenterLayer`, and delete the `Brush`, `Normalise` and `PenFor` helpers along with the `Freeze` calls, which have no equivalent and are not needed: `QrPath` is immutable by construction.
-
-- [ ] **Step 3d: Update LogoCompositor**
-
-`Punch` returns `QrPath?` instead of `Geometry?`, built from `ShapeFactory` exactly as before:
+Replace the punch with the Skia op, and delete the `Brush`, `Normalise` and `PenFor`
+helpers along with every `Freeze` call: `QrPath` is immutable by construction.
 
 ```csharp
-using TrispotQR.Core.Primitives;
-
-/// <summary>The clear area cut out from under the logo, or null when the style wants none.</summary>
-public static QrPath? Punch(LogoPlacement logo, QrStyle style)
-{
-    if (style.Logo.PunchOut == LogoPunch.None)
-    {
-        return null;
-    }
-
-    var pad = style.Logo.Padding;
-    var x = logo.X - pad;
-    var y = logo.Y - pad;
-    var width = logo.Width + (pad * 2);
-    var height = logo.Height + (pad * 2);
-
-    var figure = style.Logo.PunchOut switch
-    {
-        LogoPunch.Circle => ShapeFactory.Circle(x, y, Math.Max(width, height)),
-        LogoPunch.RoundedSquare => ShapeFactory.RoundedRect(x, y, width, height, 0.4, 0.4, 0.4, 0.4),
-        _ => ShapeFactory.RoundedRect(x, y, width, height, 0, 0, 0, 0),
-    };
-
-    return new QrPathBuilder().Add(figure).Build(QrFillRule.NonZero);
-}
+    private static QrLayer Punched(QrLayer layer, QrPath punch) =>
+        new(layer.Name, SkiaPathOps.Exclude(layer.Path, punch), layer.Fill, layer.Stroke);
 ```
 
-- [ ] **Step 3e: Swap Color for RgbColor across Styling and Presets**
+- [ ] **Step 3f: LogoCompositor**
 
-In `QrStyle.cs`, `StylePresets.cs`, `HsvColor.cs` and `ColorJsonConverter.cs`, delete `using System.Windows.Media;`, add `using TrispotQR.Core.Primitives;`, and replace every `Color` with `RgbColor`. Constructors change from `Color.FromRgb(r, g, b)` to `RgbColor.FromRgb(r, g, b)` and `Colors.Black` to `RgbColor.Black`.
+Two changes only. `Place` reads dimensions through `ImageSize` instead of
+`QrRenderer.LoadImage`:
+
+```csharp
+        var size = ImageSize.Read(style.Logo.Path);
+        if (size is not { } dimensions)
+        {
+            return null;
+        }
+
+        var box = style.Logo.SizeRatio * matrix.Size;
+        var aspect = (double)dimensions.Width / dimensions.Height;
+```
+
+`Punch` returns `QrPath?`. **Keep the existing body**, including `PunchRect` and
+`RoundedRadius`, and change only the geometry construction:
+
+```csharp
+    /// <summary>
+    /// The area cleared behind the logo: its box plus the configured padding on every
+    /// side. Null when the style asks for no punch at all.
+    /// </summary>
+    public static QrPath? Punch(LogoPlacement placement, QrStyle style)
+    {
+        if (style.Logo.PunchShape == LogoPunchShape.None)
+        {
+            return null;
+        }
+
+        var rect = PunchRect(placement, style);
+
+        var figure = style.Logo.PunchShape switch
+        {
+            LogoPunchShape.Circle => ShapeFactory.RoundedRect(
+                rect.X, rect.Y, rect.Width, rect.Height,
+                rect.Width / 2, rect.Width / 2, rect.Width / 2, rect.Width / 2),
+
+            LogoPunchShape.RoundedSquare => ShapeFactory.RoundedRect(
+                rect.X, rect.Y, rect.Width, rect.Height,
+                RoundedRadius(rect), RoundedRadius(rect), RoundedRadius(rect), RoundedRadius(rect)),
+
+            _ => ShapeFactory.RoundedRect(rect.X, rect.Y, rect.Width, rect.Height, 0, 0, 0, 0),
+        };
+
+        return new QrPathBuilder().Add(figure).Build(QrFillRule.NonZero);
+    }
+```
+
+`PunchRect` currently returns a WPF `Rect`. Replace it with a local record so Core sheds the
+dependency, keeping the arithmetic identical:
+
+```csharp
+    private sealed record PunchArea(double X, double Y, double Width, double Height);
+
+    private static PunchArea PunchRect(LogoPlacement placement, QrStyle style)
+    {
+        var padding = style.Logo.PunchPadding;
+        return new PunchArea(
+            placement.X - padding,
+            placement.Y - padding,
+            placement.Width + (padding * 2),
+            placement.Height + (padding * 2));
+    }
+
+    private static double RoundedRadius(PunchArea rect) => Math.Min(rect.Width, rect.Height) * 0.18;
+```
+
+- [ ] **Step 3g: Colour swap across Styling and Presets**
+
+In `QrStyle.cs`, `StylePresets.cs` and `HsvColor.cs`: delete `using System.Windows.Media;`,
+add `using TrispotQR.Core.Primitives;`, and replace every `Color` with `RgbColor`,
+`Colors.Black` with `RgbColor.Black`, `Colors.White` with `RgbColor.White`, and
+`Color.FromRgb(...)` with `RgbColor.FromRgb(...)`. Property names do not change.
 
 `ColorJsonConverter` becomes:
 
@@ -1373,7 +1508,7 @@ public sealed class ColorJsonConverter : JsonConverter<RgbColor>
 }
 ```
 
-- [ ] **Step 3f: Add the throwaway WPF adapter in the app**
+- [ ] **Step 3h: The throwaway WPF adapter**
 
 `src/TrispotQR.App/Rendering/WpfGeometryAdapter.cs`:
 
@@ -1381,6 +1516,7 @@ public sealed class ColorJsonConverter : JsonConverter<RgbColor>
 using System.Windows;
 using System.Windows.Media;
 using TrispotQR.Core.Primitives;
+using TrispotQR.Core.Rendering;
 
 namespace TrispotQR.App.Rendering;
 
@@ -1393,6 +1529,8 @@ namespace TrispotQR.App.Rendering;
 internal static class WpfGeometryAdapter
 {
     public static Color ToColor(RgbColor c) => Color.FromArgb(c.A, c.R, c.G, c.B);
+
+    public static Color? ToColor(RgbColor? c) => c is { } value ? ToColor(value) : null;
 
     public static Brush ToBrush(RgbColor c)
     {
@@ -1434,6 +1572,7 @@ internal static class WpfGeometryAdapter
                 wpf.Segments.Add(segment switch
                 {
                     QrLineTo line => new LineSegment(new Point(line.To.X, line.To.Y), true),
+
                     QrArcTo arc => new ArcSegment
                     {
                         Point = new Point(arc.To.X, arc.To.Y),
@@ -1442,11 +1581,13 @@ internal static class WpfGeometryAdapter
                         IsLargeArc = false,
                         RotationAngle = 0,
                     },
+
                     QrCubicTo cubic => new BezierSegment(
                         new Point(cubic.C1.X, cubic.C1.Y),
                         new Point(cubic.C2.X, cubic.C2.Y),
                         new Point(cubic.To.X, cubic.To.Y),
                         true),
+
                     _ => throw new NotSupportedException($"Unknown segment {segment.GetType().Name}"),
                 });
             }
@@ -1461,45 +1602,59 @@ internal static class WpfGeometryAdapter
 }
 ```
 
-- [ ] **Step 3g: Move QrRenderer into the app as WpfQrRenderer**
+- [ ] **Step 3i: Move QrRenderer to the app**
 
-Move `src/TrispotQR.Core/Rendering/QrRenderer.cs` to `src/TrispotQR.App/Rendering/WpfQrRenderer.cs`. Rename the class to `WpfQrRenderer`, change the namespace to `TrispotQR.App.Rendering`, and convert at the point of use:
+`git mv src/TrispotQR.Core/Rendering/QrRenderer.cs src/TrispotQR.App/Rendering/WpfQrRenderer.cs`.
+Rename the class to `WpfQrRenderer`, change the namespace to `TrispotQR.App.Rendering`, add
+`using TrispotQR.Core.Primitives;` and `using TrispotQR.Core.Rendering;`, and change all
+three `Color?` parameters to `RgbColor?`. Inside, convert at the point of use:
 
 ```csharp
-foreach (var layer in drawing.Layers)
-{
-    context.DrawGeometry(
-        WpfGeometryAdapter.ToBrush(layer.Fill),
-        WpfGeometryAdapter.ToPen(layer.Stroke),
-        WpfGeometryAdapter.ToGeometry(layer.Path));
-}
+            var background = backgroundOverride ?? drawing.Background;
+            if (background is { } colour && colour.A > 0)
+            {
+                var brush = WpfGeometryAdapter.ToBrush(colour);
+                context.DrawRectangle(brush, null, new Rect(0, 0, drawing.SizeInUnits, drawing.SizeInUnits));
+            }
+
+            foreach (var layer in drawing.Layers)
+            {
+                context.DrawGeometry(
+                    WpfGeometryAdapter.ToBrush(layer.Fill),
+                    WpfGeometryAdapter.ToPen(layer.Stroke),
+                    WpfGeometryAdapter.ToGeometry(layer.Path));
+            }
 ```
 
-Background handling becomes `WpfGeometryAdapter.ToColor` on the nullable `RgbColor`. Update every reference across the app and tests from `QrRenderer` to `WpfQrRenderer`, and add `using TrispotQR.App.Rendering;`.
+`LoadImage` stays on `WpfQrRenderer` for the app's own preview and logo drawing. Update
+every reference across the app and tests from `QrRenderer` to `WpfQrRenderer`.
 
 - [ ] **Step 4: Run the whole suite**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx`
-Expected: PASS, 599 existing tests plus the new ones from Tasks 1 to 6, so 622 or more. Fix every compile error in tests by swapping `Color` for `RgbColor` and `QrRenderer` for `WpfQrRenderer`. Do not change any assertion's meaning.
+Run: `dotnet test TrispotQR.slnx`
+Expected: PASS, every existing test plus the new ones. Fix compile errors in the app and
+tests by swapping `Color` for `RgbColor` and `QrRenderer` for `WpfQrRenderer`. Do not change
+the meaning of any existing assertion. If a style-matrix test starts failing, the fault is
+the arc conversion in `SkiaPath`, not the geometry.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C TrispotQR add -A
-git -C TrispotQR commit -m "Move Core's geometry and colour onto its own types
+git add -A
+git commit -m "Move Core's geometry and colour onto its own types
 
 QrPath replaces WPF Geometry and RgbColor replaces WPF Color throughout
 Core. The WPF app keeps rendering through a throwaway adapter that Phase 2
 deletes with the rest of the window.
 
-The logo punch-out now goes through a Skia boolean op rather than
-Geometry.Combine, and SVG path data is written from the model instead of
-being scraped out of Geometry.ToString."
+The logo punch-out goes through a Skia boolean op rather than
+Geometry.Combine, and the logo's aspect ratio is read from the file header
+by SkiaSharp rather than by decoding it through WPF."
 ```
 
 ---
 
-## Task 7: The Skia rasteriser
+## Task 6: The Skia rasteriser
 
 **Files:**
 - Create: `src/TrispotQR.Core/Rendering/SkiaRasterizer.cs`
@@ -1507,7 +1662,7 @@ being scraped out of Geometry.ToString."
 
 **Interfaces:**
 - Consumes: `QrDrawing`, `QrLayer`, `RgbColor`, `SkiaPath`.
-- Produces: `public sealed record RasterImage(int Width, int Height, byte[] Pixels)` where `Pixels` is BGRA, 4 bytes per pixel, premultiplied; `public static class SkiaRasterizer` with `RasterImage Render(QrDrawing drawing, int pixelSize, RgbColor? backgroundOverride = null)` and `byte[] EncodePng(RasterImage image)`.
+- Produces: `public sealed record RasterImage(int Width, int Height, byte[] Pixels)`, pixels being BGRA, four bytes each, premultiplied; `public static class SkiaRasterizer` with `RasterImage Render(QrDrawing, int pixelSize, RgbColor? backgroundOverride = null)` and `byte[] EncodePng(RasterImage)`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1527,11 +1682,8 @@ public class SkiaRasterizerTests
         return QrGeometryBuilder.Build(encoded.Matrix!, style ?? QrStyle.Default);
     }
 
-    private static (byte B, byte G, byte R, byte A) PixelAt(RasterImage image, int x, int y)
-    {
-        var i = ((y * image.Width) + x) * 4;
-        return (image.Pixels[i], image.Pixels[i + 1], image.Pixels[i + 2], image.Pixels[i + 3]);
-    }
+    private static byte AlphaAt(RasterImage image, int x, int y) =>
+        image.Pixels[(((y * image.Width) + x) * 4) + 3];
 
     [Fact]
     public void Render_ProducesTheRequestedSize()
@@ -1544,41 +1696,25 @@ public class SkiaRasterizerTests
     }
 
     [Fact]
-    public void AWhiteBackground_IsOpaque()
-    {
-        var image = SkiaRasterizer.Render(Build(QrStyle.Default with { Background = RgbColor.White }), 128);
-
-        Assert.Equal(255, PixelAt(image, 2, 2).A);
-    }
+    public void AWhiteBackground_IsOpaque() =>
+        Assert.Equal(255, AlphaAt(SkiaRasterizer.Render(Build(QrStyle.Default with { Background = RgbColor.White }), 128), 2, 2));
 
     /// <summary>
     /// The quiet zone of a transparent code must have a genuinely empty alpha channel, not
-    /// white pixels. This is the property the whole transparent-PNG feature rests on.
+    /// white pixels. The whole transparent-PNG feature rests on this.
     /// </summary>
     [Fact]
-    public void NoBackground_LeavesTheQuietZoneTransparent()
-    {
-        var image = SkiaRasterizer.Render(Build(QrStyle.Default with { Background = null }), 128);
-
-        Assert.Equal(0, PixelAt(image, 2, 2).A);
-    }
+    public void NoBackground_LeavesTheQuietZoneTransparent() =>
+        Assert.Equal(0, AlphaAt(SkiaRasterizer.Render(Build(QrStyle.Default with { Background = null }), 128), 2, 2));
 
     [Fact]
-    public void BackgroundOverride_FlattensATransparentCode()
-    {
-        var image = SkiaRasterizer.Render(
-            Build(QrStyle.Default with { Background = null }), 128, RgbColor.White);
-
-        Assert.Equal(255, PixelAt(image, 2, 2).A);
-    }
+    public void BackgroundOverride_FlattensATransparentCode() =>
+        Assert.Equal(255, AlphaAt(
+            SkiaRasterizer.Render(Build(QrStyle.Default with { Background = null }), 128, RgbColor.White), 2, 2));
 
     [Fact]
-    public void EncodePng_ProducesARealPngHeader()
-    {
-        var bytes = SkiaRasterizer.EncodePng(SkiaRasterizer.Render(Build(), 64));
-
-        Assert.Equal([0x89, 0x50, 0x4E, 0x47], bytes.Take(4));
-    }
+    public void EncodePng_ProducesARealPngHeader() =>
+        Assert.Equal([0x89, 0x50, 0x4E, 0x47], SkiaRasterizer.EncodePng(SkiaRasterizer.Render(Build(), 64)).Take(4));
 
     [Fact]
     public void Render_RejectsANonPositiveSize() =>
@@ -1606,12 +1742,16 @@ public class SkiaRasterizerTests
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~SkiaRasterizerTests"`
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~SkiaRasterizerTests"`
 Expected: FAIL to compile, "The name 'SkiaRasterizer' does not exist".
 
 - [ ] **Step 3: Write minimal implementation**
 
+Note the explicit `using System.IO;`: Core is still a `UseWPF` project, where it is not implicit.
+
 ```csharp
+using System.IO;
+using System.Runtime.InteropServices;
 using SkiaSharp;
 using TrispotQR.Core.Primitives;
 
@@ -1650,10 +1790,8 @@ public static class SkiaRasterizer
         var canvas = surface.Canvas;
 
         canvas.Clear(SKColors.Transparent);
-
-        var scale = (float)(pixelSize / drawing.SizeInUnits);
         canvas.Save();
-        canvas.Scale(scale);
+        canvas.Scale((float)(pixelSize / drawing.SizeInUnits));
 
         var background = backgroundOverride ?? drawing.Background;
         if (background is { } colour && colour.A > 0)
@@ -1677,7 +1815,7 @@ public static class SkiaRasterizer
         using (var image = surface.Snapshot())
         using (var bitmap = SKBitmap.FromImage(image))
         {
-            System.Runtime.InteropServices.Marshal.Copy(bitmap.GetPixels(), pixels, 0, pixels.Length);
+            Marshal.Copy(bitmap.GetPixels(), pixels, 0, pixels.Length);
         }
 
         return new RasterImage(pixelSize, pixelSize, pixels);
@@ -1688,11 +1826,11 @@ public static class SkiaRasterizer
         ArgumentNullException.ThrowIfNull(image);
 
         var info = new SKImageInfo(image.Width, image.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
-        using var bitmap = new SKBitmap();
-        var handle = System.Runtime.InteropServices.GCHandle.Alloc(image.Pixels, System.Runtime.InteropServices.GCHandleType.Pinned);
+        var handle = GCHandle.Alloc(image.Pixels, GCHandleType.Pinned);
 
         try
         {
+            using var bitmap = new SKBitmap();
             bitmap.InstallPixels(info, handle.AddrOfPinnedObject(), info.RowBytes);
 
             using var encoded = bitmap.Encode(SKEncodedImageFormat.Png, 100);
@@ -1750,8 +1888,8 @@ public static class SkiaRasterizer
             return;
         }
 
-        var target = new SKRect((float)logo.X, (float)logo.Y, (float)(logo.X + logo.Width), (float)(logo.Y + logo.Height));
-        canvas.DrawBitmap(bitmap, target);
+        canvas.DrawBitmap(bitmap, new SKRect(
+            (float)logo.X, (float)logo.Y, (float)(logo.X + logo.Width), (float)(logo.Y + logo.Height)));
     }
 
     private static SKColor ToSk(RgbColor c) => new(c.R, c.G, c.B, c.A);
@@ -1760,28 +1898,28 @@ public static class SkiaRasterizer
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~SkiaRasterizerTests"`
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~SkiaRasterizerTests"`
 Expected: PASS, 7 tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C TrispotQR add src/TrispotQR.Core/Rendering/SkiaRasterizer.cs tests/TrispotQR.Tests/SkiaRasterizerTests.cs
-git -C TrispotQR commit -m "Rasterise with Skia, off-screen and with no UI framework"
+git add src/TrispotQR.Core/Rendering/SkiaRasterizer.cs tests/TrispotQR.Tests/SkiaRasterizerTests.cs
+git commit -m "Rasterise with Skia, off-screen and with no UI framework"
 ```
 
 ---
 
-## Task 8: PngExporter and QrDecoder on raw pixels
+## Task 7: PngExporter and QrDecoder on raw pixels
 
 **Files:**
-- Modify: `src/TrispotQR.Core/Export/PngExporter.cs` (whole file)
-- Modify: `src/TrispotQR.Core/Validation/QrDecoder.cs` (whole file)
-- Test: `tests/TrispotQR.Tests/PngExporterTests.cs` (new), and update `tests/TrispotQR.Tests/RenderAndDecodeTests.cs`
+- Modify: `src/TrispotQR.Core/Export/PngExporter.cs`, `src/TrispotQR.Core/Validation/QrDecoder.cs`, `src/TrispotQR.Core/Validation/ScannabilityChecker.cs`
+- Create: `tests/TrispotQR.Tests/PngExporterTests.cs`
+- Modify: every test that renders then decodes
 
 **Interfaces:**
 - Consumes: `RasterImage`, `SkiaRasterizer`.
-- Produces: `PngExporter.Save(RasterImage image, string path)`, `PngExporter.ToBytes(RasterImage image)`; `QrDecoder.Decode(RasterImage image)`, `QrDecoder.DecodeStrict(RasterImage image)`.
+- Produces: `PngExporter.Save(RasterImage, string)`, `PngExporter.ToBytes(RasterImage)`, `QrDecoder.Decode(RasterImage)`, `QrDecoder.DecodeStrict(RasterImage)`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1798,8 +1936,9 @@ namespace TrispotQR.Tests;
 
 public class PngExporterTests : IDisposable
 {
-    private readonly string _directory =
-        Path.Combine(Path.GetTempPath(), $"trispotqr-png-{Guid.NewGuid():N}");
+    private const string Payload = "https://example.org/tickets";
+
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), $"trispotqr-png-{Guid.NewGuid():N}");
 
     public PngExporterTests() => Directory.CreateDirectory(_directory);
 
@@ -1811,7 +1950,7 @@ public class PngExporterTests : IDisposable
 
     private static RasterImage Render(RgbColor? background, int size = 256)
     {
-        var encoded = QrEncoder.Encode("https://example.org/tickets", EccLevel.Medium);
+        var encoded = QrEncoder.Encode(Payload, EccLevel.Medium);
         var drawing = QrGeometryBuilder.Build(encoded.Matrix!, QrStyle.Default with { Background = background });
         return SkiaRasterizer.Render(drawing, size);
     }
@@ -1823,7 +1962,7 @@ public class PngExporterTests : IDisposable
         PngExporter.Save(Render(RgbColor.White), path);
 
         Assert.True(File.Exists(path));
-        Assert.Equal("https://example.org/tickets", QrDecoder.Decode(Render(RgbColor.White)));
+        Assert.Equal(Payload, QrDecoder.Decode(Render(RgbColor.White)));
     }
 
     [Fact]
@@ -1848,28 +1987,22 @@ public class PngExporterTests : IDisposable
     public void ToBytes_IsAPng() =>
         Assert.Equal([0x89, 0x50, 0x4E, 0x47], PngExporter.ToBytes(Render(RgbColor.White)).Take(4));
 
-    /// <summary>A code saved with no background must stay genuinely transparent on disk.</summary>
+    /// <summary>A code saved with no background must stay genuinely transparent.</summary>
     [Fact]
-    public void ATransparentCode_KeepsItsAlphaChannel()
-    {
-        var image = Render(background: null);
-        var corner = image.Pixels[3];
-
-        Assert.Equal(0, corner);
-    }
+    public void ATransparentCode_KeepsItsAlphaChannel() => Assert.Equal(0, Render(background: null).Pixels[3]);
 
     [Fact]
     public void ATransparentCode_StillDecodesBecauseDecodingFlattensOntoWhite() =>
-        Assert.Equal("https://example.org/tickets", QrDecoder.Decode(Render(background: null)));
+        Assert.Equal(Payload, QrDecoder.Decode(Render(background: null)));
 }
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~PngExporterTests"`
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~PngExporterTests"`
 Expected: FAIL to compile, `RasterImage` cannot convert to `BitmapSource`.
 
-- [ ] **Step 3a: Rewrite PngExporter**
+- [ ] **Step 3a: PngExporter**
 
 ```csharp
 using System.IO;
@@ -1906,52 +2039,21 @@ public static class PngExporter
 }
 ```
 
-- [ ] **Step 3b: Rewrite QrDecoder**
+- [ ] **Step 3b: QrDecoder**
 
-Keep the whole two-pass doc comment from the current file verbatim; only the input type and the flattening change.
+Keep the two-pass doc comment exactly as it stands today; only the input type and the
+flattening change.
 
 ```csharp
-using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Rendering;
 using ZXing;
 
 namespace TrispotQR.Core.Validation;
 
-/// <summary>
-/// Reads a QR code back out of rendered pixels. This is what turns "the style looks fine"
-/// into "the style actually scans", and it is the check the whole styling feature rests on.
-/// </summary>
 public static class QrDecoder
 {
-    /// <summary>
-    /// Decodes the image, or returns null when no code could be read. Any alpha is
-    /// flattened onto white first, matching what a camera would see on paper or a screen.
-    ///
-    /// Two decoder passes, because neither alone is right.
-    ///
-    /// The camera-like pass locates the code by hunting for its corner markers, the way a
-    /// phone does. It is the more meaningful test, but it is also fussy on a clean
-    /// synthetic render: measured over 300 plain black-on-white codes it wrongly failed 15
-    /// of them, all perfectly valid. Reporting "does not scan" on a plain QR code destroys
-    /// any trust in the badge, so a failure there is not taken as final.
-    ///
-    /// The pure pass reads the module grid directly, which suits an image we rendered
-    /// ourselves. It misread none of those 300. It is not simply permissive either: it
-    /// still refuses a code with its corner markers painted out, or with half of it erased.
-    ///
-    /// So a code counts as readable if either pass reads it, and the real-world risks a
-    /// clean render cannot show, contrast, inversion, quiet zone, logo coverage, are
-    /// checked explicitly elsewhere rather than being inferred from a decode failure.
-    /// </summary>
-    public static string? Decode(RasterImage image) =>
-        DecodeStrict(image) ?? Read(image, pureBarcode: true);
+    public static string? Decode(RasterImage image) => DecodeStrict(image) ?? Read(image, pureBarcode: true);
 
-    /// <summary>
-    /// Decodes using only the camera-like pass, which locates the code by its corner
-    /// markers. Stricter than <see cref="Decode"/> and prone to false failures on clean
-    /// renders, so it is meant for the test suite, where every style shipped in the app is
-    /// held to the higher bar, rather than for judging a user's own content.
-    /// </summary>
     public static string? DecodeStrict(RasterImage image) => Read(image, pureBarcode: false);
 
     private static string? Read(RasterImage image, bool pureBarcode)
@@ -1981,7 +2083,7 @@ public static class QrDecoder
     /// what the decoder is given.
     ///
     /// The source is premultiplied, so the colour channels are already scaled by alpha and
-    /// compositing over white is simply adding the uncovered remainder.
+    /// compositing over white is simply adding back the uncovered remainder.
     /// </summary>
     private static byte[] FlattenToBgr24(RasterImage image)
     {
@@ -1989,8 +2091,7 @@ public static class QrDecoder
 
         for (int source = 0, target = 0; source < image.Pixels.Length; source += 4, target += 3)
         {
-            var alpha = image.Pixels[source + 3];
-            var uncovered = 255 - alpha;
+            var uncovered = 255 - image.Pixels[source + 3];
 
             result[target] = (byte)(image.Pixels[source] + uncovered);
             result[target + 1] = (byte)(image.Pixels[source + 1] + uncovered);
@@ -2004,25 +2105,32 @@ public static class QrDecoder
 
 - [ ] **Step 3c: Update every call site**
 
-`ScannabilityChecker`, `RenderAndDecodeTests`, `StyleMatrixScanTests`, `ScannabilityFalseAlarmTests`, `LogoTests`, `SvgExporterTests`, `MainViewModel` and `ExportGuardTests` all render then decode. Replace `QrRenderer.RenderToBitmap(drawing, size)` with `SkiaRasterizer.Render(drawing, size)` and `PngExporter.Save(bitmap, path)` with `PngExporter.Save(image, path)`. In `ScannabilityChecker`, delete the `StaThread.Run` wrapper: Skia needs no apartment thread.
+`ScannabilityChecker`, `RenderAndDecodeTests`, `StyleMatrixScanTests`,
+`ScannabilityFalseAlarmTests`, `LogoTests`, `SvgExporterTests`, `MainViewModel` and
+`ExportGuardTests` all render then decode. Replace `WpfQrRenderer.RenderToBitmap(drawing, size)`
+with `SkiaRasterizer.Render(drawing, size)`. In `ScannabilityChecker`, delete the
+`StaThread.Run` wrapper and its `using`: Skia needs no apartment thread. The app's
+`MainViewModel` keeps using `WpfQrRenderer` for the on-screen preview only.
 
 - [ ] **Step 4: Run the whole suite**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx`
-Expected: PASS. The style matrix is the one to watch; if a shape stops decoding, the fault is in `SkiaPath` arc conversion, not in the geometry.
+Run: `dotnet test TrispotQR.slnx`
+Expected: PASS. Watch the style matrix; a shape that stops decoding points at `SkiaPath` arc
+conversion.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C TrispotQR add -A
-git -C TrispotQR commit -m "Export and decode from raw pixels rather than a WPF bitmap"
+git add -A
+git commit -m "Export and decode from raw pixels rather than a WPF bitmap"
 ```
 
 ---
 
-## Task 9: Prove the Skia renderer is faithful
+## Task 8: Prove the Skia renderer is faithful
 
-The single most valuable test in this phase. It runs only while both renderers exist, so it must be written now and is deleted in Phase 2 with the WPF app.
+The most valuable test in this phase. It runs only while both renderers exist, so it must be
+written now and is deleted in Phase 2 with the WPF app.
 
 **Files:**
 - Create: `tests/TrispotQR.Tests/RendererEquivalenceTests.cs`
@@ -2047,10 +2155,10 @@ namespace TrispotQR.Tests;
 /// <summary>
 /// The Skia renderer must produce codes that read back the same as the WPF renderer's.
 ///
-/// This is the guard for the whole port. Pixel-identical output is explicitly not the
-/// goal, because two engines antialias differently, and it would fail for reasons nobody
-/// should care about. What matters is that a code rendered the new way still scans, and
-/// still carries the same content, for every style the app can produce.
+/// This is the guard for the whole port. Pixel-identical output is explicitly not the goal,
+/// because two engines antialias differently and it would fail for reasons nobody should
+/// care about. What matters is that a code rendered the new way still scans and still
+/// carries the same content, for every style the app can produce.
 ///
 /// Deleted in Phase 2 along with the WPF renderer it compares against.
 /// </summary>
@@ -2087,21 +2195,15 @@ public class RendererEquivalenceTests
         var drawing = QrGeometryBuilder.Build(encoded.Matrix!, style);
 
         var skia = QrDecoder.Decode(SkiaRasterizer.Render(drawing, 512, RgbColor.White));
-
-        var wpf = _host.Run(() =>
-        {
-            var bitmap = WpfQrRenderer.RenderToBitmap(drawing, 512, RgbColor.White);
-            return DecodeWpf(bitmap);
-        });
+        var wpf = _host.Run(() => DecodeWpf(WpfQrRenderer.RenderToBitmap(drawing, 512, RgbColor.White)));
 
         Assert.Equal(Payload, wpf);
         Assert.Equal(Payload, skia);
     }
 
     /// <summary>
-    /// Every shape combination, not just the presets. This is the same guard
-    /// StyleMatrixScanTests applies, pointed at the question of whether the renderer swap
-    /// changed anything.
+    /// Every shape combination, not just the presets. The same guard StyleMatrixScanTests
+    /// applies, pointed at whether the renderer swap changed anything.
     /// </summary>
     [Fact]
     public void EveryShapeCombination_StillDecodesUnderSkia()
@@ -2137,6 +2239,7 @@ public class RendererEquivalenceTests
         Assert.True(failures.Count == 0, string.Join("\n", failures));
     }
 
+    /// <summary>Pbgra32 is premultiplied BGRA, which is exactly what RasterImage carries.</summary>
     private static string? DecodeWpf(BitmapSource bitmap)
     {
         var stride = bitmap.PixelWidth * 4;
@@ -2150,27 +2253,27 @@ public class RendererEquivalenceTests
 
 - [ ] **Step 2: Run it**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~RendererEquivalenceTests"`
-Expected: PASS. If a combination fails only under Skia, the fault is almost certainly the arc conversion in `SkiaPath.ToSKPath`: check that `SKPathArcSize.Small` and the sweep direction match what `ShapeFactory` intended.
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~RendererEquivalenceTests"`
+Expected: PASS. A combination failing only under Skia points at `SkiaPath.ToSKPath`: check
+`SKPathArcSize.Small` and the sweep direction against what `ShapeFactory` intended.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git -C TrispotQR add tests/TrispotQR.Tests/RendererEquivalenceTests.cs
-git -C TrispotQR commit -m "Prove the Skia renderer reads back the same as the WPF one"
+git add tests/TrispotQR.Tests/RendererEquivalenceTests.cs
+git commit -m "Prove the Skia renderer reads back the same as the WPF one"
 ```
 
 ---
 
-## Task 10: SvgExporter on the model
+## Task 9: SvgExporter on the model
 
 **Files:**
-- Modify: `src/TrispotQR.Core/Export/SvgExporter.cs`
-- Modify: `tests/TrispotQR.Tests/SvgExporterTests.cs`
+- Modify: `src/TrispotQR.Core/Export/SvgExporter.cs`, `tests/TrispotQR.Tests/SvgExporterTests.cs`
 
 **Interfaces:**
 - Consumes: `SvgPathData`, `QrDrawing`, `RgbColor`.
-- Produces: unchanged public surface, `SvgExporter.Save(QrDrawing, int, string)` and `SvgExporter.ToSvg(QrDrawing, int)`.
+- Produces: unchanged public surface, `Save(QrDrawing, int, string)` and `ToSvg(QrDrawing, int)`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2202,12 +2305,13 @@ Add to `SvgExporterTests`:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~SvgExporterTests"`
-Expected: FAIL to compile, `PathData(Geometry)` no longer applies because `QrLayer.Geometry` is gone.
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~SvgExporterTests"`
+Expected: FAIL to compile, `PathData(Geometry)` no longer applies.
 
 - [ ] **Step 3: Write minimal implementation**
 
-In `SvgExporter.cs`, delete `using System.Windows.Media;`, add `using TrispotQR.Core.Primitives;`, and delete the whole `PathData` method with its comment about WPF's mini-language. Replace `AppendLayer` with:
+Delete `using System.Windows.Media;`, add `using TrispotQR.Core.Primitives;`, and delete the
+whole `PathData` method with its comment about WPF's mini-language. Then:
 
 ```csharp
     private static void AppendLayer(StringBuilder builder, QrLayer layer)
@@ -2232,11 +2336,7 @@ In `SvgExporter.cs`, delete `using System.Windows.Media;`, add `using TrispotQR.
 
         builder.AppendLine(" />");
     }
-```
 
-Change the two helpers to take `RgbColor`:
-
-```csharp
     private static string Hex(RgbColor color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
 
     /// <summary>SVG carries alpha separately, so a partly transparent colour needs the extra attribute.</summary>
@@ -2244,30 +2344,29 @@ Change the two helpers to take `RgbColor`:
         color.A == 255 ? string.Empty : $@" fill-opacity=""{(color.A / 255.0).ToString("0.###", Invariant)}""";
 ```
 
+The background rect already tests `drawing.Background is { A: > 0 }`, which works unchanged
+on `RgbColor?`.
+
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~SvgExporter"`
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~SvgExporter"`
 Expected: PASS, the existing tests plus the two new ones.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C TrispotQR add src/TrispotQR.Core/Export/SvgExporter.cs tests/TrispotQR.Tests/SvgExporterTests.cs
-git -C TrispotQR commit -m "Write SVG path data from the model instead of scraping WPF"
+git add src/TrispotQR.Core/Export/SvgExporter.cs tests/TrispotQR.Tests/SvgExporterTests.cs
+git commit -m "Write SVG from the model instead of scraping WPF geometry"
 ```
 
 ---
 
-## Task 11: Clipboard export moves to the app
-
-Clipboard access is inherently a platform service and belongs behind an interface, per the spec's mobile rules.
+## Task 10: Clipboard behind an interface
 
 **Files:**
-- Create: `src/TrispotQR.Core/Export/IImageClipboard.cs`
+- Create: `src/TrispotQR.Core/Export/IImageClipboard.cs`, `src/TrispotQR.App/Export/WpfImageClipboard.cs`
 - Delete: `src/TrispotQR.Core/Export/ClipboardExporter.cs`
-- Create: `src/TrispotQR.App/Export/WpfImageClipboard.cs` (the old file's body, taking bytes)
-- Modify: `src/TrispotQR.App/ViewModels/MainViewModel.cs` to take `IImageClipboard`
-- Modify: `tests/TrispotQR.Tests/ClipboardExporterTests.cs`
+- Modify: `src/TrispotQR.App/ViewModels/MainViewModel.cs`, `tests/TrispotQR.Tests/ClipboardExporterTests.cs`
 
 **Interfaces:**
 - Consumes: `RasterImage`, `PngExporter`.
@@ -2275,28 +2374,27 @@ Clipboard access is inherently a platform service and belongs behind an interfac
 
 - [ ] **Step 1: Write the failing test**
 
-Rename `ClipboardExporterTests` to target the new type, keeping every existing assertion and adding:
+Point the existing tests at `WpfImageClipboard`, keeping every assertion, and add:
 
 ```csharp
+    /// <summary>Core must not know how a clipboard works on any particular platform.</summary>
     [Fact]
-    public void TheInterface_IsWhatTheViewModelDependsOn()
+    public void TheContract_LivesInCoreAndTheImplementationDoesNot()
     {
-        // Core must not know how a clipboard works on any particular platform.
         var contract = typeof(TrispotQR.Core.Export.IImageClipboard);
 
         Assert.True(contract.IsInterface);
         Assert.Single(contract.GetMethods());
+        Assert.Contains("TrispotQR.App", typeof(TrispotQR.App.Export.WpfImageClipboard).Assembly.FullName);
     }
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~Clipboard"`
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~Clipboard"`
 Expected: FAIL to compile, `IImageClipboard` does not exist.
 
 - [ ] **Step 3: Write minimal implementation**
-
-`src/TrispotQR.Core/Export/IImageClipboard.cs`:
 
 ```csharp
 using TrispotQR.Core.Rendering;
@@ -2307,8 +2405,8 @@ namespace TrispotQR.Core.Export;
 /// Puts an image on the system clipboard.
 ///
 /// An interface because every platform advertises image formats differently, and because
-/// Core must stay free of anything that assumes a desktop. The Windows implementation
-/// lives in the app; Phase 2 adds an Avalonia one beside it.
+/// Core must stay free of anything assuming a desktop. The Windows implementation lives in
+/// the app; Phase 2 adds an Avalonia one beside it.
 /// </summary>
 public interface IImageClipboard
 {
@@ -2317,7 +2415,10 @@ public interface IImageClipboard
 }
 ```
 
-Move the body of the old `ClipboardExporter` into `src/TrispotQR.App/Export/WpfImageClipboard.cs` as `public sealed class WpfImageClipboard : IImageClipboard`. Keep the whole comment about not disposing the `MemoryStream`, which is a real bug this project already paid for once, and build the WPF `BitmapSource` it needs from the PNG bytes:
+Move the body of `ClipboardExporter` into `src/TrispotQR.App/Export/WpfImageClipboard.cs` as
+`public sealed class WpfImageClipboard : IImageClipboard`. **Keep the comment explaining why
+the `MemoryStream` is not disposed** — that is a bug this project already paid for once.
+Take `RasterImage` and go through `PngExporter.ToBytes`:
 
 ```csharp
     public void Copy(RasterImage image)
@@ -2330,44 +2431,47 @@ Move the body of the old `ClipboardExporter` into `src/TrispotQR.App/Export/WpfI
         // data is null, which pastes as nothing in every app that asks for PNG first.
         var png = new MemoryStream(PngExporter.ToBytes(image));
         data.SetData("PNG", png, autoConvert: false);
-        data.SetImage(FlattenOntoWhite(image));
+        data.SetImage(FlattenOntoWhite(png.ToArray()));
 
         SetWithRetry(data);
         VerifyLanded();
     }
 ```
 
-`FlattenOntoWhite` decodes the PNG bytes into a `BitmapImage` and composites onto white exactly as the old code did.
+`FlattenOntoWhite` decodes those PNG bytes into a `BitmapImage` and composites onto white
+exactly as the old code did. `MainViewModel` takes `IImageClipboard` in its constructor,
+defaulting to `new WpfImageClipboard()`.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~Clipboard"`
-Expected: PASS. These tests touch the real clipboard and are already in the non-parallel `UI` collection; leave them there.
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~Clipboard"`
+Expected: PASS. These touch the real clipboard and are already in the non-parallel `UI`
+collection; leave them there.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C TrispotQR add -A
-git -C TrispotQR commit -m "Put the clipboard behind an interface and move Windows code to the app"
+git add -A
+git commit -m "Put the clipboard behind an interface and move Windows code to the app"
 ```
 
 ---
 
-## Task 12: Settings location behind an interface
+## Task 11: Settings location per platform
 
 **Files:**
-- Create: `src/TrispotQR.Core/Presets/ISettingsLocation.cs`
-- Create: `src/TrispotQR.Core/Presets/DesktopSettingsLocation.cs`
+- Create: `src/TrispotQR.Core/Presets/ISettingsLocation.cs`, `src/TrispotQR.Core/Presets/DesktopSettingsLocation.cs`
 - Modify: `src/TrispotQR.Core/Presets/PresetStore.cs`
 - Test: `tests/TrispotQR.Tests/SettingsLocationTests.cs`
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `public interface ISettingsLocation { string Directory { get; } }`; `public sealed class DesktopSettingsLocation : ISettingsLocation` with `static string ResolveFor(OSPlatform platform, string home, string? appData, string? xdgConfigHome)`.
+- Produces: `public interface ISettingsLocation { string Directory { get; } }`; `DesktopSettingsLocation` with instance `Directory` and `static string ResolveFor(OSPlatform, string home, string? appData, string? xdgConfigHome)`.
 
 - [ ] **Step 1: Write the failing test**
 
 ```csharp
+using System.IO;
 using System.Runtime.InteropServices;
 using TrispotQR.Core.Presets;
 
@@ -2407,7 +2511,7 @@ public class SettingsLocationTests
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~SettingsLocationTests"`
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~SettingsLocationTests"`
 Expected: FAIL to compile, `DesktopSettingsLocation` does not exist.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -2421,8 +2525,8 @@ namespace TrispotQR.Core.Presets;
 /// <summary>
 /// Where saved styles and settings live.
 ///
-/// An interface because the answer is different on every platform, and different again on
-/// mobile, where the app writes into its own sandbox. Core asks; it does not decide.
+/// An interface because the answer differs on every platform, and differs again on mobile,
+/// where the app writes into its own sandbox. Core asks; it does not decide.
 /// </summary>
 public interface ISettingsLocation
 {
@@ -2472,7 +2576,7 @@ public sealed class DesktopSettingsLocation : ISettingsLocation
 }
 ```
 
-In `PresetStore`, replace the `Resolved` lazy's body so it asks the location and then carries over:
+In `PresetStore`, the `Resolved` lazy asks the location, then carries over as it already does:
 
 ```csharp
     private static readonly Lazy<string> Resolved = new(() =>
@@ -2493,19 +2597,19 @@ In `PresetStore`, replace the `Resolved` lazy's body so it asks the location and
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~SettingsLocation"`
-Expected: PASS, 5 tests. The existing `PresetStoreTests` carry-over tests must still pass.
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~SettingsLocation|FullyQualifiedName~PresetStore"`
+Expected: PASS, including the existing carry-over tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C TrispotQR add -A
-git -C TrispotQR commit -m "Resolve the settings folder per platform, behind an interface"
+git add -A
+git commit -m "Resolve the settings folder per platform, behind an interface"
 ```
 
 ---
 
-## Task 13: Flip Core to net10.0
+## Task 12: Flip Core to net10.0
 
 The proof. If anything WPF remains in Core, this will not compile.
 
@@ -2585,8 +2689,9 @@ public class CorePortabilityTests
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx --filter "FullyQualifiedName~CorePortabilityTests"`
-Expected: FAIL, "TrispotQR.Core references PresentationCore" and "target framework contains windows", because the csproj still says so.
+Run: `dotnet test TrispotQR.slnx --filter "FullyQualifiedName~CorePortabilityTests"`
+Expected: FAIL, "TrispotQR.Core references PresentationCore" and the target framework
+containing "windows".
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -2610,20 +2715,20 @@ Replace the `PropertyGroup` in `src/TrispotQR.Core/TrispotQR.Core.csproj`:
   </PropertyGroup>
 ```
 
-Delete `src/TrispotQR.Core/Rendering/StaThread.cs`. Apartment threading is a Windows concept and nothing in a Skia pipeline needs it. Delete the `StaThread.Run` wrappers from any remaining caller and the `using` lines that referenced it.
-
-The test project keeps `net10.0-windows` and `UseWPF` while the WPF app exists, so it can still test both.
+Delete `src/TrispotQR.Core/Rendering/StaThread.cs` and any remaining `using` that named it.
+The test project keeps `net10.0-windows` and `UseWPF` while the WPF app exists.
 
 - [ ] **Step 4: Run the whole suite**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx`
-Expected: PASS, everything. Compile errors here are the point: each one names a file in Core still reaching for WPF. Fix by using the Core primitives, never by adding the reference back.
+Run: `dotnet test TrispotQR.slnx`
+Expected: PASS. Compile errors here are the point: each names a Core file still reaching for
+WPF. Fix by using the Core primitives, never by adding the reference back.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C TrispotQR add -A
-git -C TrispotQR commit -m "Target plain net10.0 in Core, with a test that keeps it that way
+git add -A
+git commit -m "Target plain net10.0 in Core, with a test that keeps it that way
 
 Core no longer references PresentationCore, PresentationFramework or
 WindowsBase, and no longer exposes a WPF type on its public surface. That
@@ -2633,44 +2738,40 @@ would undo it on Windows, where nobody would notice."
 
 ---
 
-## Task 14: Confirm the app is unchanged, and publish
+## Task 13: Confirm the app is unchanged, and publish
 
 **Files:**
 - Modify: `README.md`, `CHANGELOG.md`
 
-**Interfaces:**
-- Consumes: everything.
-- Produces: a published Windows build that behaves as it did before Phase 1.
-
 - [ ] **Step 1: Run the whole suite**
 
-Run: `dotnet test TrispotQR/TrispotQR.slnx`
-Expected: PASS, roughly 650 tests, zero skipped.
+Run: `dotnet test TrispotQR.slnx`
+Expected: PASS, zero skipped.
 
 - [ ] **Step 2: Publish and launch**
 
 ```powershell
-& "TrispotQR\publish.ps1" -SkipTests
-Start-Process "TrispotQR\dist\TrispotQR.exe"
+.\publish.ps1 -SkipTests
+Start-Process .\dist\TrispotQR.exe
 ```
 
 Expected: the app opens and looks exactly as it did before this phase.
 
 - [ ] **Step 3: Check by hand what tests cannot**
 
-Confirm each, since this phase's promise is that nothing changed:
-1. The preview updates as you type, and stays crisp when the window is resized.
-2. Every one of the six presets shows a green badge.
-3. Save PNG with a transparent background, then open the file on a dark background and confirm it is genuinely transparent.
-4. Save SVG and open it in Edge; it must match the preview, corner colours and outlines included.
-5. Copy to clipboard, then paste into PowerPoint and into Word. Neither may show a black box.
-6. Add a logo, confirm the punch-out still cuts a clean hole and the code still scans.
-7. Open an existing saved preset from before the port. It must load with its colours intact.
+This phase's promise is that nothing changed, so confirm each:
+1. The preview updates as you type and stays crisp when the window is resized.
+2. All six presets show a green badge.
+3. Save a PNG with a transparent background; open it on a dark background and confirm it is genuinely transparent.
+4. Save an SVG and open it in Edge; it must match the preview, corner colours and outlines included.
+5. Copy to clipboard, paste into PowerPoint and into Word. Neither may show a black box.
+6. Add a logo; the punch-out must still cut a clean hole and the code must still scan.
+7. Open a preset saved before the port. It must load with its colours intact.
 8. **Scan a saved PNG with a phone.** The synthetic decode is necessary and not sufficient.
 
 - [ ] **Step 4: Update the documents**
 
-In `CHANGELOG.md`, add above the `1.0.0` section:
+In `CHANGELOG.md`, above the `1.0.0` section:
 
 ```markdown
 ## Unreleased
@@ -2687,19 +2788,33 @@ In `README.md`, under "Building from source", update the test count to match the
 - [ ] **Step 5: Commit and push**
 
 ```bash
-git -C TrispotQR add -A
-git -C TrispotQR commit -m "Phase 1 complete: Core runs without Windows"
-git -C TrispotQR push
+git add -A
+git commit -m "Phase 1 complete: Core runs without Windows"
+git push -u origin phase1-core-without-wpf
 ```
 
 ---
 
 ## Self-review
 
-**Spec coverage.** Core loses WPF (Tasks 1 to 6, 13). `RgbColor` (1). `QrPath` (2, 3). SkiaSharp rasteriser with no window (7). Exporters rewritten (8, 10). Decoder on raw bytes (8). `StaThread` deleted (13). The `SvgExporter` `ToString` trick retired (5, 10). Preset format preserved (1, 6). Storage behind an interface, mobile rule 2 (12). Clipboard behind an interface, mobile rule 4 (11). Cross-renderer decode test (9). Phase 1 ends with the WPF app running on a throwaway adapter (6). Not covered here by design: the Avalonia port is Phase 2, and CI and packaging are Phase 3.
+**Spec coverage.** Core loses WPF (Tasks 1 to 5, 12). `RgbColor` (1). `QrPath` (2). Skia
+conversion (3). SVG data writer (4). The switch, including the logo punch through a Skia
+boolean op and the aspect ratio read without WPF (5). Rasteriser with no window (6).
+Exporters and decoder on raw pixels (7). Cross-renderer proof (8). SVG export (9). Clipboard
+behind an interface, mobile rule 4 (10). Storage behind an interface, mobile rule 2 (11).
+`StaThread` deleted (12). Preset format preserved (1, 5). Not covered by design: the Avalonia
+port is Phase 2, CI and packaging are Phase 3.
 
-**Placeholders.** None. Every code step carries the code.
+**Placeholders.** None. Every code step carries its code.
 
-**Type consistency.** `QrLayer.Geometry` became `QrLayer.Path` and every consumer named in Tasks 6, 7, 9 and 10 uses `Path`. `PenFor` became `StrokeFor` returning `QrStroke?`, used consistently in Tasks 6, 7 and 10. `QrRenderer` became `WpfQrRenderer` in Tasks 6, 9 and 11. `PngExporter` and `QrDecoder` take `RasterImage` from Task 8 onward, matching Task 7's definition.
+**Type consistency.** `QrLayer.Geometry` became `QrLayer.Path`, used as `Path` in Tasks 5, 6,
+8, 9. `PenFor` became `StrokeFor` returning `QrStroke?` with `Thickness` fed from
+`ThicknessRatio`, consistent in 5, 6, 9. `QrRenderer` became `WpfQrRenderer` taking
+`RgbColor?`, consistent in 5, 7, 8. `PngExporter` and `QrDecoder` take `RasterImage` from
+Task 6's definition onward. `LogoCompositor.Punch` returns `QrPath?` in 5, consumed by
+`Punched` in the same task.
 
-**One risk worth naming for the implementer.** `SkiaPath.ToQrPath` is only used by the logo punch-out. If Task 6's `SkiaPathOpsTests` pass but a logo renders wrongly later, look there first: Skia returns conics for circular arcs and the conversion approximates them as cubics.
+**Ordering.** Tasks 3 and 4 come before the `ShapeFactory` rewrite deliberately, and build
+their test geometry from `QrFigure` literals, so every task leaves a compiling tree. Task 5
+is large because geometry and colour both pass through `QrDrawing` and cannot be split
+without committing a red tree.

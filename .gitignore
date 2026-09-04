@@ -5,3 +5,6 @@ dist/
 .vs/
 TestResults/
 ui-snapshot.png
+
+# Subagent-driven development scratch, per plan
+.superpowers/
