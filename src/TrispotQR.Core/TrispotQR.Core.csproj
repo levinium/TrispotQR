@@ -17,6 +17,15 @@
   <ItemGroup>
     <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="3.1.0" />
     <PackageReference Include="ZXing.Net" Version="0.16.11" />
+    <PackageReference Include="SkiaSharp" Version="4.151.2" />
+    <!--
+      Native binaries are per-platform and the main package brings in only the host's.
+      Naming all three keeps a self-contained publish working for any RID, which Phase 3
+      depends on.
+    -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.151.2" />
+    <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="4.151.2" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.151.2" />
   </ItemGroup>
 
   <ItemGroup>
