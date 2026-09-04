@@ -2,8 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using TrispotQR.App.Rendering;
-using TrispotQR.Core.Export;
+using TrispotQR.App.Export;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
@@ -26,6 +25,23 @@ namespace TrispotQR.Tests;
 [Collection("UI")]
 public class ClipboardExporterTests
 {
+    /// <summary>Core must not know how a clipboard works on any particular platform.</summary>
+    [Fact]
+    public void TheContract_LivesInCoreAndTheImplementationDoesNot()
+    {
+        var contract = typeof(TrispotQR.Core.Export.IImageClipboard);
+        var implementation = typeof(TrispotQR.App.Export.WpfImageClipboard);
+
+        Assert.True(contract.IsInterface);
+        Assert.Single(contract.GetMethods());
+
+        // The App project's AssemblyName is "TrispotQR" (that is the .exe users see), not
+        // "TrispotQR.App", so the check that matters is that the implementation is not
+        // sitting in the same assembly as the contract, rather than matching a name string.
+        Assert.NotEqual(contract.Assembly, implementation.Assembly);
+        Assert.Equal("TrispotQR.App.Export", implementation.Namespace);
+    }
+
     [Fact]
     public void Copy_PutsAPngOnTheClipboardThatStillDecodes()
     {
@@ -33,7 +49,7 @@ public class ClipboardExporterTests
 
         var decoded = StaThread.Run(() =>
         {
-            ClipboardExporter.Copy(Render(payload, QrStyle.Default));
+            new WpfImageClipboard().Copy(Render(payload, QrStyle.Default));
             return QrDecoder.Decode(ToRasterImage(WaitForPng(payload)));
         });
 
@@ -47,7 +63,7 @@ public class ClipboardExporterTests
 
         var decoded = StaThread.Run(() =>
         {
-            ClipboardExporter.Copy(Render(payload, QrStyle.Default));
+            new WpfImageClipboard().Copy(Render(payload, QrStyle.Default));
             return QrDecoder.Decode(ToRasterImage(WaitForBitmap(payload)));
         });
 
@@ -61,7 +77,7 @@ public class ClipboardExporterTests
 
         var (pngAlpha, bitmapAlpha) = StaThread.Run(() =>
         {
-            ClipboardExporter.Copy(Render(payload, QrStyle.Default with { Background = null }));
+            new WpfImageClipboard().Copy(Render(payload, QrStyle.Default with { Background = null }));
 
             // The bitmap fallback is flattened onto white, so Word and Outlook cannot
             // paste it as a black box.
@@ -77,8 +93,9 @@ public class ClipboardExporterTests
     {
         var decoded = StaThread.Run(() =>
         {
-            ClipboardExporter.Copy(Render("first copy", QrStyle.Default));
-            ClipboardExporter.Copy(Render("second copy", QrStyle.Default));
+            var clipboard = new WpfImageClipboard();
+            clipboard.Copy(Render("first copy", QrStyle.Default));
+            clipboard.Copy(Render("second copy", QrStyle.Default));
 
             return QrDecoder.Decode(ToRasterImage(WaitForPng("second copy")));
         });
@@ -166,9 +183,9 @@ public class ClipboardExporterTests
         return pixels[3];
     }
 
-    private static RenderTargetBitmap Render(string payload, QrStyle style)
+    private static RasterImage Render(string payload, QrStyle style)
     {
         var matrix = QrEncoder.Encode(payload, style.Ecc).Matrix!;
-        return WpfQrRenderer.RenderToBitmap(QrGeometryBuilder.Build(matrix, style), 512);
+        return SkiaRasterizer.Render(QrGeometryBuilder.Build(matrix, style), 512);
     }
 }

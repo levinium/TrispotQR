@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
+using TrispotQR.App.Export;
 using TrispotQR.App.Rendering;
 using TrispotQR.App.Services;
 using TrispotQR.Core.Export;
@@ -35,6 +36,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly IDialogService _dialogs;
     private readonly PresetStore _presets;
     private readonly AppSettingsStore _settingsStore;
+    private readonly IImageClipboard _clipboard;
     private readonly DispatcherTimer _debounce;
 
     /// <summary>
@@ -57,11 +59,12 @@ public sealed class MainViewModel : ObservableObject
     private int _scanGeneration;
     private string _statusDetail = string.Empty;
 
-    public MainViewModel(IDialogService dialogs, PresetStore? presets = null, AppSettingsStore? settingsStore = null)
+    public MainViewModel(IDialogService dialogs, PresetStore? presets = null, AppSettingsStore? settingsStore = null, IImageClipboard? clipboard = null)
     {
         _dialogs = dialogs;
         _presets = presets ?? new PresetStore();
         _settingsStore = settingsStore ?? new AppSettingsStore();
+        _clipboard = clipboard ?? new WpfImageClipboard();
 
         ContentEditors = CreateEditors();
 
@@ -761,7 +764,7 @@ public sealed class MainViewModel : ObservableObject
 
         try
         {
-            ClipboardExporter.Copy(WpfQrRenderer.RenderToBitmap(_drawing!, PixelSize));
+            _clipboard.Copy(SkiaRasterizer.Render(_drawing!, PixelSize));
             StatusDetail = "Copied. Paste it straight into Word, PowerPoint or an email.";
             Announce("Copied to clipboard");
         }

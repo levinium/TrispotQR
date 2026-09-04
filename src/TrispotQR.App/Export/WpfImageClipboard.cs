@@ -2,9 +2,10 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using TrispotQR.Core.Export;
 using TrispotQR.Core.Rendering;
 
-namespace TrispotQR.Core.Export;
+namespace TrispotQR.App.Export;
 
 /// <summary>
 /// Puts a rendered code on the clipboard in several formats at once.
@@ -14,11 +15,11 @@ namespace TrispotQR.Core.Export;
 /// plain bitmap format and, given one with transparency, paste a black box. Offering both,
 /// with the bitmap pre-flattened onto white, is what makes paste work everywhere.
 /// </summary>
-public static class ClipboardExporter
+public sealed class WpfImageClipboard : IImageClipboard
 {
-    public static void Copy(BitmapSource bitmap)
+    public void Copy(RasterImage image)
     {
-        ArgumentNullException.ThrowIfNull(bitmap);
+        ArgumentNullException.ThrowIfNull(image);
 
         var data = new DataObject();
 
@@ -31,12 +32,12 @@ public static class ClipboardExporter
         // looks like it worked, and then paste silently does nothing in every application
         // that asks for PNG first. Ownership passes to the clipboard; the garbage
         // collector reclaims the buffer once the clipboard is done with it.
-        var png = new MemoryStream(PngExporter.ToBytes(ToRasterImage(bitmap)));
+        var png = new MemoryStream(PngExporter.ToBytes(image));
         data.SetData("PNG", png, autoConvert: false);
 
         // The universal fallback, flattened so no application has to guess what to do
         // with the alpha channel.
-        data.SetImage(FlattenOntoWhite(bitmap));
+        data.SetImage(FlattenOntoWhite(png.ToArray()));
 
         SetWithRetry(data);
         VerifyLanded();
@@ -108,21 +109,23 @@ public static class ClipboardExporter
     }
 
     /// <summary>
-    /// Bridges to <see cref="RasterImage"/> for the PNG encoder. WPF's Pbgra32 is
-    /// premultiplied BGRA, exactly what RasterImage carries, so the pixels are copied
-    /// through unchanged.
+    /// Decodes the PNG bytes back into a bitmap and flattens it onto white, so no
+    /// application has to guess what to do with the alpha channel.
     /// </summary>
-    private static RasterImage ToRasterImage(BitmapSource bitmap)
+    private static BitmapSource FlattenOntoWhite(byte[] pngBytes)
     {
-        var converted = new FormatConvertedBitmap(bitmap, PixelFormats.Pbgra32, null, 0);
-        var stride = converted.PixelWidth * 4;
-        var pixels = new byte[stride * converted.PixelHeight];
-        converted.CopyPixels(pixels, stride, 0);
-        return new RasterImage(converted.PixelWidth, converted.PixelHeight, pixels);
-    }
+        var source = new BitmapImage();
 
-    private static BitmapSource FlattenOntoWhite(BitmapSource source)
-    {
+        using (var stream = new MemoryStream(pngBytes))
+        {
+            source.BeginInit();
+            source.CacheOption = BitmapCacheOption.OnLoad;
+            source.StreamSource = stream;
+            source.EndInit();
+        }
+
+        source.Freeze();
+
         var visual = new DrawingVisual();
         var width = source.PixelWidth;
         var height = source.PixelHeight;
