@@ -2,7 +2,6 @@ using System.IO;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using TrispotQR.App.Rendering;
-using TrispotQR.App.Validation;
 using TrispotQR.Core.Export;
 using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
@@ -26,8 +25,8 @@ public class RenderAndDecodeTests
         var decoded = StaThread.Run(() =>
         {
             var drawing = BuildDrawing(QrStyle.Default);
-            var bitmap = WpfQrRenderer.RenderToBitmap(drawing, 512);
-            return QrDecoder.Decode(bitmap);
+            var image = SkiaRasterizer.Render(drawing, 512);
+            return QrDecoder.Decode(image);
         });
 
         Assert.Equal(Payload, decoded);
@@ -93,8 +92,8 @@ public class RenderAndDecodeTests
         {
             StaThread.Run(() =>
             {
-                var bitmap = WpfQrRenderer.RenderToBitmap(BuildDrawing(QrStyle.Default), 320);
-                PngExporter.Save(bitmap, path);
+                var image = SkiaRasterizer.Render(BuildDrawing(QrStyle.Default), 320);
+                PngExporter.Save(image, path);
                 return true;
             });
 
@@ -130,14 +129,14 @@ public class RenderAndDecodeTests
             var decoded = StaThread.Run(() =>
             {
                 var drawing = BuildDrawing(QrStyle.Default with { Background = null });
-                PngExporter.Save(WpfQrRenderer.RenderToBitmap(drawing, 512), path);
+                PngExporter.Save(SkiaRasterizer.Render(drawing, 512), path);
 
                 var frame = new PngBitmapDecoder(
                     new Uri(path),
                     BitmapCreateOptions.PreservePixelFormat,
                     BitmapCacheOption.OnLoad).Frames[0];
 
-                return QrDecoder.Decode(frame);
+                return QrDecoder.Decode(ToRasterImage(frame));
             });
 
             Assert.Equal(Payload, decoded);
@@ -210,5 +209,15 @@ public class RenderAndDecodeTests
     {
         var matrix = QrEncoder.Encode(Payload, style.Ecc).Matrix!;
         return QrGeometryBuilder.Build(matrix, style);
+    }
+
+    /// <summary>WPF's Pbgra32 is premultiplied BGRA, exactly what RasterImage carries.</summary>
+    private static RasterImage ToRasterImage(BitmapSource bitmap)
+    {
+        var converted = new FormatConvertedBitmap(bitmap, PixelFormats.Pbgra32, null, 0);
+        var stride = converted.PixelWidth * 4;
+        var pixels = new byte[stride * converted.PixelHeight];
+        converted.CopyPixels(pixels, stride, 0);
+        return new RasterImage(converted.PixelWidth, converted.PixelHeight, pixels);
     }
 }

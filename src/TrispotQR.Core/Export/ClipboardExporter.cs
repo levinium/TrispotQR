@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using TrispotQR.Core.Rendering;
 
 namespace TrispotQR.Core.Export;
 
@@ -30,7 +31,7 @@ public static class ClipboardExporter
         // looks like it worked, and then paste silently does nothing in every application
         // that asks for PNG first. Ownership passes to the clipboard; the garbage
         // collector reclaims the buffer once the clipboard is done with it.
-        var png = new MemoryStream(PngExporter.ToBytes(bitmap));
+        var png = new MemoryStream(PngExporter.ToBytes(ToRasterImage(bitmap)));
         data.SetData("PNG", png, autoConvert: false);
 
         // The universal fallback, flattened so no application has to guess what to do
@@ -104,6 +105,20 @@ public static class ClipboardExporter
                 Thread.Sleep(100);
             }
         }
+    }
+
+    /// <summary>
+    /// Bridges to <see cref="RasterImage"/> for the PNG encoder. WPF's Pbgra32 is
+    /// premultiplied BGRA, exactly what RasterImage carries, so the pixels are copied
+    /// through unchanged.
+    /// </summary>
+    private static RasterImage ToRasterImage(BitmapSource bitmap)
+    {
+        var converted = new FormatConvertedBitmap(bitmap, PixelFormats.Pbgra32, null, 0);
+        var stride = converted.PixelWidth * 4;
+        var pixels = new byte[stride * converted.PixelHeight];
+        converted.CopyPixels(pixels, stride, 0);
+        return new RasterImage(converted.PixelWidth, converted.PixelHeight, pixels);
     }
 
     private static BitmapSource FlattenOntoWhite(BitmapSource source)

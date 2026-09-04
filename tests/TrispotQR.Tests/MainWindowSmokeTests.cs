@@ -151,7 +151,7 @@ public class MainWindowSmokeTests
 
                     var bitmap = new RenderTargetBitmap((int)Width, (int)height, 96, 96, PixelFormats.Pbgra32);
                     bitmap.Render(host);
-                    PngExporter.Save(bitmap, outputPath);
+                    PngExporter.Save(ToRasterImage(bitmap), outputPath);
 
                     return (
                         listener.Messages.Concat(UntemplatedObjects(host)).ToList(),
@@ -173,6 +173,15 @@ public class MainWindowSmokeTests
         {
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    /// <summary>The snapshot bitmap is always rendered as Pbgra32, which is already premultiplied BGRA.</summary>
+    private static RasterImage ToRasterImage(RenderTargetBitmap bitmap)
+    {
+        var stride = bitmap.PixelWidth * 4;
+        var pixels = new byte[stride * bitmap.PixelHeight];
+        bitmap.CopyPixels(pixels, stride, 0);
+        return new RasterImage(bitmap.PixelWidth, bitmap.PixelHeight, pixels);
     }
 
     /// <summary>Opens every expander found in the tree.</summary>

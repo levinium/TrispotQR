@@ -1,4 +1,3 @@
-using TrispotQR.App.Rendering;
 using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
@@ -196,13 +195,13 @@ public class StyleMatrixScanTests
         {
             var matrix = QrEncoder.Encode(payload, style.Ecc).Matrix!;
             var drawing = QrGeometryBuilder.Build(matrix, style);
-            var bitmap = WpfQrRenderer.RenderToBitmap(drawing, size, RgbColor.White);
+            var image = SkiaRasterizer.Render(drawing, size, RgbColor.White);
 
             // Deliberately the strict, camera-like pass. The app itself is more forgiving,
             // because that pass has a measurable false-failure rate on clean renders and
             // must not tell a user their good code is broken. A style shipped in the app
             // is held to the higher bar instead.
-            return QrDecoder.DecodeStrict(bitmap);
+            return QrDecoder.DecodeStrict(image);
         });
 
         var label = because is null ? string.Empty : $"[{because}] ";

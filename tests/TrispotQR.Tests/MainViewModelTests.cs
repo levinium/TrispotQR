@@ -587,11 +587,20 @@ public class MainViewModelTests : IDisposable
 
             var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(128, 128, 96, 96, PixelFormats.Pbgra32);
             bitmap.Render(visual);
-            Core.Export.PngExporter.Save(bitmap, path);
+            Core.Export.PngExporter.Save(ToRasterImage(bitmap), path);
             return true;
         });
 
         return path;
+    }
+
+    /// <summary>The snapshot bitmap is always rendered as Pbgra32, which is already premultiplied BGRA.</summary>
+    private static RasterImage ToRasterImage(System.Windows.Media.Imaging.RenderTargetBitmap bitmap)
+    {
+        var stride = bitmap.PixelWidth * 4;
+        var pixels = new byte[stride * bitmap.PixelHeight];
+        bitmap.CopyPixels(pixels, stride, 0);
+        return new RasterImage(bitmap.PixelWidth, bitmap.PixelHeight, pixels);
     }
 
     /// <summary>Stands in for the file and message dialogs so the view model can run headless.</summary>

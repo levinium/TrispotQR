@@ -10,6 +10,7 @@ using TrispotQR.App.Views;
 using TrispotQR.Core.Export;
 using TrispotQR.Core.Payloads;
 using TrispotQR.Core.Presets;
+using TrispotQR.Core.Rendering;
 
 namespace TrispotQR.Tests;
 
@@ -187,7 +188,7 @@ public class ValidationUiTests
             var bitmap = new RenderTargetBitmap(
                 (int)host.Width, (int)host.Height, 96, 96, PixelFormats.Pbgra32);
             bitmap.Render(host);
-            PngExporter.Save(bitmap, path);
+            PngExporter.Save(ToRasterImage(bitmap), path);
 
             return Boxes(host).Select(b => b.ShownError).ToList();
         });
@@ -215,7 +216,7 @@ public class ValidationUiTests
             var bitmap = new RenderTargetBitmap(
                 (int)host.Width, (int)host.Height, 96, 96, PixelFormats.Pbgra32);
             bitmap.Render(host);
-            PngExporter.Save(bitmap, path);
+            PngExporter.Save(ToRasterImage(bitmap), path);
             return true;
         });
 
@@ -361,6 +362,15 @@ public class ValidationUiTests
         {
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    /// <summary>The snapshot bitmap is always rendered as Pbgra32, which is already premultiplied BGRA.</summary>
+    private static RasterImage ToRasterImage(RenderTargetBitmap bitmap)
+    {
+        var stride = bitmap.PixelWidth * 4;
+        var pixels = new byte[stride * bitmap.PixelHeight];
+        bitmap.CopyPixels(pixels, stride, 0);
+        return new RasterImage(bitmap.PixelWidth, bitmap.PixelHeight, pixels);
     }
 
     private static double Contrast(Color a, Color b)

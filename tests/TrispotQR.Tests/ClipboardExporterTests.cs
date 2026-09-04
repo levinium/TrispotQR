@@ -34,7 +34,7 @@ public class ClipboardExporterTests
         var decoded = StaThread.Run(() =>
         {
             ClipboardExporter.Copy(Render(payload, QrStyle.Default));
-            return QrDecoder.Decode(WaitForPng(payload));
+            return QrDecoder.Decode(ToRasterImage(WaitForPng(payload)));
         });
 
         Assert.Equal(payload, decoded);
@@ -48,7 +48,7 @@ public class ClipboardExporterTests
         var decoded = StaThread.Run(() =>
         {
             ClipboardExporter.Copy(Render(payload, QrStyle.Default));
-            return QrDecoder.Decode(WaitForBitmap(payload));
+            return QrDecoder.Decode(ToRasterImage(WaitForBitmap(payload)));
         });
 
         Assert.Equal(payload, decoded);
@@ -80,7 +80,7 @@ public class ClipboardExporterTests
             ClipboardExporter.Copy(Render("first copy", QrStyle.Default));
             ClipboardExporter.Copy(Render("second copy", QrStyle.Default));
 
-            return QrDecoder.Decode(WaitForPng("second copy"));
+            return QrDecoder.Decode(ToRasterImage(WaitForPng("second copy")));
         });
 
         Assert.Equal("second copy", decoded);
@@ -135,14 +135,28 @@ public class ClipboardExporterTests
         stream.Position = 0;
         var frame = BitmapFrame.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
 
-        return QrDecoder.Decode(frame) == expectedPayload ? frame : null;
+        return QrDecoder.Decode(ToRasterImage(frame)) == expectedPayload ? frame : null;
     });
 
     private static BitmapSource WaitForBitmap(string expectedPayload) => WaitForClipboard(() =>
     {
         var image = Clipboard.GetImage();
-        return image is not null && QrDecoder.Decode(image) == expectedPayload ? image : null;
+        return image is not null && QrDecoder.Decode(ToRasterImage(image)) == expectedPayload ? image : null;
     });
+
+    /// <summary>
+    /// Bridges to <see cref="RasterImage"/> for decoding. Converted to Pbgra32 first
+    /// because a clipboard round trip does not guarantee the source is already
+    /// premultiplied, which is what RasterImage requires.
+    /// </summary>
+    private static RasterImage ToRasterImage(BitmapSource bitmap)
+    {
+        var converted = new FormatConvertedBitmap(bitmap, PixelFormats.Pbgra32, null, 0);
+        var stride = converted.PixelWidth * 4;
+        var pixels = new byte[stride * converted.PixelHeight];
+        converted.CopyPixels(pixels, stride, 0);
+        return new RasterImage(converted.PixelWidth, converted.PixelHeight, pixels);
+    }
 
     private static byte CornerAlpha(BitmapSource bitmap)
     {

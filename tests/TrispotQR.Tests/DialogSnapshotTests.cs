@@ -7,6 +7,7 @@ using TrispotQR.App.Services;
 using TrispotQR.App.Views;
 using TrispotQR.Core.Export;
 using TrispotQR.Core.Presets;
+using TrispotQR.Core.Rendering;
 
 namespace TrispotQR.Tests;
 
@@ -73,7 +74,7 @@ public class DialogSnapshotTests
 
                 var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
                 bitmap.Render(surface);
-                PngExporter.Save(bitmap, path);
+                PngExporter.Save(ToRasterImage(bitmap), path);
 
                 var converted = new FormatConvertedBitmap(bitmap, PixelFormats.Bgr24, null, 0);
                 var stride = converted.PixelWidth * 3;
@@ -95,5 +96,14 @@ public class DialogSnapshotTests
         });
 
         Assert.True(varied > 15, $"{name} in {theme} rendered only {varied} distinct colours");
+    }
+
+    /// <summary>The snapshot bitmap is always rendered as Pbgra32, which is already premultiplied BGRA.</summary>
+    private static RasterImage ToRasterImage(RenderTargetBitmap bitmap)
+    {
+        var stride = bitmap.PixelWidth * 4;
+        var pixels = new byte[stride * bitmap.PixelHeight];
+        bitmap.CopyPixels(pixels, stride, 0);
+        return new RasterImage(bitmap.PixelWidth, bitmap.PixelHeight, pixels);
     }
 }

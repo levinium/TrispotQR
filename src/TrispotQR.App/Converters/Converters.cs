@@ -2,8 +2,8 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
-using TrispotQR.App.Validation;
 using TrispotQR.Core.Styling;
+using TrispotQR.Core.Validation;
 
 namespace TrispotQR.App.Converters;
 

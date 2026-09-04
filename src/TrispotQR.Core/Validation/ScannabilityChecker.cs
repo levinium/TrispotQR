@@ -1,11 +1,9 @@
-using TrispotQR.App.Rendering;
 using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
-using TrispotQR.Core.Validation;
 
-namespace TrispotQR.App.Validation;
+namespace TrispotQR.Core.Validation;
 
 /// <summary>How confident we are that the current style will scan in the real world.</summary>
 public enum ScanVerdict
@@ -36,10 +34,6 @@ public sealed record ScanCheckResult(
 /// no perspective and no print bleed. So low contrast, an inverted palette and a missing
 /// quiet zone are flagged even when the decode succeeds, because those are exactly the
 /// codes that read on a monitor and then fail on a printed flyer.
-///
-/// TEMPORARILY IN THE APP. The judgement here is platform-neutral and belongs in Core; it
-/// sits here only because the render step still goes through WPF, and Core is being freed
-/// of WPF. It returns to Core as soon as the check rasterises through Skia.
 /// </summary>
 public static class ScannabilityChecker
 {
@@ -72,7 +66,7 @@ public static class ScannabilityChecker
         ArgumentNullException.ThrowIfNull(drawing);
 
         var decodedText = QrDecoder.Decode(
-            WpfQrRenderer.RenderToBitmap(drawing, CheckSize(drawing), RgbColor.White));
+            SkiaRasterizer.Render(drawing, CheckSize(drawing), RgbColor.White));
         var decoded = string.Equals(decodedText, expectedText, StringComparison.Ordinal);
 
         var background = style.Background ?? RgbColor.White;

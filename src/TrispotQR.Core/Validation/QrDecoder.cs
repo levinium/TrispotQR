@@ -1,5 +1,4 @@
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using TrispotQR.Core.Rendering;
 using ZXing;
 
 namespace TrispotQR.Core.Validation;
@@ -11,7 +10,7 @@ namespace TrispotQR.Core.Validation;
 public static class QrDecoder
 {
     /// <summary>
-    /// Decodes the bitmap, or returns null when no code could be read. Any alpha is
+    /// Decodes the image, or returns null when no code could be read. Any alpha is
     /// flattened onto white first, matching what a camera would see on paper or a screen.
     ///
     /// Two decoder passes, because neither alone is right.
@@ -30,8 +29,7 @@ public static class QrDecoder
     /// clean render cannot show, contrast, inversion, quiet zone, logo coverage, are
     /// checked explicitly elsewhere rather than being inferred from a decode failure.
     /// </summary>
-    public static string? Decode(BitmapSource bitmap) =>
-        DecodeStrict(bitmap) ?? Read(bitmap, pureBarcode: true);
+    public static string? Decode(RasterImage image) => DecodeStrict(image) ?? Read(image, pureBarcode: true);
 
     /// <summary>
     /// Decodes using only the camera-like pass, which locates the code by its corner
@@ -39,19 +37,11 @@ public static class QrDecoder
     /// renders, so it is meant for the test suite, where every style shipped in the app is
     /// held to the higher bar, rather than for judging a user's own content.
     /// </summary>
-    public static string? DecodeStrict(BitmapSource bitmap) => Read(bitmap, pureBarcode: false);
+    public static string? DecodeStrict(RasterImage image) => Read(image, pureBarcode: false);
 
-    private static string? Read(BitmapSource bitmap, bool pureBarcode)
+    private static string? Read(RasterImage image, bool pureBarcode)
     {
-        ArgumentNullException.ThrowIfNull(bitmap);
-
-        // Bgr24 drops the alpha channel by compositing over the bitmap's own background.
-        // A transparent PNG has no background of its own, so it is flattened onto white
-        // explicitly rather than relying on the conversion.
-        var opaque = Flatten(bitmap);
-        var stride = opaque.PixelWidth * 3;
-        var pixels = new byte[stride * opaque.PixelHeight];
-        opaque.CopyPixels(pixels, stride, 0);
+        ArgumentNullException.ThrowIfNull(image);
 
         var reader = new BarcodeReaderGeneric
         {
@@ -64,27 +54,33 @@ public static class QrDecoder
             },
         };
 
-        var result = reader.Decode(pixels, opaque.PixelWidth, opaque.PixelHeight, RGBLuminanceSource.BitmapFormat.BGR24);
+        var result = reader.Decode(
+            FlattenToBgr24(image), image.Width, image.Height, RGBLuminanceSource.BitmapFormat.BGR24);
+
         return result?.Text;
     }
 
-    private static BitmapSource Flatten(BitmapSource source)
+    /// <summary>
+    /// Drops the alpha channel by compositing over white. A transparent PNG has no
+    /// background of its own, and a scanner looking at it on paper sees white, so that is
+    /// what the decoder is given.
+    ///
+    /// The source is premultiplied, so the colour channels are already scaled by alpha and
+    /// compositing over white is simply adding back the uncovered remainder.
+    /// </summary>
+    private static byte[] FlattenToBgr24(RasterImage image)
     {
-        var visual = new DrawingVisual();
-        var width = source.PixelWidth;
-        var height = source.PixelHeight;
+        var result = new byte[image.Width * image.Height * 3];
 
-        using (var context = visual.RenderOpen())
+        for (int source = 0, target = 0; source < image.Pixels.Length; source += 4, target += 3)
         {
-            context.DrawRectangle(Brushes.White, null, new System.Windows.Rect(0, 0, width, height));
-            context.DrawImage(source, new System.Windows.Rect(0, 0, width, height));
+            var uncovered = 255 - image.Pixels[source + 3];
+
+            result[target] = (byte)(image.Pixels[source] + uncovered);
+            result[target + 1] = (byte)(image.Pixels[source + 1] + uncovered);
+            result[target + 2] = (byte)(image.Pixels[source + 2] + uncovered);
         }
 
-        var flattened = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
-        flattened.Render(visual);
-
-        var converted = new FormatConvertedBitmap(flattened, PixelFormats.Bgr24, null, 0);
-        converted.Freeze();
-        return converted;
+        return result;
     }
 }

@@ -7,7 +7,6 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using TrispotQR.App.Rendering;
 using TrispotQR.App.Services;
-using TrispotQR.App.Validation;
 using TrispotQR.Core.Export;
 using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Payloads;
@@ -15,6 +14,7 @@ using TrispotQR.Core.Presets;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
+using TrispotQR.Core.Validation;
 
 namespace TrispotQR.App.ViewModels;
 
@@ -24,8 +24,8 @@ namespace TrispotQR.App.ViewModels;
 /// The flow is: a field changes, a short debounce timer restarts, and when it fires the
 /// code is encoded and drawn. Drawing is cheap and happens on the UI thread. The
 /// scannability check is not cheap, because it rasterises and then decodes, so it runs on
-/// a background apartment thread and reports back when it lands. That keeps typing smooth
-/// while still giving live feedback.
+/// a background thread and reports back when it lands. That keeps typing smooth while
+/// still giving live feedback.
 /// </summary>
 public sealed class MainViewModel : ObservableObject
 {
@@ -602,8 +602,8 @@ public sealed class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Rasterises and decodes on a background apartment thread. Each run carries a
-    /// generation number so a slow check cannot overwrite the result of a newer one.
+    /// Rasterises and decodes on a background thread. Each run carries a generation number
+    /// so a slow check cannot overwrite the result of a newer one.
     /// </summary>
     private void StartScanCheck(QrDrawing drawing, string payload, QrStyle style)
     {
@@ -613,7 +613,7 @@ public sealed class MainViewModel : ObservableObject
         {
             try
             {
-                return StaThread.Run(() => ScannabilityChecker.Check(drawing, payload, style));
+                return ScannabilityChecker.Check(drawing, payload, style);
             }
             catch (Exception)
             {
@@ -725,7 +725,7 @@ public sealed class MainViewModel : ObservableObject
 
         Guarded(() =>
         {
-            PngExporter.Save(WpfQrRenderer.RenderToBitmap(_drawing!, PixelSize), path);
+            PngExporter.Save(SkiaRasterizer.Render(_drawing!, PixelSize), path);
             _lastSaveDirectory = Path.GetDirectoryName(path);
         }, path);
     }

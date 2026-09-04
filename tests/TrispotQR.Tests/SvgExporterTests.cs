@@ -178,7 +178,7 @@ public class SvgExporterTests
 
             var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(512, 512, 96, 96, PixelFormats.Pbgra32);
             bitmap.Render(visual);
-            return QrDecoder.Decode(bitmap);
+            return QrDecoder.Decode(ToRasterImage(bitmap));
         });
 
         Assert.Equal(Payload, decoded);
@@ -210,6 +210,15 @@ public class SvgExporterTests
     {
         var matrix = QrEncoder.Encode(Payload, style.Ecc).Matrix!;
         return QrGeometryBuilder.Build(matrix, style);
+    }
+
+    /// <summary>WPF's Pbgra32 is premultiplied BGRA, exactly what RasterImage carries.</summary>
+    private static RasterImage ToRasterImage(System.Windows.Media.Imaging.BitmapSource bitmap)
+    {
+        var stride = bitmap.PixelWidth * 4;
+        var pixels = new byte[stride * bitmap.PixelHeight];
+        bitmap.CopyPixels(pixels, stride, 0);
+        return new RasterImage(bitmap.PixelWidth, bitmap.PixelHeight, pixels);
     }
 }
 

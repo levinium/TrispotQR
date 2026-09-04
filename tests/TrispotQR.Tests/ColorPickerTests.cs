@@ -194,7 +194,7 @@ public class ColorPickerTests
             var h = (int)Math.Ceiling(content.DesiredSize.Height);
             var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
             bitmap.Render(content);
-            Core.Export.PngExporter.Save(bitmap, path);
+            Core.Export.PngExporter.Save(ToRasterImage(bitmap), path);
 
             // A picker that painted correctly is full of distinct colours; one that failed
             // to resolve its gradients would come back nearly flat.
@@ -228,5 +228,14 @@ public class ColorPickerTests
         });
 
         Assert.Equal(Colors.Blue, colour);
+    }
+
+    /// <summary>The snapshot bitmap is always rendered as Pbgra32, which is already premultiplied BGRA.</summary>
+    private static Core.Rendering.RasterImage ToRasterImage(System.Windows.Media.Imaging.RenderTargetBitmap bitmap)
+    {
+        var stride = bitmap.PixelWidth * 4;
+        var pixels = new byte[stride * bitmap.PixelHeight];
+        bitmap.CopyPixels(pixels, stride, 0);
+        return new Core.Rendering.RasterImage(bitmap.PixelWidth, bitmap.PixelHeight, pixels);
     }
 }
