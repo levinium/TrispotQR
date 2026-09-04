@@ -30,10 +30,14 @@ public class CorePortabilityTests
     [Fact]
     public void Core_TargetsAPlatformNeutralFramework()
     {
-        var target = Core.GetCustomAttribute<System.Runtime.Versioning.TargetFrameworkAttribute>();
+        // Since .NET 5, a `-windows` TFM suffix shows up as a TargetPlatformAttribute, not
+        // in TargetFrameworkAttribute.FrameworkName: that string is ".NETCoreApp,Version=v10.0"
+        // whether the project is net10.0 or net10.0-windows, so checking it for "windows"
+        // can never fail. TargetPlatformAttribute is present only when a platform is set, so
+        // its absence is what actually discriminates a platform-neutral assembly.
+        var platform = Core.GetCustomAttribute<System.Runtime.Versioning.TargetPlatformAttribute>();
 
-        Assert.NotNull(target);
-        Assert.DoesNotContain("windows", target!.FrameworkName, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(platform);
     }
 
     [Fact]
