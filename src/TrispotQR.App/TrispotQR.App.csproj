@@ -21,9 +21,19 @@
        file with no runtime purpose) next to libSkiaSharp.dll under runtimes/<rid>/native/.
        That arrives via NativeCopyLocalItems, a NuGet RID-asset item that DebugType=none and
        AllowedReferenceRelatedFileExtensions do not touch (both only govern managed reference
-       companion files). Strip .pdb from it before the publish file list is computed, so dist
-       holds only the exe, as it did before this phase. -->
-  <Target Name="RemoveNativeSkiaSharpPdb" AfterTargets="ResolvePackageAssets" BeforeTargets="_ComputeResolvedFilesToPublishList;GetCopyToOutputDirectoryItems">
+       companion files). Strip .pdb from it here so dist holds only the exe, as it did before
+       this phase.
+
+       AfterTargets="ResolvePackageAssets" is sufficient on its own, with no BeforeTargets:
+       the first target that actually reads @(NativeCopyLocalItems) is
+       ResolveLockFileCopyLocalFiles, and that target depends on ResolvePackageAssets, so
+       MSBuild's own dependency graph guarantees this runs before anything consumes the item.
+       (An earlier version of this target also listed a BeforeTargets naming
+       "_ComputeResolvedFilesToPublishList" — that target does not exist in the .NET 10 SDK,
+       so MSBuild silently ignored it. It looked load-bearing and was not; the ordering has
+       always come from AfterTargets alone. Don't re-add a BeforeTargets guess here without
+       confirming the target name actually exists.) -->
+  <Target Name="RemoveNativeSkiaSharpPdb" AfterTargets="ResolvePackageAssets">
     <ItemGroup>
       <NativeCopyLocalItems Remove="@(NativeCopyLocalItems)" Condition="'%(NativeCopyLocalItems.Extension)' == '.pdb'" />
     </ItemGroup>
