@@ -11,8 +11,10 @@
     The self-contained build is the one to copy onto another machine or a shared drive:
     it carries the .NET runtime inside it, so the target machine needs nothing installed.
     That is what makes it roughly 67 MB, since WPF and Skia's native library cannot be
-    trimmed. The framework-dependent build carries the same untrimmable native Skia library
-    but not the .NET runtime, which is the whole of the roughly 13 MB it saves.
+    trimmed. The framework-dependent build is about 13 MB: it still carries that same
+    untrimmable native Skia library, which is why it is no longer the ~1 MB it used to be
+    before this phase, but leaving out the .NET runtime is what saves the other roughly
+    54 MB against the self-contained build.
 
 .PARAMETER SkipTests
     Publishes without running the tests first. Use only when the suite has just passed.
