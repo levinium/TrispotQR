@@ -22,7 +22,8 @@ public sealed class DesktopSettingsLocation : ISettingsLocation
     {
         if (platform == OSPlatform.Windows)
         {
-            return Path.Combine(appData ?? Path.Combine(home, "AppData", "Roaming"), FolderName);
+            var configPath = string.IsNullOrEmpty(appData) ? Path.Combine(home, "AppData", "Roaming") : appData;
+            return Path.Combine(configPath, FolderName);
         }
 
         if (platform == OSPlatform.OSX)

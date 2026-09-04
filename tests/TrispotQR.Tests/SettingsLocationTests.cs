@@ -13,6 +13,11 @@ public class SettingsLocationTests
             DesktopSettingsLocation.ResolveFor(OSPlatform.Windows, @"C:\Users\x", @"C:\Users\x\AppData\Roaming", null));
 
     [Fact]
+    public void Windows_EmptyAppData_FallsBackToHomeAppDataRoaming() =>
+        Assert.True(Path.IsPathRooted(
+            DesktopSettingsLocation.ResolveFor(OSPlatform.Windows, @"C:\Users\x", "", null)));
+
+    [Fact]
     public void MacOs_UsesApplicationSupport() =>
         Assert.Equal(
             "/Users/x/Library/Application Support/TrispotQR",
