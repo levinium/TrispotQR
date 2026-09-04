@@ -62,4 +62,14 @@ public class SettingsLocationTests
             () => DesktopSettingsLocation.ResolveFor(OSPlatform.Linux, "", null, "/home/x/.config"));
         Assert.Equal("home", ex.ParamName);
     }
+
+    [Fact]
+    public void Directory_NeverThrows_AndAlwaysReturnsRooted()
+    {
+        var location = new DesktopSettingsLocation();
+        var directory = location.Directory;
+
+        Assert.NotNull(directory);
+        Assert.True(Path.IsPathRooted(directory));
+    }
 }

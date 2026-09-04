@@ -8,11 +8,28 @@ public sealed class DesktopSettingsLocation : ISettingsLocation
 {
     public const string FolderName = "TrispotQR";
 
-    public string Directory => ResolveFor(
-        Current(),
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Environment.GetEnvironmentVariable("XDG_CONFIG_HOME"));
+    public string Directory
+    {
+        get
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+            // ResolveFor is strict because a bad argument is a programming error; it fails loudly.
+            // This property must degrade gracefully: when home is empty (e.g., unset HOME in a
+            // container), fall back to temp rather than throwing. The app must always open,
+            // even if settings are ephemeral. Losing a saved style is better than refusing to start.
+            if (string.IsNullOrWhiteSpace(home))
+            {
+                home = Path.GetTempPath();
+            }
+
+            return ResolveFor(
+                Current(),
+                home,
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                Environment.GetEnvironmentVariable("XDG_CONFIG_HOME"));
+        }
+    }
 
     /// <summary>
     /// Split out from <see cref="Directory"/> so every platform's answer can be tested from
