@@ -30,6 +30,16 @@ across once, on first run, and the old folder is left alone rather than moved.
 
 ---
 
+## Unreleased
+
+**Internal: the drawing engine no longer depends on Windows.** Rendering moved from WPF to
+SkiaSharp and the geometry model became the app's own rather than WPF's. Nothing about the
+app changed for anyone using it; this is the groundwork for the macOS and Linux versions.
+
+Saved styles and settings are unaffected, and the settings folder now resolves per platform.
+
+---
+
 ## 1.0.0
 
 First release.

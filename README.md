@@ -54,7 +54,7 @@ scan the saved file with an actual phone. That is the only test that fully count
 Needs the .NET 10 SDK.
 
 ```powershell
-dotnet test          # 590+ tests
+dotnet test          # 681+ tests
 .\publish.ps1        # builds dist\TrispotQR.exe
 ```
 
