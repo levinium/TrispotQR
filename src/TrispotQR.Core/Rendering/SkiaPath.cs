@@ -23,25 +23,28 @@ internal static class SkiaPath
     {
         ArgumentNullException.ThrowIfNull(path);
 
-        var result = new SKPath
+        // SKPathBuilder replaces the mutable-SKPath append API (MoveTo/LineTo/ArcTo/CubicTo/
+        // Close) as of SkiaSharp 4.x. Every call below has a same-signature builder
+        // equivalent, so this is a mechanical translation, not a rewrite of the geometry.
+        var builder = new SKPathBuilder
         {
             FillType = path.FillRule == QrFillRule.EvenOdd ? SKPathFillType.EvenOdd : SKPathFillType.Winding,
         };
 
         foreach (var figure in path.Figures)
         {
-            result.MoveTo((float)figure.Start.X, (float)figure.Start.Y);
+            builder.MoveTo((float)figure.Start.X, (float)figure.Start.Y);
 
             foreach (var segment in figure.Segments)
             {
                 switch (segment)
                 {
                     case QrLineTo line:
-                        result.LineTo((float)line.To.X, (float)line.To.Y);
+                        builder.LineTo((float)line.To.X, (float)line.To.Y);
                         break;
 
                     case QrArcTo arc:
-                        result.ArcTo(
+                        builder.ArcTo(
                             new SKPoint((float)arc.Radius, (float)arc.Radius),
                             0,
                             SKPathArcSize.Small,
@@ -50,7 +53,7 @@ internal static class SkiaPath
                         break;
 
                     case QrCubicTo cubic:
-                        result.CubicTo(
+                        builder.CubicTo(
                             (float)cubic.C1.X, (float)cubic.C1.Y,
                             (float)cubic.C2.X, (float)cubic.C2.Y,
                             (float)cubic.To.X, (float)cubic.To.Y);
@@ -60,11 +63,11 @@ internal static class SkiaPath
 
             if (figure.IsClosed)
             {
-                result.Close();
+                builder.Close();
             }
         }
 
-        return result;
+        return builder.Detach();
     }
 
     /// <summary>

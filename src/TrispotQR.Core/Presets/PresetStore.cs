@@ -27,9 +27,6 @@ public sealed class PresetStore
         Reload();
     }
 
-    /// <summary>The folder these live in, under %APPDATA%.</summary>
-    private const string FolderName = "TrispotQR";
-
     /// <summary>
     /// What the folder was called before the app was renamed. Anything found here is
     /// carried over once, so saved styles survive the rename.
@@ -42,8 +39,10 @@ public sealed class PresetStore
     {
         var directory = new DesktopSettingsLocation().Directory;
 
-        // One-time carry-over from the folder the app used before it was renamed. Only
-        // meaningful on Windows, where that older version ran.
+        // One-time carry-over from the folder the app used before it was renamed.
+        // ApplicationData resolves to a real, per-user path on every platform .NET
+        // supports here, not just Windows, so this runs everywhere; CarryOverFrom is what
+        // actually limits the effect, since it is a no-op unless that older folder exists.
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         if (!string.IsNullOrEmpty(appData))
         {
@@ -53,7 +52,8 @@ public sealed class PresetStore
         return directory;
     });
 
-    /// <summary>Where presets and settings live: %APPDATA%\TrispotQR.</summary>
+    /// <summary>Where presets and settings live, resolved per platform by
+    /// <see cref="DesktopSettingsLocation"/> (<c>%APPDATA%\TrispotQR</c> on Windows).</summary>
     public static string DefaultDirectory => Resolved.Value;
 
     /// <summary>

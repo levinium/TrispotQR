@@ -37,6 +37,11 @@ SkiaSharp and the geometry model became the app's own rather than WPF's. Nothing
 app changed for anyone using it; this is the groundwork for the macOS and Linux versions.
 
 Saved styles and settings are unaffected, and the settings folder now resolves per platform.
+The one narrowing: the colour parser now only recognises a handful of named colours (black,
+white, transparent, red, green, blue, gray/grey) instead of WPF's full list of roughly 140,
+and no longer accepts `#RGB` shorthand. That only affects a preset file someone hand-edited to
+use one of those; every file the app itself has ever written uses `#RRGGBB`/`#AARRGGBB` and
+round-trips unchanged.
 
 ---
 

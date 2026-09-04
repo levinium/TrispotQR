@@ -957,7 +957,11 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        if (WpfQrRenderer.LoadImage(path) is null)
+        // Validated with the same decoder LogoCompositor.Place uses (Skia), not the WPF
+        // one WpfQrRenderer draws with: the two support different formats, and a file WPF
+        // can load but Skia cannot would pass this check and then never actually appear,
+        // since Place is what decides whether a logo is placed at all.
+        if (ImageSize.Read(path) is null)
         {
             _dialogs.ShowError("Could not read that image",
                 $"{Path.GetFileName(path)} could not be opened as an image. Try a PNG or JPG file.");
