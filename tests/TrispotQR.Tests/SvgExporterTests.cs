@@ -204,6 +204,31 @@ public class SvgExporterTests
         }
     }
 
+    [Fact]
+    public void ThePathData_HasNoWpfFillRuleTokenLeftInIt()
+    {
+        var svg = SvgExporter.ToSvg(BuildDrawing(QrStyle.Default), 512);
+
+        Assert.DoesNotContain("d=\"F0", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("d=\"F1", svg, StringComparison.Ordinal);
+        Assert.Contains("fill-rule=\"nonzero\"", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EveryPath_StartsWithAMoveCommand()
+    {
+        var document = XDocument.Parse(Export(QrStyle.Default, 512));
+
+        foreach (var path in document.Root!.Elements(Svg + "path"))
+        {
+            var data = path.Attribute("d")?.Value;
+            if (!string.IsNullOrEmpty(data))
+            {
+                Assert.StartsWith("M", data, StringComparison.Ordinal);
+            }
+        }
+    }
+
     private static string Export(QrStyle style, int pixelSize) => SvgExporter.ToSvg(BuildDrawing(style), pixelSize);
 
     private static QrDrawing BuildDrawing(QrStyle style)
