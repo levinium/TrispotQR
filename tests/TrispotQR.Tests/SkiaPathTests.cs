@@ -79,6 +79,51 @@ public class SkiaPathTests
         Assert.Equal(sk.Bounds.Bottom, again.Bounds.Bottom, 3);
     }
 
+    /// <summary>
+    /// A straight-edged square round-trips fine even if a curve is mishandled, which is why
+    /// this shape has to be an arc: Skia represents a true circular arc as a weighted conic,
+    /// and dropping the weight during the reverse trip yields a parabola that still shares
+    /// the arc's bounds but is no longer circular. Sampling points along the round-tripped
+    /// curve and checking their distance from the arc's known centre catches that; a bounds
+    /// check alone does not.
+    /// </summary>
+    [Fact]
+    public void RoundTrip_KeepsAnArcCircular()
+    {
+        // A quarter circle of radius 2 between (0,2) and (2,0), sweeping clockwise, replaces
+        // the sharp corner at (2,2): the arc bulges toward the origin, curving around a
+        // centre at the corner it is rounding off, not at the origin.
+        const double radius = 2;
+        var centre = new QrPoint(2, 2);
+
+        var path = new QrPathBuilder()
+            .Add(new QrFigure(
+                new QrPoint(0, 2),
+                [new QrArcTo(new QrPoint(2, 0), radius, Clockwise: true)],
+                IsClosed: false))
+            .Build(QrFillRule.NonZero);
+
+        using var sk = SkiaPath.ToSKPath(path);
+        var back = SkiaPath.ToQrPath(sk, QrFillRule.NonZero);
+        using var again = SkiaPath.ToSKPath(back);
+
+        using var measure = new SKPathMeasure(again, forceClosed: false);
+        var length = measure.Length;
+        Assert.True(length > 0);
+
+        for (var i = 0; i <= 10; i++)
+        {
+            var distance = length * i / 10f;
+            Assert.True(measure.GetPosition(distance, out var point));
+
+            var dx = point.X - (float)centre.X;
+            var dy = point.Y - (float)centre.Y;
+            var distanceFromCentre = Math.Sqrt((dx * dx) + (dy * dy));
+
+            Assert.Equal(radius, distanceFromCentre, 1);
+        }
+    }
+
     [Fact]
     public void RoundTrip_KeepsTheFigureClosed()
     {

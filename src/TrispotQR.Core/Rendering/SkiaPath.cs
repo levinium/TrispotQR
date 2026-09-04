@@ -12,6 +12,13 @@ namespace TrispotQR.Core.Rendering;
 /// </summary>
 internal static class SkiaPath
 {
+    /// <summary>
+    /// Subdivision level passed to <see cref="SKPath.ConvertConicToQuads"/>: 2^2 = 4 quads.
+    /// Plenty for the small arcs this app draws (quarter circle or less) while keeping the
+    /// resulting figure small.
+    /// </summary>
+    private const int ConicToQuadPow2 = 2;
+
     public static SKPath ToSKPath(QrPath path)
     {
         ArgumentNullException.ThrowIfNull(path);
@@ -99,10 +106,23 @@ internal static class SkiaPath
                     break;
 
                 case SKPathVerb.Quad:
-                case SKPathVerb.Conic:
-                    // Raised to a cubic so the model needs only one curve type. A conic is
-                    // approximated; a quadratic converts exactly.
+                    // Raised to a cubic so the model needs only one curve type. Exact, not
+                    // an approximation.
                     segments.Add(QuadToCubic(Point(points[0]), Point(points[1]), Point(points[2])));
+                    break;
+
+                case SKPathVerb.Conic:
+                    // A conic's weight determines its curvature (~0.707 for a 90-degree
+                    // circular arc); treating it as an unweighted quadratic produces a
+                    // parabolic bulge instead of a circular one. Skia's own subdivision
+                    // gets this right, so let it split the conic into quads first, then
+                    // raise each of those exactly, same as the plain Quad case.
+                    var weight = iterator.ConicWeight();
+                    var quadPoints = SKPath.ConvertConicToQuads(points[0], points[1], points[2], weight, ConicToQuadPow2);
+                    for (var i = 0; i < quadPoints.Length - 1; i += 2)
+                    {
+                        segments.Add(QuadToCubic(Point(quadPoints[i]), Point(quadPoints[i + 1]), Point(quadPoints[i + 2])));
+                    }
                     break;
 
                 case SKPathVerb.Cubic:
