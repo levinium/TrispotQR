@@ -20,6 +20,11 @@ public sealed class DesktopSettingsLocation : ISettingsLocation
     /// </summary>
     public static string ResolveFor(OSPlatform platform, string home, string? appData, string? xdgConfigHome)
     {
+        if (string.IsNullOrWhiteSpace(home))
+        {
+            throw new ArgumentException("Home directory cannot be empty or whitespace.", nameof(home));
+        }
+
         if (platform == OSPlatform.Windows)
         {
             var configPath = string.IsNullOrEmpty(appData) ? Path.Combine(home, "AppData", "Roaming") : appData;

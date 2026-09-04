@@ -38,4 +38,28 @@ public class SettingsLocationTests
     [Fact]
     public void TheLiveLocation_IsAnAbsolutePath() =>
         Assert.True(Path.IsPathRooted(new DesktopSettingsLocation().Directory));
+
+    [Fact]
+    public void Windows_EmptyHome_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(
+            () => DesktopSettingsLocation.ResolveFor(OSPlatform.Windows, "", @"C:\Users\x\AppData\Roaming", null));
+        Assert.Equal("home", ex.ParamName);
+    }
+
+    [Fact]
+    public void MacOs_EmptyHome_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(
+            () => DesktopSettingsLocation.ResolveFor(OSPlatform.OSX, "", null, null));
+        Assert.Equal("home", ex.ParamName);
+    }
+
+    [Fact]
+    public void Linux_EmptyHome_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(
+            () => DesktopSettingsLocation.ResolveFor(OSPlatform.Linux, "", null, "/home/x/.config"));
+        Assert.Equal("home", ex.ParamName);
+    }
 }
