@@ -1,12 +1,13 @@
-namespace TrispotQR.Core.Rendering;
+namespace TrispotQR.Tests;
 
 /// <summary>
 /// Runs work on a dedicated single-threaded-apartment thread.
 ///
-/// WPF imaging needs STA, so anything that renders off the UI thread, the debounced
-/// scannability check in the app and every render in the test suite, has to go through
-/// here. The thread is created per call and torn down after; these are short operations
-/// and a pooled STA thread would add lifetime problems for no measurable gain.
+/// Core is Skia-only now and needs no apartment thread, but this test project still drives
+/// <c>MainViewModel</c> and the WPF clipboard/bitmap path, both of which do. It lives here,
+/// not in Core, for the same reason those call sites do: it is a WPF-era concern. The thread
+/// is created per call and torn down after; these are short operations and a pooled STA
+/// thread would add lifetime problems for no measurable gain.
 /// </summary>
 public static class StaThread
 {

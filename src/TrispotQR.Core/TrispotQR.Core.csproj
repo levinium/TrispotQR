@@ -2,12 +2,14 @@
 
   <PropertyGroup>
     <!--
-      Windows-targeted with UseWPF because the renderer is built on System.Windows.Media
-      geometry types (PresentationCore). No XAML lives here; this is pure logic and is
-      exercised headlessly by the test project.
+      Plain net10.0, with no Windows suffix and no UseWPF. This is the whole point of the
+      port: Core is pure logic plus SkiaSharp, so it runs unchanged on Windows, macOS,
+      Linux, and later on Android and iOS.
+
+      CorePortabilityTests asserts this stays true. Do not add a WPF reference back for a
+      Point, a Rect or a Color; the equivalents live in TrispotQR.Core.Primitives.
     -->
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>TrispotQR.Core</RootNamespace>
