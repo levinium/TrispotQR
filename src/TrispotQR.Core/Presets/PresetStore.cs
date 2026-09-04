@@ -40,9 +40,16 @@ public sealed class PresetStore
     // and both this store and the settings store ask for it.
     private static readonly Lazy<string> Resolved = new(() =>
     {
+        var directory = new DesktopSettingsLocation().Directory;
+
+        // One-time carry-over from the folder the app used before it was renamed. Only
+        // meaningful on Windows, where that older version ran.
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var directory = Path.Combine(appData, FolderName);
-        CarryOverFrom(Path.Combine(appData, PreviousFolderName), directory);
+        if (!string.IsNullOrEmpty(appData))
+        {
+            CarryOverFrom(Path.Combine(appData, PreviousFolderName), directory);
+        }
+
         return directory;
     });
 
