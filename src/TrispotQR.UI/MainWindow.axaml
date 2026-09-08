@@ -1,0 +1,91 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:TrispotQR.UI.Controls"
+        xmlns:converters="clr-namespace:TrispotQR.UI.Converters"
+        xmlns:vm="clr-namespace:TrispotQR.ViewModels;assembly=TrispotQR.ViewModels"
+        x:Class="TrispotQR.UI.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="TrispotQR"
+        Width="1000" Height="700"
+        MinWidth="760" MinHeight="560">
+
+  <Window.Resources>
+    <converters:VerdictToBrushConverter x:Key="VerdictToBrush" />
+  </Window.Resources>
+
+  <Window.DataTemplates>
+    <DataTemplate DataType="vm:PlainTextEditor">
+      <TextBox Text="{Binding Text}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120" />
+    </DataTemplate>
+
+    <DataTemplate DataType="vm:LinkEditor">
+      <TextBox Text="{Binding Address}" PlaceholderText="www.example.com" />
+    </DataTemplate>
+
+    <!-- The remaining five content types keep their WPF fields until Phase 2c. Saying so is
+         better than showing an empty panel that looks broken. -->
+    <DataTemplate DataType="vm:ContentEditor">
+      <TextBlock TextWrapping="Wrap" Opacity="0.7"
+                 Text="The fields for this content type arrive in the next phase. Plain text and Link work today." />
+    </DataTemplate>
+  </Window.DataTemplates>
+
+  <Grid ColumnDefinitions="*,380" Margin="16">
+
+    <!-- Preview -->
+    <Grid Grid.Column="0" RowDefinitions="*,Auto,Auto" Margin="0,0,16,0">
+      <Border Grid.Row="0" Background="#F4F4F4" CornerRadius="6" Padding="16">
+        <controls:QrPreview Drawing="{Binding PreviewDrawing}" />
+      </Border>
+
+      <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,12,0,0">
+        <Ellipse Width="10" Height="10" VerticalAlignment="Center"
+                 Fill="{Binding Verdict, Converter={StaticResource VerdictToBrush}}" />
+        <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" VerticalAlignment="Center" />
+      </StackPanel>
+
+      <TextBlock Grid.Row="2" Text="{Binding StatusDetail}" TextWrapping="Wrap"
+                 Opacity="0.75" Margin="18,4,0,0" />
+    </Grid>
+
+    <!-- Controls -->
+    <ScrollViewer Grid.Column="1">
+      <StackPanel Spacing="16">
+
+        <StackPanel Spacing="6">
+          <TextBlock Text="What goes in the code" FontWeight="SemiBold" />
+          <ComboBox ItemsSource="{Binding ContentEditors}"
+                    SelectedItem="{Binding SelectedContent}"
+                    HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+              <DataTemplate DataType="vm:ContentEditor">
+                <TextBlock Text="{Binding Title}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBlock Text="{Binding SelectedContent.Hint}" TextWrapping="Wrap" Opacity="0.7" FontSize="12" />
+        </StackPanel>
+
+        <ContentControl Content="{Binding SelectedContent}" />
+
+        <TextBlock Text="{Binding CapacityText}" Opacity="0.7" FontSize="12" />
+
+        <StackPanel Spacing="6">
+          <TextBlock Text="Save" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding SizeSummary}" Opacity="0.7" FontSize="12" />
+          <TextBlock Text="{Binding ExportBlockedReason}" TextWrapping="Wrap" FontSize="12"
+                     Foreground="#B3261E" IsVisible="{Binding !CanExport}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Save PNG" Command="{Binding SavePngCommand}" />
+            <Button Content="Save SVG" Command="{Binding SaveSvgCommand}" />
+            <Button Content="Copy" Command="{Binding CopyCommand}" />
+          </StackPanel>
+        </StackPanel>
+
+        <TextBlock TextWrapping="Wrap" Opacity="0.6" FontSize="12"
+                   Text="Styling, presets, the logo picker and settings are still in the Windows build. They arrive here next." />
+
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</Window>
