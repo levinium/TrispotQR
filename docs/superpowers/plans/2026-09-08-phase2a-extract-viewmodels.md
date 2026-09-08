@@ -634,6 +634,109 @@ git commit -m "Speak Core's colour type in the view model, converting only at th
 
 ---
 
+### Task 5, part two: the settings window
+
+**Added after the plan was written.** The plan claimed `MainViewModel` had exactly three UI
+couplings. It has four. `OpenSettings` takes a WPF `Window`, constructs `Views.SettingsWindow`
+directly, and calls `ThemeManager.Apply`. All three would break the move in Task 6, and none
+is fixable with a Core primitive.
+
+**Files:**
+- Modify: `src/TrispotQR.ViewModels/IDialogService.cs`, `src/TrispotQR.App/Services/DialogService.cs`, `src/TrispotQR.App/ViewModels/MainViewModel.cs`, `src/TrispotQR.App/MainWindow.xaml.cs`
+- Modify: the six test files carrying a stub implementation of `IDialogService`
+
+**Interfaces:**
+- Produces: `IDialogService.EditSettings(AppSettings current)` returning `AppSettings?`, null when cancelled.
+
+- [ ] **Step A: Add the interface member**
+
+In `src/TrispotQR.ViewModels/IDialogService.cs`:
+
+```csharp
+    /// <summary>
+    /// Shows the settings window and returns what the user chose, or null if they cancelled.
+    ///
+    /// The whole exchange lives behind this call because opening a window, owning it, and
+    /// applying the chosen theme are all things only a UI toolkit can do. The view model's
+    /// part is deciding what to persist afterwards.
+    /// </summary>
+    AppSettings? EditSettings(AppSettings current);
+```
+
+It needs `using TrispotQR.Core.Presets;` for `AppSettings`.
+
+- [ ] **Step B: Implement it in the app, moving the existing behaviour across unchanged**
+
+In `DialogService`:
+
+```csharp
+    public AppSettings? EditSettings(AppSettings current)
+    {
+        var window = new Views.SettingsWindow(current) { Owner = Owner() };
+
+        if (window.ShowDialog() != true)
+        {
+            return null;
+        }
+
+        // Applied here rather than by the caller because the theme is a property of the
+        // running application, not of the settings record.
+        ThemeManager.Apply(window.Result.Theme);
+        return window.Result;
+    }
+```
+
+Use the file's existing `Owner()` helper, the same one `Confirm` and `ShowError` use.
+
+- [ ] **Step C: Simplify the view model**
+
+`OpenSettings` loses its parameter and its window handling, keeping everything else exactly
+as it was, including persisting immediately and announcing:
+
+```csharp
+    /// <summary>
+    /// Takes on whatever the settings window returns. Written to persist immediately rather
+    /// than at shutdown, so a preference survives even if the app is later closed in a way
+    /// that skips the normal save.
+    /// </summary>
+    public void OpenSettings()
+    {
+        if (_dialogs.EditSettings(_settings) is not { } updated)
+        {
+            return;
+        }
+
+        _settings = updated;
+        _settingsStore.Save(_settings with { Style = _style });
+
+        OnPropertyChanged(nameof(PixelSize));
+        Announce("Settings saved");
+    }
+```
+
+Use whatever the field holding the dialog service is actually called; check the constructor.
+
+Then delete `using System.Windows;` from `MainViewModel.cs` if nothing else needs it.
+
+- [ ] **Step D: Update the one caller**
+
+`src/TrispotQR.App/MainWindow.xaml.cs` calls `_viewModel.OpenSettings(this)`. Drop the argument.
+
+- [ ] **Step E: Update the six test stubs**
+
+Adding a member to the interface breaks every stub implementing it. They are in
+`ExportGuardTests.cs`, `MainViewModelTests.cs`, `MainWindowSmokeTests.cs`,
+`ReadmeSnapshotTests.cs`, `SliderBehaviourTests.cs` and `ValidationUiTests.cs`. Each needs:
+
+```csharp
+        public AppSettings? EditSettings(AppSettings current) => null;
+```
+
+Returning null means "cancelled", which is the right inert default for a test that is not
+exercising settings.
+
+---
+
 ## Task 6: Move MainViewModel and prove the project is neutral
 
 **Files:**
