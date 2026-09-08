@@ -8,7 +8,7 @@ uploaded, nothing is tracked, and nothing is installed.
 [![Latest release](https://img.shields.io/github/v/release/levinium/TrispotQR?label=download&color=2B5CE6)](https://github.com/levinium/TrispotQR/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/levinium/TrispotQR/total?color=2B5CE6)](https://github.com/levinium/TrispotQR/releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-555)
-![Tests](https://img.shields.io/badge/tests-683%20passing-3a9d3a)
+[![CI](https://github.com/levinium/TrispotQR/actions/workflows/ci.yml/badge.svg)](https://github.com/levinium/TrispotQR/actions/workflows/ci.yml)
 
 ![Trispot QR](docs/screenshots/main-window.png)
 
@@ -93,7 +93,7 @@ phone before a code goes to print. That is the only test that fully counts.
 Needs the .NET 10 SDK.
 
 ```powershell
-dotnet test          # 683 tests
+dotnet test          # 683 tests: 415 run on Windows, Linux and macOS
 .\publish.ps1        # builds dist\TrispotQR.exe
 ```
 
