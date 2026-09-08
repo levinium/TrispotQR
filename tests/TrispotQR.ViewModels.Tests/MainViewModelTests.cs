@@ -457,32 +457,21 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
-    public void SaveToAReadOnlyFile_ShowsAMessageRatherThanCrashing()
+    public void SaveToAPathThatCannotBeWritten_ShowsAMessageRatherThanCrashing()
     {
         var vm = CreateWithContent();
+
+        // The save writes to a temp file and renames it over the target, so neither a
+        // FileShare.None lock nor a ReadOnly attribute stops it on Unix: rename acts on the
+        // directory entry, not the file. A directory in the target's place is refused
+        // everywhere, because a rename cannot replace one.
         var target = Path.Combine(_directory, "locked.png");
+        Directory.CreateDirectory(target);
         _dialogs.NextSavePath = target;
 
-        // Not FileShare.None: that lock is mandatory on Windows but only advisory on Unix,
-        // where .NET maps it to flock, so the save would walk straight past it there and
-        // this test would pass without ever exercising the failure path. A ReadOnly
-        // attribute is the lever both platforms honour: .NET maps it to clearing the write
-        // permission bits on Unix, and writing over a read-only file is refused everywhere.
-        File.WriteAllBytes(target, [0]);
-        File.SetAttributes(target, FileAttributes.ReadOnly);
+        vm.SavePngCommand.Execute(null);
 
-        try
-        {
-            vm.SavePngCommand.Execute(null);
-
-            Assert.Contains("could not be written", _dialogs.LastError!, StringComparison.OrdinalIgnoreCase);
-        }
-        finally
-        {
-            // Dispose() deletes the whole directory; a file still marked read-only would
-            // make that throw too, turning this one failure into a confusing cascade.
-            File.SetAttributes(target, FileAttributes.Normal);
-        }
+        Assert.Contains("could not be written", _dialogs.LastError!, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
