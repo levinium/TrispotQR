@@ -15,18 +15,66 @@
 
   <Window.DataTemplates>
     <DataTemplate DataType="vm:PlainTextEditor">
-      <TextBox Text="{Binding Text}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120" />
+      <controls:FieldBox Text="{Binding Text}" FieldName="Text" InputHeight="92"/>
     </DataTemplate>
 
     <DataTemplate DataType="vm:LinkEditor">
-      <TextBox Text="{Binding Address}" PlaceholderText="www.example.com" />
+      <controls:FieldBox Label="Web address" Text="{Binding Address}" FieldName="Address"/>
     </DataTemplate>
 
-    <!-- The remaining five content types keep their WPF fields until Phase 2c. Saying so is
-         better than showing an empty panel that looks broken. -->
-    <DataTemplate DataType="vm:ContentEditor">
-      <TextBlock TextWrapping="Wrap" Opacity="0.7"
-                 Text="The fields for this content type arrive in the next phase. Plain text and Link work today." />
+    <DataTemplate DataType="vm:WifiEditor">
+      <StackPanel>
+        <controls:FieldBox Label="Network name" Text="{Binding Ssid}" FieldName="Ssid"/>
+        <TextBlock Text="Security" FontSize="12" Margin="0,10,0,4"/>
+        <ComboBox ItemsSource="{Binding SecurityOptions}" SelectedItem="{Binding Security}"
+                  HorizontalAlignment="Stretch"/>
+        <controls:FieldBox Label="Password" Text="{Binding Password}" FieldName="Password"
+                           Margin="0,10,0,0" IsVisible="{Binding NeedsPassword}"/>
+        <CheckBox Content="This is a hidden network" IsChecked="{Binding Hidden}" Margin="0,10,0,0"/>
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="vm:EmailEditor">
+      <StackPanel>
+        <controls:FieldBox Label="To" Text="{Binding Address}" FieldName="Address"/>
+        <controls:FieldBox Label="Subject" IsOptional="True" Text="{Binding Subject}"
+                           FieldName="Subject" Margin="0,10,0,0"/>
+        <controls:FieldBox Label="Message" IsOptional="True" Text="{Binding Body}"
+                           FieldName="Body" InputHeight="60" Margin="0,10,0,0"/>
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="vm:PhoneEditor">
+      <controls:FieldBox Label="Phone number" Text="{Binding Number}" FieldName="Number"/>
+    </DataTemplate>
+
+    <DataTemplate DataType="vm:SmsEditor">
+      <StackPanel>
+        <controls:FieldBox Label="Phone number" Text="{Binding Number}" FieldName="Number"/>
+        <controls:FieldBox Label="Message" IsOptional="True" Text="{Binding Text}"
+                           FieldName="Text" InputHeight="60" Margin="0,10,0,0"/>
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="vm:ContactEditor">
+      <StackPanel>
+        <Grid ColumnDefinitions="*,10,*" RowDefinitions="Auto,Auto,Auto">
+          <controls:FieldBox Grid.Row="0" Grid.Column="0" Label="First name"
+                             Text="{Binding FirstName}" FieldName="FirstName"/>
+          <controls:FieldBox Grid.Row="0" Grid.Column="2" Label="Last name"
+                             Text="{Binding LastName}" FieldName="LastName"/>
+          <controls:FieldBox Grid.Row="1" Grid.Column="0" Label="Organisation" Margin="0,10,0,0"
+                             Text="{Binding Organization}" FieldName="Organization"/>
+          <controls:FieldBox Grid.Row="1" Grid.Column="2" Label="Job title" IsOptional="True"
+                             Margin="0,10,0,0" Text="{Binding JobTitle}" FieldName="JobTitle"/>
+          <controls:FieldBox Grid.Row="2" Grid.Column="0" Label="Phone" IsOptional="True"
+                             Margin="0,10,0,0" Text="{Binding Phone}" FieldName="Phone"/>
+          <controls:FieldBox Grid.Row="2" Grid.Column="2" Label="Email" IsOptional="True"
+                             Margin="0,10,0,0" Text="{Binding Email}" FieldName="Email"/>
+        </Grid>
+        <controls:FieldBox Label="Website" IsOptional="True" Margin="0,10,0,0"
+                           Text="{Binding Website}" FieldName="Website"/>
+      </StackPanel>
     </DataTemplate>
   </Window.DataTemplates>
 
@@ -72,6 +120,29 @@
              here, which would otherwise show up as a second, unrelated TextBox in a
              window-wide search. -->
         <ContentControl x:Name="ContentEditorHost" Content="{Binding SelectedContent}" />
+
+        <!-- Problems belonging to the form rather than to any one box, and otherwise the
+             informational note. A per-field problem is shown by the field itself, not here.
+
+             The colour rides on a bound class rather than a converter: FormMessageIsProblem
+             distinguishes a genuine problem from a note, and a note must not be red. Binding
+             the class keeps the two colours defined in exactly one place, the application
+             resources, instead of a converter holding a second copy of the same two values.
+
+             Named so MainWindowTests can find this one TextBlock specifically, rather than
+             whichever TextBlock happens to hold a given piece of text when the test runs. -->
+        <TextBlock x:Name="FormMessageText" Text="{Binding SelectedContent.FormMessage}"
+                   Classes.problem="{Binding SelectedContent.FormMessageIsProblem}"
+                   TextWrapping="Wrap" FontSize="12" Opacity="0.75" Margin="0,8,0,0"
+                   IsVisible="{Binding SelectedContent.FormMessage,
+                               Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock.Styles>
+            <Style Selector="TextBlock.problem">
+              <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+              <Setter Property="Opacity" Value="1"/>
+            </Style>
+          </TextBlock.Styles>
+        </TextBlock>
 
         <TextBlock Text="{Binding CapacityText}" Opacity="0.7" FontSize="12" />
 

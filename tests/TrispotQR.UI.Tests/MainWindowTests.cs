@@ -53,6 +53,15 @@ public class MainWindowTests
         window.FindControl<ContentControl>("ContentEditorHost")
             ?? throw new InvalidOperationException("MainWindow no longer has a ContentEditorHost.");
 
+    /// <summary>
+    /// The form-level message TextBlock, named in MainWindow.axaml for exactly this: a test
+    /// needs to reach this one TextBlock specifically, not merely the one that happens to hold
+    /// a given piece of text at the moment it runs.
+    /// </summary>
+    private static TextBlock FormMessage(Window window) =>
+        window.FindControl<TextBlock>("FormMessageText")
+            ?? throw new InvalidOperationException("MainWindow no longer has a FormMessageText.");
+
     [AvaloniaFact]
     public void OpensAtTheSizeTheLastSessionLeftBehind()
     {
@@ -128,7 +137,7 @@ public class MainWindowTests
     }
 
     [AvaloniaFact]
-    public void RealizesTheActualPlainTextBoxRatherThanThePlaceholder()
+    public void RealizesThePlainTextEditorsOwnBoxRatherThanAnyOtherTemplate()
     {
         // Regression coverage for the exact failure mode the brief warns about: a DataTemplate
         // registered for the ContentEditor base type ahead of the PlainTextEditor-specific one
@@ -139,55 +148,113 @@ public class MainWindowTests
         var (window, _, editor) = Open();
         DispatcherPump.Drain();
 
-        var textBox = Assert.Single(ContentHost(window).GetVisualDescendants().OfType<TextBox>());
+        var box = Assert.Single(ContentHost(window).GetVisualDescendants().OfType<FieldBox>());
 
         // The realised child's DataContext is the bound Content instance itself (standard
         // ContentPresenter behaviour), so this also confirms it is bound to this editor and
-        // not some other control that merely happens to be the only TextBox in the host.
-        Assert.Same(editor, textBox.DataContext);
+        // not some other control that merely happens to be the only FieldBox in the host.
+        Assert.Same(editor, box.DataContext);
 
-        // A live round-trip through the real bound property, not just a type check: if the
-        // catch-all placeholder template had won, there would be no TextBox here to receive
-        // this at all.
+        // A live round-trip through the real bound property, not just a type check: if some
+        // other template had won, there would be no FieldBox here to receive this at all.
         editor.Text = "round-trip";
         DispatcherPump.Drain();
-        Assert.Equal("round-trip", textBox.Text);
+        Assert.Equal("round-trip", box.Text);
     }
 
     [AvaloniaFact]
-    public void RealizesTheActualLinkTextBoxRatherThanThePlaceholder()
+    public void RealizesTheLinkEditorsOwnBoxRatherThanAnyOtherTemplate()
     {
+        // PlainTextEditor and LinkEditor are the two templates ordered first in
+        // MainWindow.axaml's DataTemplates; this and the test above are what would catch either
+        // one being shadowed by a template registered ahead of it.
         var (window, model, _) = Open();
         var link = model.ContentEditors.OfType<LinkEditor>().Single();
         model.SelectedContent = link;
         DispatcherPump.Drain();
 
-        var textBox = Assert.Single(ContentHost(window).GetVisualDescendants().OfType<TextBox>());
-        Assert.Same(link, textBox.DataContext);
+        var box = Assert.Single(ContentHost(window).GetVisualDescendants().OfType<FieldBox>());
+        Assert.Same(link, box.DataContext);
 
         link.Address = "example.org";
         DispatcherPump.Drain();
-        Assert.Equal("example.org", textBox.Text);
+        Assert.Equal("example.org", box.Text);
     }
 
     [AvaloniaFact]
-    public void FallsBackToThePlaceholderForAContentTypeWithNoSpecificTemplateYet()
+    public void EveryContentTypeRealizesRealFieldsRatherThanAPlaceholder()
     {
-        // Proves the fallback path is actually reachable, not merely unreachable-and-therefore-
-        // untested: Wi-Fi has no dedicated DataTemplate yet (Phase 2c), so it must resolve
-        // through the ContentEditor catch-all rather than accidentally reusing PlainText's or
-        // Link's TextBox template.
+        // Iterating the collection rather than naming the seven types: a content type added
+        // later fails here instead of quietly rendering an empty panel.
+        var window = new MainWindow();
+        window.Show();
+        var model = Assert.IsType<MainViewModel>(window.DataContext);
+
+        foreach (var editor in model.ContentEditors)
+        {
+            model.SelectedContent = editor;
+            DispatcherPump.Drain();
+
+            var boxes = ContentHost(window).GetVisualDescendants().OfType<FieldBox>().ToList();
+            Assert.True(boxes.Count > 0, $"{editor.Title} rendered no fields");
+            Assert.All(boxes, b => Assert.False(string.IsNullOrEmpty(b.FieldName)));
+        }
+    }
+
+    [AvaloniaFact]
+    public void AnInformationalNoteIsNotShownAsAProblem()
+    {
+        // The link editor's note is guidance, not a fault. Colouring it red would tell the
+        // user something is wrong when nothing is.
         var (window, model, _) = Open();
-        var wifi = model.ContentEditors.OfType<WifiEditor>().Single();
-        model.SelectedContent = wifi;
+        var link = model.ContentEditors.OfType<LinkEditor>().Single();
+        model.SelectedContent = link;
+        link.Address = "www.emanuelnyc.org";
         DispatcherPump.Drain();
 
-        var host = ContentHost(window);
-        Assert.Empty(host.GetVisualDescendants().OfType<TextBox>());
+        Assert.False(link.FormMessageIsProblem);
+        Assert.False(FormMessage(window).Classes.Contains("problem"));
+    }
 
-        var placeholder = host.GetVisualDescendants().OfType<TextBlock>().Single(t =>
-            t.Text == "The fields for this content type arrive in the next phase. Plain text and Link work today.");
-        Assert.Same(wifi, placeholder.DataContext);
+    [AvaloniaFact]
+    public void AGenuineFormProblemColoursTheMessageInTheDangerBrush()
+    {
+        // The discrimination case for the test above: an empty contact card fails
+        // ContactEditor's form-level "needs a name" rule, so FormMessageIsProblem is true and
+        // this must render differently. Checking only the class string would pass even if the
+        // Classes.problem="{Binding ...}" binding syntax silently failed to reach the class at
+        // all, or if TextBlock.problem's Setter never actually applied -- Phase 2b's style
+        // selector shipped exactly that failure once, with every test still green. Reading the
+        // rendered Foreground through the same resource lookup FieldBoxTests uses is what rules
+        // both out.
+        var (window, model, _) = Open();
+        var contact = model.ContentEditors.OfType<ContactEditor>().Single();
+        model.SelectedContent = contact;
+        DispatcherPump.Drain();
+
+        Assert.True(contact.FormMessageIsProblem);
+        var message = FormMessage(window);
+        Assert.True(message.Classes.Contains("problem"));
+
+        Avalonia.Application.Current!.TryGetResource(
+            "DangerBrush", Avalonia.Styling.ThemeVariant.Default, out var expected);
+        var actual = message.Foreground as Avalonia.Media.ISolidColorBrush;
+        Assert.NotNull(actual);
+        Assert.Equal(((Avalonia.Media.ISolidColorBrush)expected!).Color, actual!.Color);
+    }
+
+    [AvaloniaFact]
+    public void TheFormMessageIsHiddenWhenThereIsNothingToSay()
+    {
+        // PlainTextEditor never sets a Note and never reports a Form-level issue, so with the
+        // default empty Text its FormMessage is null. A binding that fails open -- rendering an
+        // empty line instead of collapsing it -- would look, to a user, like nothing at all and
+        // pass unnoticed; this is what StringConverters.IsNotNullOrEmpty is there to prevent.
+        var (window, _, editor) = Open();
+        DispatcherPump.Drain();
+
+        Assert.True(string.IsNullOrEmpty(editor.FormMessage));
+        Assert.False(FormMessage(window).IsVisible);
     }
 
     [AvaloniaFact]
