@@ -7,6 +7,7 @@ using TrispotQR.App.Services;
 using TrispotQR.App.ViewModels;
 using TrispotQR.App.Views;
 using TrispotQR.Core.Presets;
+using TrispotQR.ViewModels;
 
 namespace TrispotQR.Tests;
 
