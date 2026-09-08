@@ -1348,28 +1348,41 @@ namespace TrispotQR.UI.Tests;
 
 public class MainWindowTests
 {
-    private static (MainWindow Window, MainViewModel Model) Open()
+    /// <summary>
+    /// Opens the window and selects the plain-text editor.
+    ///
+    /// Selecting it explicitly matters: MainViewModel restores the last-used content type from
+    /// the real settings file, and MainWindow is the composition root so no test can hand it a
+    /// different store. Assuming plain text is selected would make these tests pass or fail
+    /// depending on what the developer last did in the shipping app.
+    /// </summary>
+    private static (MainWindow Window, MainViewModel Model, PlainTextEditor Editor) Open()
     {
         var window = new MainWindow();
         window.Show();
-        return (window, Assert.IsType<MainViewModel>(window.DataContext));
+
+        var model = Assert.IsType<MainViewModel>(window.DataContext);
+        var editor = model.ContentEditors.OfType<PlainTextEditor>().Single();
+        model.SelectedContent = editor;
+
+        return (window, model, editor);
     }
 
     [AvaloniaFact]
     public void OpensWithAViewModelAttached()
     {
-        var (_, model) = Open();
+        var (_, model, editor) = Open();
 
         Assert.NotEmpty(model.ContentEditors);
-        Assert.IsType<PlainTextEditor>(model.SelectedContent);
+        Assert.Same(editor, model.SelectedContent);
     }
 
     [AvaloniaFact]
     public void ShowsAPreviewOnceThereIsContent()
     {
-        var (window, model) = Open();
+        var (window, model, editor) = Open();
 
-        ((PlainTextEditor)model.SelectedContent).Text = "https://www.emanuelnyc.org";
+        editor.Text = "https://www.emanuelnyc.org";
 
         // RefreshNow skips the debounce timer, which is what the window uses in normal running.
         // Waiting on a real 150ms tick here would make the test slow and flaky for no gain.
@@ -1385,7 +1398,9 @@ public class MainWindowTests
     [AvaloniaFact]
     public void CannotExportWithNoContent()
     {
-        var (_, model) = Open();
+        var (_, model, editor) = Open();
+
+        editor.Text = string.Empty;
 
         Assert.False(model.CanExport);
         Assert.False(model.SavePngCommand.CanExecute(null));
@@ -1394,9 +1409,9 @@ public class MainWindowTests
     [AvaloniaFact]
     public void CanExportOnceThereIsContent()
     {
-        var (_, model) = Open();
+        var (_, model, editor) = Open();
 
-        ((PlainTextEditor)model.SelectedContent).Text = "https://www.emanuelnyc.org";
+        editor.Text = "https://www.emanuelnyc.org";
         model.RefreshNow();
         Dispatcher.UIThread.RunJobs();
 
@@ -1410,9 +1425,9 @@ public class MainWindowTests
         // Compiled bindings turn a mistyped binding into a build error, but a binding to a
         // missing DataTemplate still only shows up at runtime. Capturing a frame forces the
         // whole visual tree to render, which is what surfaces that.
-        var (window, model) = Open();
+        var (window, model, editor) = Open();
 
-        ((PlainTextEditor)model.SelectedContent).Text = "test";
+        editor.Text = "test";
         model.RefreshNow();
         Dispatcher.UIThread.RunJobs();
 
