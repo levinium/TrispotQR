@@ -130,6 +130,15 @@ public partial class FieldBox : UserControl
         Input.AcceptsReturn = true;
         Input.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
         Input.VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Top;
+
+        // Carried over from the WPF original: without this, a message longer than the fixed
+        // height just clips, with nothing on screen telling the user there is more to see.
+        // Unlike WPF's TextBox, Avalonia's has no VerticalScrollBarVisibility of its own --
+        // scrolling is owned by the internal ScrollViewer part, addressed the same way XAML
+        // does it (<TextBox ScrollViewer.VerticalScrollBarVisibility="Auto"/>): through
+        // ScrollViewer's attached property.
+        ScrollViewer.SetVerticalScrollBarVisibility(
+            Input, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
     }
 
     private void Rewire()

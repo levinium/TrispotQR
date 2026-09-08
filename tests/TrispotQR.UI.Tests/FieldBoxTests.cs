@@ -1,6 +1,10 @@
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
 using TrispotQR.Core.Payloads;
 using TrispotQR.UI.Controls;
 using TrispotQR.ViewModels;
@@ -16,6 +20,23 @@ public class FieldBoxTests
         window.Show();
         DispatcherPump.Drain();
         return (window, box);
+    }
+
+    // Reaches past FieldBox's own public surface to the real inner TextBox, the same way a
+    // style selector does, so a test can assert on the border that the user actually sees
+    // rather than only on the pseudo-class that is supposed to cause it. A pseudo-class can
+    // be set correctly while a broken selector still leaves the border unstyled -- that is
+    // exactly the bug the selector work in this control had to rule out, and nothing short
+    // of reading the rendered BorderBrush proves it stays ruled out.
+    private static TextBox InputOf(FieldBox box) =>
+        box.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "Input");
+
+    // Reads the brush from Application.Resources rather than hard-coding a hex value, so
+    // this assertion keeps following the palette if Phase 2e's theming changes the colors.
+    private static Color SeverityColor(string key)
+    {
+        Application.Current!.TryGetResource(key, ThemeVariant.Default, out var resource);
+        return ((ISolidColorBrush)resource!).Color;
     }
 
     [AvaloniaFact]
@@ -40,6 +61,10 @@ public class FieldBoxTests
         Assert.NotNull(box.ShownError);
         Assert.Equal(editor.IssueFor("Address")!.Message, box.ShownError);
         Assert.True(box.Classes.Contains(":error"));
+
+        var borderBrush = InputOf(box).BorderBrush as ISolidColorBrush;
+        Assert.NotNull(borderBrush);
+        Assert.Equal(SeverityColor("DangerBrush"), borderBrush!.Color);
     }
 
     [AvaloniaFact]
@@ -70,6 +95,10 @@ public class FieldBoxTests
         Assert.Equal(warned.Message, box.ShownError);
         Assert.True(box.Classes.Contains(":warning"));
         Assert.False(box.Classes.Contains(":error"));
+
+        var borderBrush = InputOf(box).BorderBrush as ISolidColorBrush;
+        Assert.NotNull(borderBrush);
+        Assert.Equal(SeverityColor("WarningBrush"), borderBrush!.Color);
     }
 
     [AvaloniaFact]
