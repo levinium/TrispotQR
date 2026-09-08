@@ -6,6 +6,9 @@ dist/
 TestResults/
 ui-snapshot.png
 
+# Build/test transcripts land here when redirected by hand; the repo is public.
+*.log
+
 # Subagent-driven development scratch, per plan
 .superpowers/
 

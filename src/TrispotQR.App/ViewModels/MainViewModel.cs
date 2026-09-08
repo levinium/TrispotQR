@@ -4,7 +4,6 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
-using System.Windows.Threading;
 using TrispotQR.App.Export;
 using TrispotQR.App.Rendering;
 using TrispotQR.App.Services;
@@ -38,7 +37,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly PresetStore _presets;
     private readonly AppSettingsStore _settingsStore;
     private readonly IImageClipboard _clipboard;
-    private readonly DispatcherTimer _debounce;
+    private readonly IUiTimer _debounce;
 
     /// <summary>
     /// Where scannability results are marshalled back to. The UI thread has a
@@ -60,7 +59,7 @@ public sealed class MainViewModel : ObservableObject
     private int _scanGeneration;
     private string _statusDetail = string.Empty;
 
-    public MainViewModel(IDialogService dialogs, PresetStore? presets = null, AppSettingsStore? settingsStore = null, IImageClipboard? clipboard = null)
+    public MainViewModel(IDialogService dialogs, PresetStore? presets = null, AppSettingsStore? settingsStore = null, IImageClipboard? clipboard = null, IUiTimer? timer = null)
     {
         _dialogs = dialogs;
         _presets = presets ?? new PresetStore();
@@ -94,7 +93,8 @@ public sealed class MainViewModel : ObservableObject
 
         Presets = new ObservableCollection<PresetItem>();
 
-        _debounce = new DispatcherTimer { Interval = RenderDebounce };
+        _debounce = timer ?? new WpfUiTimer();
+        _debounce.Interval = RenderDebounce;
         _debounce.Tick += (_, _) =>
         {
             _debounce.Stop();

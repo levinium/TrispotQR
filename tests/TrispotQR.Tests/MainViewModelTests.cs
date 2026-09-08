@@ -29,8 +29,8 @@ public class MainViewModelTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private MainViewModel Create() => StaThread.Run(() =>
-        new MainViewModel(_dialogs, new PresetStore(_directory), new AppSettingsStore(_directory)));
+    private MainViewModel Create(IUiTimer? timer = null) => StaThread.Run(() =>
+        new MainViewModel(_dialogs, new PresetStore(_directory), new AppSettingsStore(_directory), timer: timer));
 
     /// <summary>A view model with something encodable already typed in.</summary>
     private MainViewModel CreateWithContent(string text = "https://www.example.org")
@@ -45,6 +45,44 @@ public class MainViewModelTests : IDisposable
         });
 
         return vm;
+    }
+
+    /// <summary>
+    /// The render debounce is the only scheduling the view model owns, and it was a WPF
+    /// DispatcherTimer. Behind an interface it can be driven directly, which is what a
+    /// non-WPF toolkit needs and what lets this test prove the debounce without waiting on
+    /// a real clock.
+    /// </summary>
+    [Fact]
+    public void TheDebounce_RendersOnceTheTimerFires()
+    {
+        var timer = new FakeUiTimer();
+        var vm = Create(timer);
+
+        ((PlainTextEditor)vm.ContentEditors[0]).Text = "https://example.org";
+
+        Assert.True(timer.IsRunning, "typing should have started the debounce");
+
+        timer.Fire();
+
+        Assert.False(timer.IsRunning, "the timer should stop itself when it fires");
+        Assert.True(vm.CanExport, "the render should have happened");
+    }
+
+    private sealed class FakeUiTimer : IUiTimer
+    {
+        public TimeSpan Interval { get; set; }
+
+        public bool IsRunning { get; private set; }
+
+        public event EventHandler? Tick;
+
+        public void Start() => IsRunning = true;
+
+        public void Stop() => IsRunning = false;
+
+        /// <summary>Stands in for the clock.</summary>
+        public void Fire() => Tick?.Invoke(this, EventArgs.Empty);
     }
 
     [Fact]
