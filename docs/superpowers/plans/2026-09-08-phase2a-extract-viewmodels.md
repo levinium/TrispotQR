@@ -442,7 +442,7 @@ At the three assignment sites, `Preview = null` becomes `PreviewDrawing = null`,
 ```csharp
     private static QrDrawing? BuildThumbnail(QrStyle style)
     {
-        var encoded = QrEncoder.Encode(ThumbnailPayload, style.Ecc);
+        var encoded = QrEncoder.Encode("TrispotQR", style.Ecc);
 
         return encoded.Success
             ? QrGeometryBuilder.Build(encoded.Matrix!, style with { QuietZoneModules = 2 })
@@ -450,7 +450,6 @@ At the three assignment sites, `Preview = null` becomes `PreviewDrawing = null`,
     }
 ```
 
-Use whatever the file already calls the thumbnail payload constant; do not invent a new one.
 
 `PresetItem`'s constructor parameter and its `Thumbnail` property become `QrDrawing?`, renamed `ThumbnailDrawing`. Delete `using System.Windows.Media;` from `MainViewModel.cs` if nothing else in the file needs it.
 
