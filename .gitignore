@@ -8,3 +8,6 @@ ui-snapshot.png
 
 # Subagent-driven development scratch, per plan
 .superpowers/
+
+# Release assets built for a GitHub release
+release/
