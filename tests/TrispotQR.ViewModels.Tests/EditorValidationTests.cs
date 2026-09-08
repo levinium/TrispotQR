@@ -1,7 +1,7 @@
 using TrispotQR.Core.Payloads;
 using TrispotQR.ViewModels;
 
-namespace TrispotQR.Tests;
+namespace TrispotQR.ViewModels.Tests;
 
 /// <summary>
 /// What each content type considers complete and usable.

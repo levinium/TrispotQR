@@ -93,7 +93,7 @@ phone before a code goes to print. That is the only test that fully counts.
 Needs the .NET 10 SDK.
 
 ```powershell
-dotnet test          # 683 tests: 415 run on Windows, Linux and macOS
+dotnet test          # 694 tests: 474 run on Windows, Linux and macOS
 .\publish.ps1        # builds dist\TrispotQR.exe
 ```
 
@@ -102,10 +102,11 @@ dotnet test          # 683 tests: 415 run on Windows, Linux and macOS
 ## How it is put together
 
 ```
-src\TrispotQR.Core\    encoding, styling, geometry, export, scannability checking
-src\TrispotQR.App\     the WPF window and view models
-tests\TrispotQR.Tests\ the test suite
-tools\                 one-off build utilities (the app icon generator)
+src\TrispotQR.Core\        encoding, styling, geometry, export, scannability checking
+src\TrispotQR.ViewModels\  presentation logic, shared across UI toolkits
+src\TrispotQR.App\         the WPF window and views
+tests\                     three test projects; two run on Windows, Linux and macOS
+tools\                     one-off build utilities (the app icon generator)
 ```
 
 ### The design that matters

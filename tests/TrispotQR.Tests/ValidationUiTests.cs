@@ -18,7 +18,7 @@ namespace TrispotQR.Tests;
 /// <summary>
 /// The red highlighting, end to end through the real window.
 ///
-/// <see cref="EditorValidationTests"/> proves the editors know what is wrong.
+/// TrispotQR.ViewModels.Tests.EditorValidationTests proves the editors know what is wrong.
 /// What is left, and what only a rendered tree can answer, is whether that reaches the
 /// screen: whether the box at fault is the one that turns red, and whether the message is
 /// legible once it does.

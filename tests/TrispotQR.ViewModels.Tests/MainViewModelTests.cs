@@ -1,7 +1,5 @@
 using System.IO;
-using System.Windows.Media;
-using TrispotQR.App.Export;
-using TrispotQR.App.Services;
+using TrispotQR.Core.Export;
 using TrispotQR.Core.Payloads;
 using TrispotQR.Core.Presets;
 using TrispotQR.Core.Primitives;
@@ -10,7 +8,7 @@ using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
 using TrispotQR.ViewModels;
 
-namespace TrispotQR.Tests;
+namespace TrispotQR.ViewModels.Tests;
 
 public class MainViewModelTests : IDisposable
 {
@@ -29,21 +27,17 @@ public class MainViewModelTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private MainViewModel Create(IUiTimer? timer = null) => StaThread.Run(() =>
+    private MainViewModel Create(IUiTimer? timer = null) =>
         new MainViewModel(
-            _dialogs, timer ?? new WpfUiTimer(), new WpfImageClipboard(), new PresetStore(_directory), new AppSettingsStore(_directory)));
+            _dialogs, timer ?? new FakeUiTimer(), new FakeImageClipboard(), new PresetStore(_directory), new AppSettingsStore(_directory));
 
     /// <summary>A view model with something encodable already typed in.</summary>
     private MainViewModel CreateWithContent(string text = "https://www.example.org")
     {
         var vm = Create();
 
-        StaThread.Run(() =>
-        {
-            ((PlainTextEditor)vm.ContentEditors[0]).Text = text;
-            vm.RefreshNow();
-            return true;
-        });
+        ((PlainTextEditor)vm.ContentEditors[0]).Text = text;
+        vm.RefreshNow();
 
         return vm;
     }
@@ -114,12 +108,8 @@ public class MainViewModelTests : IDisposable
     {
         var vm = CreateWithContent();
 
-        StaThread.Run(() =>
-        {
-            ((PlainTextEditor)vm.ContentEditors[0]).Text = string.Empty;
-            vm.RefreshNow();
-            return true;
-        });
+        ((PlainTextEditor)vm.ContentEditors[0]).Text = string.Empty;
+        vm.RefreshNow();
 
         Assert.Null(vm.PreviewDrawing);
         Assert.False(vm.CanExport);
@@ -171,12 +161,8 @@ public class MainViewModelTests : IDisposable
     {
         var vm = Create();
 
-        StaThread.Run(() =>
-        {
-            ((PlainTextEditor)vm.ContentEditors[0]).Text = new string('A', 5000);
-            vm.RefreshNow();
-            return true;
-        });
+        ((PlainTextEditor)vm.ContentEditors[0]).Text = new string('A', 5000);
+        vm.RefreshNow();
 
         Assert.False(vm.CanExport);
         Assert.Contains("too long", vm.StatusDetail, StringComparison.OrdinalIgnoreCase);
@@ -375,11 +361,7 @@ public class MainViewModelTests : IDisposable
         File.WriteAllText(notAnImage, "this is not a picture");
         _dialogs.NextImage = notAnImage;
 
-        StaThread.Run(() =>
-        {
-            vm.ChooseLogoCommand.Execute(null);
-            return true;
-        });
+        vm.ChooseLogoCommand.Execute(null);
 
         Assert.False(vm.HasLogo);
         Assert.Contains("could not be opened", _dialogs.LastError!, StringComparison.OrdinalIgnoreCase);
@@ -392,12 +374,8 @@ public class MainViewModelTests : IDisposable
         var logo = WriteTestLogo();
         _dialogs.NextImage = logo;
 
-        StaThread.Run(() =>
-        {
-            vm.ChooseLogoCommand.Execute(null);
-            vm.RefreshNow();
-            return true;
-        });
+        vm.ChooseLogoCommand.Execute(null);
+        vm.RefreshNow();
 
         Assert.True(vm.HasLogo);
         Assert.Equal(EccLevel.High, vm.Ecc);
@@ -410,13 +388,9 @@ public class MainViewModelTests : IDisposable
         var vm = CreateWithContent();
         _dialogs.NextImage = WriteTestLogo();
 
-        StaThread.Run(() =>
-        {
-            vm.ChooseLogoCommand.Execute(null);
-            vm.ClearLogoCommand.Execute(null);
-            vm.RefreshNow();
-            return true;
-        });
+        vm.ChooseLogoCommand.Execute(null);
+        vm.ClearLogoCommand.Execute(null);
+        vm.RefreshNow();
 
         Assert.False(vm.HasLogo);
         Assert.True(vm.CanExport);
@@ -430,11 +404,7 @@ public class MainViewModelTests : IDisposable
         vm.PixelSize = 512;
         _dialogs.NextSavePath = target;
 
-        StaThread.Run(() =>
-        {
-            vm.SavePngCommand.Execute(null);
-            return true;
-        });
+        vm.SavePngCommand.Execute(null);
 
         Assert.True(File.Exists(target));
         Assert.True(new FileInfo(target).Length > 200);
@@ -447,11 +417,7 @@ public class MainViewModelTests : IDisposable
         var announcements = new List<string>();
         vm.Announcement += (_, message) => announcements.Add(message);
 
-        StaThread.Run(() =>
-        {
-            vm.CopyCommand.Execute(null);
-            return true;
-        });
+        vm.CopyCommand.Execute(null);
 
         Assert.Null(_dialogs.LastError);
         Assert.Contains("Copied to clipboard", announcements);
@@ -465,11 +431,7 @@ public class MainViewModelTests : IDisposable
         vm.Announcement += (_, message) => announcements.Add(message);
         _dialogs.NextSavePath = Path.Combine(_directory, "announced.png");
 
-        StaThread.Run(() =>
-        {
-            vm.SavePngCommand.Execute(null);
-            return true;
-        });
+        vm.SavePngCommand.Execute(null);
 
         Assert.Contains("Saved announced.png", announcements);
     }
@@ -489,11 +451,7 @@ public class MainViewModelTests : IDisposable
         var target = Path.Combine(_directory, "code.svg");
         _dialogs.NextSavePath = target;
 
-        StaThread.Run(() =>
-        {
-            vm.SaveSvgCommand.Execute(null);
-            return true;
-        });
+        vm.SaveSvgCommand.Execute(null);
 
         Assert.Contains("<svg", File.ReadAllText(target));
     }
@@ -507,11 +465,7 @@ public class MainViewModelTests : IDisposable
 
         using var hold = File.Open(target, FileMode.Create, FileAccess.Write, FileShare.None);
 
-        StaThread.Run(() =>
-        {
-            vm.SavePngCommand.Execute(null);
-            return true;
-        });
+        vm.SavePngCommand.Execute(null);
 
         Assert.Contains("could not be written", _dialogs.LastError!, StringComparison.OrdinalIgnoreCase);
     }
@@ -525,12 +479,8 @@ public class MainViewModelTests : IDisposable
         link.Address = "www.example.org/spring-open-day";
         _dialogs.NextSavePath = Path.Combine(_directory, "whatever.png");
 
-        StaThread.Run(() =>
-        {
-            vm.RefreshNow();
-            vm.SavePngCommand.Execute(null);
-            return true;
-        });
+        vm.RefreshNow();
+        vm.SavePngCommand.Execute(null);
 
         Assert.StartsWith("qr-www-example-org-spring-open-day", _dialogs.LastSuggestedName!);
     }
@@ -628,12 +578,8 @@ public class MainViewModelTests : IDisposable
 
         foreach (var editor in vm.ContentEditors)
         {
-            StaThread.Run(() =>
-            {
-                vm.SelectedContent = editor;
-                vm.RefreshNow();
-                return true;
-            });
+            vm.SelectedContent = editor;
+            vm.RefreshNow();
 
             Assert.True(vm.CanExport, $"{editor.Title} produced nothing encodable");
         }
@@ -648,34 +594,32 @@ public class MainViewModelTests : IDisposable
         Assert.Equal(string.Empty, contact.Payload);
     }
 
+    /// <summary>
+    /// A real, readable image file on disk. What is drawn in it does not matter to these
+    /// tests, only that TrispotQR.Core.Validation.ImageSize.Read can open it, so it is
+    /// rendered the same way PngExporterTests builds its fixtures rather than through a UI
+    /// toolkit.
+    /// </summary>
     private string WriteTestLogo()
     {
         var path = Path.Combine(_directory, "logo.png");
 
-        StaThread.Run(() =>
-        {
-            var visual = new DrawingVisual();
-            using (var context = visual.RenderOpen())
-            {
-                context.DrawRectangle(Brushes.OrangeRed, null, new System.Windows.Rect(0, 0, 128, 128));
-            }
-
-            var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(128, 128, 96, 96, PixelFormats.Pbgra32);
-            bitmap.Render(visual);
-            Core.Export.PngExporter.Save(ToRasterImage(bitmap), path);
-            return true;
-        });
+        var encoded = QrEncoder.Encode("logo", EccLevel.Medium);
+        var drawing = QrGeometryBuilder.Build(encoded.Matrix!, QrStyle.Default);
+        PngExporter.Save(SkiaRasterizer.Render(drawing, 128), path);
 
         return path;
     }
 
-    /// <summary>The snapshot bitmap is always rendered as Pbgra32, which is already premultiplied BGRA.</summary>
-    private static RasterImage ToRasterImage(System.Windows.Media.Imaging.RenderTargetBitmap bitmap)
+    /// <summary>
+    /// Stands in for the OS clipboard. The real one needs an STA thread and is exercised in
+    /// TrispotQR.Tests.ClipboardExporterTests; nothing here checks what actually reached it.
+    /// </summary>
+    private sealed class FakeImageClipboard : IImageClipboard
     {
-        var stride = bitmap.PixelWidth * 4;
-        var pixels = new byte[stride * bitmap.PixelHeight];
-        bitmap.CopyPixels(pixels, stride, 0);
-        return new RasterImage(bitmap.PixelWidth, bitmap.PixelHeight, pixels);
+        public void Copy(RasterImage image)
+        {
+        }
     }
 
     /// <summary>Stands in for the file and message dialogs so the view model can run headless.</summary>
