@@ -17,4 +17,11 @@
     <ProjectReference Include="..\TrispotQR.ViewModels\TrispotQR.ViewModels.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- ShownError, ShownLabel and AcceptsReturn on FieldBox are internal test accessors,
+         matching the WPF original, not app surface, so they stay internal rather than
+         public and are reached via this instead. -->
+    <InternalsVisibleTo Include="TrispotQR.UI.Tests" />
+  </ItemGroup>
+
 </Project>

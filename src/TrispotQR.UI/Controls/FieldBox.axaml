@@ -1,0 +1,36 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:TrispotQR.UI.Controls"
+             x:Class="TrispotQR.UI.Controls.FieldBox">
+  <UserControl.Styles>
+    <!-- Pseudo-classes rather than a second style, so the marking survives the focus
+         highlight. The moment the user clicks into the box that is wrong is precisely when
+         they are looking at it, and a style that only set BorderBrush would lose to the
+         theme's own focus treatment at exactly that moment.
+
+         Neither "UserControl:error ..." nor "^:error ..." works here. A bare type-name
+         selector matches only that exact type, never a subclass (confirmed against the
+         Avalonia docs and by a scratch test that found the theme's default border still
+         showing, unstyled, after :error was set), and FieldBox is a UserControl subclass, not
+         a UserControl. "^" needs an enclosing Style to inherit from and is for a
+         ControlTheme's own template, neither of which this is; it fails to parse standalone.
+         The working form names FieldBox itself through its own xmlns prefix, which is what
+         the Avalonia docs' own validated-UserControl example does. No /template/, either:
+         that combinator addresses a *templated* control's control template, and the TextBox
+         here is plain content inside FieldBox's own XAML, not inside a ControlTemplate. -->
+    <Style Selector="local|FieldBox:error TextBox#Input">
+      <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+    </Style>
+    <Style Selector="local|FieldBox:warning TextBox#Input">
+      <Setter Property="BorderBrush" Value="{DynamicResource WarningBrush}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+    </Style>
+  </UserControl.Styles>
+
+  <StackPanel>
+    <TextBlock x:Name="LabelText" FontSize="12" Margin="0,0,0,4"/>
+    <TextBox x:Name="Input"/>
+    <TextBlock x:Name="ErrorText" Margin="0,4,0,0" FontSize="11.5" TextWrapping="Wrap" IsVisible="False"/>
+  </StackPanel>
+</UserControl>

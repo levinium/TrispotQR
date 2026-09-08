@@ -5,4 +5,13 @@
   <Application.Styles>
     <FluentTheme />
   </Application.Styles>
+
+  <Application.Resources>
+    <!-- Named to match the WPF theme, so Phase 2e can replace these two definitions with
+         theme-variant ones and nothing in the templates has to move. Application scope
+         rather than a window's, because FieldBox resolves them from inside a realised
+         DataTemplate, and from a bare window in its own tests. -->
+    <SolidColorBrush x:Key="DangerBrush" Color="#B3261E"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="#B56E00"/>
+  </Application.Resources>
 </Application>
