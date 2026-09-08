@@ -42,6 +42,14 @@ jobs:
       - name: Test the Avalonia UI
         run: dotnet test tests/TrispotQR.UI.Tests/TrispotQR.UI.Tests.csproj -c Release --verbosity normal
 
+      # The tests above reach TrispotQR.UI, which is a class library; nothing they reference
+      # pulls in the executable that actually ships on Mac and Linux. Until this step, the
+      # branch's headline claim -- that TrispotQR runs on all three desktops -- was only ever
+      # built on Windows, through the whole-solution job below. Build only: there is no
+      # display on these runners to start it under.
+      - name: Build the desktop app
+        run: dotnet build src/TrispotQR.Desktop/TrispotQR.Desktop.csproj -c Release --verbosity normal
+
   # The WPF app and its UI tests. Windows only, by nature, until the Avalonia port lands.
   windows:
     name: App and UI tests
