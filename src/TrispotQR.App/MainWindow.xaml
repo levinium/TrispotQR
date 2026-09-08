@@ -23,6 +23,7 @@
         <conv:VerdictToBrushConverter x:Key="VerdictToBrush" />
         <conv:EqualityConverter x:Key="Equality" />
         <conv:FriendlyNameConverter x:Key="Friendly" />
+        <conv:QrDrawingToImageSourceConverter x:Key="DrawingToImage" />
 
         <!-- Enum dropdowns all render through the friendly-name converter, so the UI can
              say "Dots" while the code and the saved files keep saying Circle. -->
@@ -137,7 +138,7 @@
                     <Border CornerRadius="6" ClipToBounds="True" Background="{DynamicResource CheckerBrush}" />
 
                     <Image x:Name="PreviewImage"
-                           Source="{Binding Preview}"
+                           Source="{Binding PreviewDrawing, Converter={StaticResource DrawingToImage}}"
                            Margin="24"
                            RenderOptions.BitmapScalingMode="HighQuality"
                            Stretch="Uniform" />
@@ -150,7 +151,7 @@
                             <Style TargetType="TextBlock" BasedOn="{StaticResource CaptionStyle}">
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Preview}" Value="{x:Null}">
+                                    <DataTrigger Binding="{Binding PreviewDrawing}" Value="{x:Null}">
                                         <Setter Property="Visibility" Value="Visible" />
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -304,7 +305,7 @@
                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}">
                                         <StackPanel Width="64">
-                                            <Image Source="{Binding Thumbnail}" Width="54" Height="54"
+                                            <Image Source="{Binding ThumbnailDrawing, Converter={StaticResource DrawingToImage}}" Width="54" Height="54"
                                                    RenderOptions.BitmapScalingMode="HighQuality" />
                                             <TextBlock Text="{Binding Name}" TextAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"

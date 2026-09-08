@@ -94,7 +94,7 @@ public class MainViewModelTests : IDisposable
         // thing a user has to delete, and is easy to miss and accidentally publish.
         Assert.Equal(string.Empty, ((PlainTextEditor)vm.ContentEditors[0]).Text);
         Assert.Equal(string.Empty, vm.Payload);
-        Assert.Null(vm.Preview);
+        Assert.Null(vm.PreviewDrawing);
         Assert.False(vm.CanExport);
     }
 
@@ -103,7 +103,7 @@ public class MainViewModelTests : IDisposable
     {
         var vm = CreateWithContent();
 
-        Assert.NotNull(vm.Preview);
+        Assert.NotNull(vm.PreviewDrawing);
         Assert.True(vm.CanExport);
         Assert.True(vm.SavePngCommand.CanExecute(null));
     }
@@ -120,9 +120,34 @@ public class MainViewModelTests : IDisposable
             return true;
         });
 
-        Assert.Null(vm.Preview);
+        Assert.Null(vm.PreviewDrawing);
         Assert.False(vm.CanExport);
         Assert.False(vm.SavePngCommand.CanExecute(null));
+    }
+
+    /// <summary>
+    /// The view model describes what to draw; turning that into pixels is the view's job.
+    /// Holding a WPF image here is what tied the view model to one toolkit.
+    /// </summary>
+    [Fact]
+    public void ThePreview_IsADrawingRatherThanARenderedImage()
+    {
+        var vm = CreateWithContent("https://example.org");
+
+        Assert.NotNull(vm.PreviewDrawing);
+        Assert.True(vm.PreviewDrawing!.SizeInUnits > 0);
+        Assert.NotEmpty(vm.PreviewDrawing.Layers);
+    }
+
+    [Fact]
+    public void AnEmptyBox_ClearsThePreview()
+    {
+        var vm = Create();
+
+        ((PlainTextEditor)vm.ContentEditors[0]).Text = string.Empty;
+        vm.RefreshNow();
+
+        Assert.Null(vm.PreviewDrawing);
     }
 
     [Fact]

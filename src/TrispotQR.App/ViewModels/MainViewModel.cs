@@ -50,7 +50,7 @@ public sealed class MainViewModel : ObservableObject
 
     private QrStyle _style = QrStyle.Default;
     private ContentEditor _selectedContent;
-    private ImageSource? _preview;
+    private QrDrawing? _previewDrawing;
     private QrDrawing? _drawing;
     private string? _encodeError;
     private ScanCheckResult? _scan;
@@ -93,6 +93,8 @@ public sealed class MainViewModel : ObservableObject
 
         Presets = new ObservableCollection<PresetItem>();
 
+        // The WpfUiTimer fallback is temporary: it is the last WPF coupling left on this
+        // class, and it goes away once this view model moves to TrispotQR.ViewModels.
         _debounce = timer ?? new WpfUiTimer();
         _debounce.Interval = RenderDebounce;
         _debounce.Tick += (_, _) =>
@@ -386,10 +388,14 @@ public sealed class MainViewModel : ObservableObject
 
     #region Preview and status
 
-    public ImageSource? Preview
+    /// <summary>
+    /// What the preview should show, described rather than rendered. The view turns it into
+    /// pixels, which is what lets the same view model serve WPF and Avalonia.
+    /// </summary>
+    public QrDrawing? PreviewDrawing
     {
-        get => _preview;
-        private set => SetField(ref _preview, value);
+        get => _previewDrawing;
+        private set => SetField(ref _previewDrawing, value);
     }
 
     public ObservableCollection<PresetItem> Presets { get; }
@@ -575,7 +581,7 @@ public sealed class MainViewModel : ObservableObject
             _drawing = null;
             _encodeError = null;
             _scan = null;
-            Preview = null;
+            PreviewDrawing = null;
             StatusDetail = _selectedContent.Hint;
             NotifyRenderFinished();
             return;
@@ -588,7 +594,7 @@ public sealed class MainViewModel : ObservableObject
             _drawing = null;
             _encodeError = encoded.ErrorMessage;
             _scan = null;
-            Preview = null;
+            PreviewDrawing = null;
             StatusDetail = encoded.ErrorMessage!;
             NotifyRenderFinished();
             return;
@@ -598,7 +604,7 @@ public sealed class MainViewModel : ObservableObject
         _lastVersion = encoded.Matrix!.Version;
         _lastEcc = encoded.Matrix.EffectiveEcc;
         _drawing = QrGeometryBuilder.Build(encoded.Matrix, _style);
-        Preview = WpfQrRenderer.RenderToDrawingImage(_drawing);
+        PreviewDrawing = _drawing;
 
         StatusDetail = ContentStatus ?? "Checking that this will scan...";
         NotifyRenderFinished();
@@ -850,12 +856,12 @@ public sealed class MainViewModel : ObservableObject
     /// Thumbnails are drawn from a fixed short string rather than the live content, so
     /// they stay stable while typing and cost nothing to keep on screen.
     /// </summary>
-    private static ImageSource? BuildThumbnail(QrStyle style)
+    private static QrDrawing? BuildThumbnail(QrStyle style)
     {
         var encoded = QrEncoder.Encode("TrispotQR", style.Ecc);
 
         return encoded.Success
-            ? WpfQrRenderer.RenderToDrawingImage(QrGeometryBuilder.Build(encoded.Matrix!, style with { QuietZoneModules = 2 }))
+            ? QrGeometryBuilder.Build(encoded.Matrix!, style with { QuietZoneModules = 2 })
             : null;
     }
 
@@ -1038,15 +1044,15 @@ public enum BackgroundChoice
 /// <summary>A preset plus its rendered thumbnail, ready to bind to a card.</summary>
 public sealed class PresetItem
 {
-    public PresetItem(StylePreset preset, ImageSource? thumbnail)
+    public PresetItem(StylePreset preset, QrDrawing? thumbnailDrawing)
     {
         Preset = preset;
-        Thumbnail = thumbnail;
+        ThumbnailDrawing = thumbnailDrawing;
     }
 
     public StylePreset Preset { get; }
 
-    public ImageSource? Thumbnail { get; }
+    public QrDrawing? ThumbnailDrawing { get; }
 
     public string Name => Preset.Name;
 
