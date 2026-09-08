@@ -457,17 +457,32 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
-    public void SaveToALockedFile_ShowsAMessageRatherThanCrashing()
+    public void SaveToAReadOnlyFile_ShowsAMessageRatherThanCrashing()
     {
         var vm = CreateWithContent();
         var target = Path.Combine(_directory, "locked.png");
         _dialogs.NextSavePath = target;
 
-        using var hold = File.Open(target, FileMode.Create, FileAccess.Write, FileShare.None);
+        // Not FileShare.None: that lock is mandatory on Windows but only advisory on Unix,
+        // where .NET maps it to flock, so the save would walk straight past it there and
+        // this test would pass without ever exercising the failure path. A ReadOnly
+        // attribute is the lever both platforms honour: .NET maps it to clearing the write
+        // permission bits on Unix, and writing over a read-only file is refused everywhere.
+        File.WriteAllBytes(target, [0]);
+        File.SetAttributes(target, FileAttributes.ReadOnly);
 
-        vm.SavePngCommand.Execute(null);
+        try
+        {
+            vm.SavePngCommand.Execute(null);
 
-        Assert.Contains("could not be written", _dialogs.LastError!, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("could not be written", _dialogs.LastError!, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            // Dispose() deletes the whole directory; a file still marked read-only would
+            // make that throw too, turning this one failure into a confusing cascade.
+            File.SetAttributes(target, FileAttributes.Normal);
+        }
     }
 
     [Fact]
