@@ -66,7 +66,12 @@
           <TextBlock Text="{Binding SelectedContent.Hint}" TextWrapping="Wrap" Opacity="0.7" FontSize="12" />
         </StackPanel>
 
-        <ContentControl Content="{Binding SelectedContent}" />
+        <!-- Named so tests can scope a visual-tree search to exactly what this presenter
+             realised, rather than the whole window: FluentTheme's ComboBox template above
+             carries its own internal PART_EditableTextBox even though it is never editable
+             here, which would otherwise show up as a second, unrelated TextBox in a
+             window-wide search. -->
+        <ContentControl x:Name="ContentEditorHost" Content="{Binding SelectedContent}" />
 
         <TextBlock Text="{Binding CapacityText}" Opacity="0.7" FontSize="12" />
 
