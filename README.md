@@ -24,6 +24,11 @@ If your machine already has the .NET 10 Desktop Runtime, the
 [framework-dependent build](https://github.com/levinium/TrispotQR/releases/latest) is 6 MB
 instead. Take the big one unless you know you want that.
 
+### Mac and Linux
+
+A cross-platform build is in progress. The Windows download above is the one to use today;
+Mac and Linux builds arrive once the port reaches feature parity.
+
 ## Why not just use a website?
 
 Online generators see whatever you type, and many of them quietly turn your code into a

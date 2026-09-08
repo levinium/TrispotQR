@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/TrispotQR.App/TrispotQR.App.csproj" />
     <Project Path="src/TrispotQR.Core/TrispotQR.Core.csproj" />
+    <Project Path="src/TrispotQR.Desktop/TrispotQR.Desktop.csproj" />
     <Project Path="src/TrispotQR.UI/TrispotQR.UI.csproj" />
     <Project Path="src/TrispotQR.ViewModels/TrispotQR.ViewModels.csproj" />
   </Folder>
