@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Plain net10.0 with no UI framework, deliberately. These view models are shared by the
+      WPF app today and an Avalonia app later, and CI runs them on Linux and macOS. A
+      reference to either toolkit here would end all three of those at once.
+
+      Anything needing a window, a dispatcher or a drawing type belongs in the app.
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>TrispotQR.ViewModels</RootNamespace>
+    <Description>View models and presentation logic, shared across UI toolkits.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TrispotQR.Core\TrispotQR.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TrispotQR.ViewModels.Tests" />
+    <!-- The app's assembly is named TrispotQR, not TrispotQR.App. See its AssemblyName. -->
+    <InternalsVisibleTo Include="TrispotQR" />
+    <InternalsVisibleTo Include="TrispotQR.Tests" />
+  </ItemGroup>
+
+</Project>

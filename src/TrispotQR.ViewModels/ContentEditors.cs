@@ -1,6 +1,6 @@
 using TrispotQR.Core.Payloads;
 
-namespace TrispotQR.App.ViewModels;
+namespace TrispotQR.ViewModels;
 
 /// <summary>
 /// One way of entering content. Each editor collects whatever fields its format needs and

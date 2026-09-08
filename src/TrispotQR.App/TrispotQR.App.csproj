@@ -41,6 +41,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TrispotQR.Core\TrispotQR.Core.csproj" />
+    <ProjectReference Include="..\TrispotQR.ViewModels\TrispotQR.ViewModels.csproj" />
   </ItemGroup>
 
   <ItemGroup>

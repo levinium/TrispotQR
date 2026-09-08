@@ -11,6 +11,7 @@ using TrispotQR.Core.Export;
 using TrispotQR.Core.Presets;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Validation;
+using TrispotQR.ViewModels;
 
 namespace TrispotQR.Tests;
 

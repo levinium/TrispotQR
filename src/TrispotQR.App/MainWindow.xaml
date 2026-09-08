@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:TrispotQR.App.ViewModels"
+        xmlns:ed="clr-namespace:TrispotQR.ViewModels;assembly=TrispotQR.ViewModels"
         xmlns:views="clr-namespace:TrispotQR.App.Views"
         xmlns:conv="clr-namespace:TrispotQR.App.Converters"
         mc:Ignorable="d"
@@ -37,15 +38,15 @@
             itself. The names have to match the editor's property names; EditorValidationTests
             asserts that no editor reports an issue against a field that does not exist.
         -->
-        <DataTemplate DataType="{x:Type vm:PlainTextEditor}">
+        <DataTemplate DataType="{x:Type ed:PlainTextEditor}">
             <views:FieldBox Text="{Binding Text}" FieldName="Text" InputHeight="92" />
         </DataTemplate>
 
-        <DataTemplate DataType="{x:Type vm:LinkEditor}">
+        <DataTemplate DataType="{x:Type ed:LinkEditor}">
             <views:FieldBox Label="Web address" Text="{Binding Address}" FieldName="Address" />
         </DataTemplate>
 
-        <DataTemplate DataType="{x:Type vm:WifiEditor}">
+        <DataTemplate DataType="{x:Type ed:WifiEditor}">
             <StackPanel>
                 <views:FieldBox Label="Network name" Text="{Binding Ssid}" FieldName="Ssid" />
 
@@ -61,7 +62,7 @@
             </StackPanel>
         </DataTemplate>
 
-        <DataTemplate DataType="{x:Type vm:EmailEditor}">
+        <DataTemplate DataType="{x:Type ed:EmailEditor}">
             <StackPanel>
                 <views:FieldBox Label="To" Text="{Binding Address}" FieldName="Address" />
                 <views:FieldBox Label="Subject" IsOptional="True" Text="{Binding Subject}" FieldName="Subject" />
@@ -70,11 +71,11 @@
             </StackPanel>
         </DataTemplate>
 
-        <DataTemplate DataType="{x:Type vm:PhoneEditor}">
+        <DataTemplate DataType="{x:Type ed:PhoneEditor}">
             <views:FieldBox Label="Phone number" Text="{Binding Number}" FieldName="Number" />
         </DataTemplate>
 
-        <DataTemplate DataType="{x:Type vm:SmsEditor}">
+        <DataTemplate DataType="{x:Type ed:SmsEditor}">
             <StackPanel>
                 <views:FieldBox Label="Phone number" Text="{Binding Number}" FieldName="Number" />
                 <views:FieldBox Label="Message" IsOptional="True" Text="{Binding Text}"
@@ -82,7 +83,7 @@
             </StackPanel>
         </DataTemplate>
 
-        <DataTemplate DataType="{x:Type vm:ContactEditor}">
+        <DataTemplate DataType="{x:Type ed:ContactEditor}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

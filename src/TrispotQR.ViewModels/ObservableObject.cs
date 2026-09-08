@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 
-namespace TrispotQR.App.ViewModels;
+namespace TrispotQR.ViewModels;
 
 /// <summary>Minimal change-notification base. The app is small enough not to want an MVVM framework.</summary>
 public abstract class ObservableObject : INotifyPropertyChanged

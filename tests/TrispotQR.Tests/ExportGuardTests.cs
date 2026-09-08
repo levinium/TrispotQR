@@ -7,6 +7,7 @@ using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
+using TrispotQR.ViewModels;
 
 namespace TrispotQR.Tests;
 

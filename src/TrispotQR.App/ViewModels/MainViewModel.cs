@@ -16,6 +16,7 @@ using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
 using TrispotQR.Core.Validation;
+using TrispotQR.ViewModels;
 
 namespace TrispotQR.App.ViewModels;
 

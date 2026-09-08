@@ -10,6 +10,7 @@ using TrispotQR.App.ViewModels;
 using TrispotQR.Core.Export;
 using TrispotQR.Core.Presets;
 using TrispotQR.Core.Rendering;
+using TrispotQR.ViewModels;
 
 namespace TrispotQR.Tests;
 

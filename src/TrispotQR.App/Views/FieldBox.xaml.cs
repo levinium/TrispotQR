@@ -1,8 +1,8 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
-using TrispotQR.App.ViewModels;
 using TrispotQR.Core.Payloads;
+using TrispotQR.ViewModels;
 
 namespace TrispotQR.App.Views;
 
