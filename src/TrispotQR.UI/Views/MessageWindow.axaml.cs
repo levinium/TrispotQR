@@ -1,6 +1,5 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
 
 namespace TrispotQR.UI.Views;
 
@@ -15,7 +14,17 @@ public partial class MessageWindow : Window
 {
     private bool _confirmed;
 
-    public MessageWindow() => AvaloniaXamlLoader.Load(this);
+    // InitializeComponent(), not AvaloniaXamlLoader.Load(this) directly (the brief's original
+    // sketch, and this project's only other AvaloniaXamlLoader.Load call, in App.axaml.cs,
+    // where it is harmless because Application has no named elements to populate). Confirmed
+    // empirically: calling Load(this) here builds the visual tree and registers "MessageText"
+    // etc. in the NameScope (FindControl finds them) but leaves the compiler-generated
+    // MessageText/ConfirmButton/CancelButton fields null, because assigning those fields is
+    // wired into InitializeComponent()'s own generated body (!XamlIlPopulateTrampoline), not
+    // into the generic runtime loader. Skipping InitializeComponent() here meant ShowAsync's
+    // very next line, window.MessageText.Text = message, threw NullReferenceException on
+    // every call -- Confirm, ConfirmRisk, ShowError and ShowInformation were all broken.
+    public MessageWindow() => InitializeComponent();
 
     public static async Task<bool> ShowAsync(
         Window owner,

@@ -30,6 +30,57 @@ public class DialogServiceTests
     }
 
     [AvaloniaFact]
+    public void AskingForASavePathWithARememberedDirectoryThatStillExistsDoesNotThrow()
+    {
+        var (_, dialogs) = Create();
+
+        // Exercises the branch AskingForASavePathReturnsNullWhenThereIsNoPicker skips entirely:
+        // resolving a directory that is genuinely there, which is what SuggestedStartLocation
+        // does on every ordinary "Save" after a first one. The headless platform still has no
+        // picker to assert a chosen path against, but the resolution itself -- a real,
+        // non-null IStorageFolder coming back from TryGetFolderFromPathAsync -- must not throw
+        // on the way.
+        var path = dialogs.AskForSavePath(
+            "Save QR code as PNG", "PNG image|*.png", ".png", "code.png", Path.GetTempPath());
+
+        Assert.Null(path);
+    }
+
+    [AvaloniaFact]
+    public void AskingForASavePathWithARememberedDirectoryThatNoLongerExistsDoesNotThrow()
+    {
+        var (_, dialogs) = Create();
+
+        // A folder that was there when it was remembered but has since been deleted or moved.
+        // TryGetFolderFromPathAsync resolves this to null rather than throwing (confirmed
+        // empirically against Avalonia.Headless 12.1.2), and AskForSavePath must carry on to
+        // show the picker regardless.
+        var missing = Path.Combine(Path.GetTempPath(), "does-not-exist-" + Guid.NewGuid());
+        var path = dialogs.AskForSavePath("Save QR code as PNG", "PNG image|*.png", ".png", "code.png", missing);
+
+        Assert.Null(path);
+    }
+
+    [AvaloniaFact]
+    public void ASavePathRequestWithACorruptRememberedDirectoryDoesNotCrashTheApp()
+    {
+        var (_, dialogs) = Create();
+
+        // The one directory shape, confirmed empirically against this exact headless platform,
+        // that makes StorageProvider.TryGetFolderFromPathAsync throw (ArgumentException)
+        // rather than resolve to null: an embedded NUL character, the kind of thing a
+        // hand-edited or corrupted settings.json could hand back as DefaultSaveDirectory or
+        // LastSaveDirectory. AskForSavePath's caller in MainViewModel does not guard this call
+        // -- only the file write itself is guarded -- so without the try/catch this call added
+        // around SuggestedStartLocation's resolution, this test throws instead of returning,
+        // and a corrupt remembered directory would crash the app on the very next Save.
+        var corrupt = "C:\\bad\0path";
+        var path = dialogs.AskForSavePath("Save QR code as PNG", "PNG image|*.png", ".png", "code.png", corrupt);
+
+        Assert.Null(path);
+    }
+
+    [AvaloniaFact]
     public void TheThreePhase2cMembersReportCancellationRatherThanCrashing()
     {
         var (_, dialogs) = Create();

@@ -33,8 +33,28 @@ public sealed class AvaloniaDialogService(Window owner) : IDialogService
 
         if (directory is not null)
         {
-            options.SuggestedStartLocation = DispatcherWait.For(
-                _owner.StorageProvider.TryGetFolderFromPathAsync(directory), DialogTimeout);
+            // directory is a remembered value (AppSettings.DefaultSaveDirectory or
+            // LastSaveDirectory), loaded from settings.json and never validated when it was
+            // written -- a hand edit or a corrupted file can hand this call a string it cannot
+            // use. Confirmed empirically against this exact Avalonia.Headless 12.1.2 platform:
+            // most malformed shapes (a folder that no longer exists, Windows-reserved
+            // characters, an unreachable UNC path, a relative path, a garbage drive letter, a
+            // very long path) just make TryGetFolderFromPathAsync resolve to null, but a
+            // directory string containing an embedded NUL character throws ArgumentException
+            // instead. This call sits outside the try/catch in MainViewModel.Guarded -- only
+            // the file write itself is guarded there -- so letting that propagate would crash
+            // the app on the very next Save after settings.json went bad. The suggested start
+            // location is a convenience; losing it must never cost the save dialog itself, so
+            // any failure here is swallowed rather than narrowed to ArgumentException alone.
+            try
+            {
+                options.SuggestedStartLocation = DispatcherWait.For(
+                    _owner.StorageProvider.TryGetFolderFromPathAsync(directory), DialogTimeout);
+            }
+            catch (Exception)
+            {
+                // Left null: the picker still opens, just without a preselected folder.
+            }
         }
 
         var file = DispatcherWait.For(_owner.StorageProvider.SaveFilePickerAsync(options), DialogTimeout);
