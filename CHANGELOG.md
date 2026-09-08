@@ -30,21 +30,6 @@ across once, on first run, and the old folder is left alone rather than moved.
 
 ---
 
-## Unreleased
-
-**Internal: the drawing engine no longer depends on Windows.** Rendering moved from WPF to
-SkiaSharp and the geometry model became the app's own rather than WPF's. Nothing about the
-app changed for anyone using it; this is the groundwork for the macOS and Linux versions.
-
-Saved styles and settings are unaffected, and the settings folder now resolves per platform.
-The one narrowing: the colour parser now only recognises a handful of named colours (black,
-white, transparent, red, green, blue, gray/grey) instead of WPF's full list of roughly 140,
-and no longer accepts `#RGB` shorthand. That only affects a preset file someone hand-edited to
-use one of those; every file the app itself has ever written uses `#RRGGBB`/`#AARRGGBB` and
-round-trips unchanged.
-
----
-
 ## 1.0.0
 
 First release.
@@ -76,3 +61,13 @@ saving a style that does not scan asks for confirmation first.
 **Settings.** Appearance (follow Windows, light or dark), whether to warn about codes that
 may not scan, a fixed save folder, the size new codes start at, and whether the last style
 is restored on reopen.
+
+**Under the hood.** The drawing engine does not depend on Windows. Rendering goes through
+SkiaSharp and the geometry model is the app's own rather than WPF's, which is the groundwork
+for the macOS and Linux versions. Nothing about using the app changes.
+
+One narrowing worth recording: the colour parser recognises a handful of named colours
+(black, white, transparent, red, green, blue, gray/grey) rather than WPF's list of roughly
+140, and no longer accepts `#RGB` shorthand. That only affects a preset file someone
+hand-edited to use one of those. Every file the app itself writes uses `#RRGGBB` or
+`#AARRGGBB` and round-trips unchanged.
