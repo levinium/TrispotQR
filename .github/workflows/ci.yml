@@ -39,6 +39,9 @@ jobs:
       - name: Test view models
         run: dotnet test tests/TrispotQR.ViewModels.Tests/TrispotQR.ViewModels.Tests.csproj -c Release --verbosity normal
 
+      - name: Test the Avalonia UI
+        run: dotnet test tests/TrispotQR.UI.Tests/TrispotQR.UI.Tests.csproj -c Release --verbosity normal
+
   # The WPF app and its UI tests. Windows only, by nature, until the Avalonia port lands.
   windows:
     name: App and UI tests
