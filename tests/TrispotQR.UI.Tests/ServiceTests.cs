@@ -94,9 +94,12 @@ public class AvaloniaImageClipboardTests
 
         var image = new RasterImage(2, 2, new byte[2 * 2 * 4]);
 
-        // The headless clipboard accepts data and hands it back, so this exercises the real
-        // sync-over-async bridge rather than mocking it away. A deadlock here fails as a
-        // timeout, which is the failure mode worth catching.
+        // Proves Copy completes without throwing against a real IClipboard implementation
+        // (Avalonia.Headless's HeadlessClipboardImplStub), not a fake. It does NOT exercise the
+        // pump-and-timeout bridge in AvaloniaImageClipboard.Copy: HeadlessClipboardImplStub's
+        // SetDataAsync returns Task.CompletedTask synchronously, so task.IsCompleted is already
+        // true the first time the while loop checks it, and neither Dispatcher.UIThread.RunJobs()
+        // nor the timeout branch ever run. That path is genuinely uncovered here.
         new AvaloniaImageClipboard(window).Copy(image);
     }
 

@@ -33,7 +33,16 @@ public sealed class AvaloniaImageClipboard(TopLevel topLevel) : IImageClipboard
         // brief's WPF-flavoured sketch used (that type is obsolete here anyway). DataTransfer
         // implements IAsyncDataTransfer itself -- it just always resolves synchronously -- so
         // it can go straight to SetDataAsync with no separate sync/async wrapper.
-        var format = DataFormat.CreateBytesApplicationFormat("PNG");
+        //
+        // CreateBytesPlatformFormat, not CreateBytesApplicationFormat: the "application" family
+        // deliberately does NOT pass the identifier to the underlying platform (Avalonia's own
+        // doc comment says so) -- it namespace-prefixes it so two Avalonia apps can share data
+        // with each other, which is useless here. WpfImageClipboard puts the literal name "PNG"
+        // on the real Win32 clipboard, because that is the format Word, PowerPoint and browsers
+        // actually probe for on paste. CreateBytesPlatformFormat is the one whose doc comment
+        // says the identifier is passed through as-is, so "PNG" reaches the platform the same
+        // way it does from WPF.
+        var format = DataFormat.CreateBytesPlatformFormat("PNG");
         var data = new DataTransfer();
         data.Add(DataTransferItem.Create(format, PngExporter.ToBytes(image)));
 
