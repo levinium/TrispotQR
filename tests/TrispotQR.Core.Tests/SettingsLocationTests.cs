@@ -13,9 +13,22 @@ public class SettingsLocationTests
             DesktopSettingsLocation.ResolveFor(OSPlatform.Windows, @"C:\Users\x", @"C:\Users\x\AppData\Roaming", null));
 
     [Fact]
-    public void Windows_EmptyAppData_FallsBackToHomeAppDataRoaming() =>
-        Assert.True(Path.IsPathRooted(
-            DesktopSettingsLocation.ResolveFor(OSPlatform.Windows, @"C:\Users\x", "", null)));
+    public void Windows_EmptyAppData_FallsBackToHomeAppDataRoaming()
+    {
+        var resolved = DesktopSettingsLocation.ResolveFor(OSPlatform.Windows, @"C:\Users\x", "", null);
+
+        // Deliberately NOT Path.IsPathRooted. That asks the HOST operating system what
+        // "rooted" means, and a drive-lettered Windows path is not rooted on Linux or macOS,
+        // where only a leading slash counts. This assertion passed on Windows and failed on
+        // the other two runners for that reason alone, with nothing wrong in the code.
+        //
+        // The separator is normalised for the same class of reason: ResolveFor builds paths
+        // with Path.Combine, which uses the host's separator, so asking for the Windows
+        // answer from a Unix host yields "C:\Users\x/AppData/Roaming". That is a limit of
+        // testing one platform's answer from another, not a defect. What this test needs to
+        // prove is that an empty appData took the fallback and the result came from home.
+        Assert.Equal("C:/Users/x/AppData/Roaming/TrispotQR", resolved.Replace('\\', '/'));
+    }
 
     [Fact]
     public void MacOs_UsesApplicationSupport() =>
