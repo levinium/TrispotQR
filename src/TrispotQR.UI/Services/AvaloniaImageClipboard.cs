@@ -1,6 +1,5 @@
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Threading;
 using TrispotQR.Core.Export;
 using TrispotQR.Core.Rendering;
 
@@ -52,21 +51,6 @@ public sealed class AvaloniaImageClipboard(TopLevel topLevel) : IImageClipboard
         // thread, so the dispatcher is pumped while waiting. The timeout turns a wedged
         // clipboard into an exception the view model already knows how to report, rather than a
         // frozen window.
-        var task = clipboard.SetDataAsync(data);
-        var deadline = DateTime.UtcNow + Timeout;
-
-        while (!task.IsCompleted)
-        {
-            if (DateTime.UtcNow > deadline)
-            {
-                throw new TimeoutException("The clipboard did not respond.");
-            }
-
-            Dispatcher.UIThread.RunJobs();
-            Thread.Sleep(1);
-        }
-
-        // Unwraps into the original exception rather than an AggregateException.
-        task.GetAwaiter().GetResult();
+        DispatcherWait.For(clipboard.SetDataAsync(data), Timeout);
     }
 }
