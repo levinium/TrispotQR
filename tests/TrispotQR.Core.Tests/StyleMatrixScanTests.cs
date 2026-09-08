@@ -191,18 +191,19 @@ public class StyleMatrixScanTests
     {
         var size = pixelSize ?? 512;
 
-        var decoded = StaThread.Run(() =>
-        {
-            var matrix = QrEncoder.Encode(payload, style.Ecc).Matrix!;
-            var drawing = QrGeometryBuilder.Build(matrix, style);
-            var image = SkiaRasterizer.Render(drawing, size, RgbColor.White);
+        var matrix = QrEncoder.Encode(payload, style.Ecc).Matrix!;
+        var drawing = QrGeometryBuilder.Build(matrix, style);
 
-            // Deliberately the strict, camera-like pass. The app itself is more forgiving,
-            // because that pass has a measurable false-failure rate on clean renders and
-            // must not tell a user their good code is broken. A style shipped in the app
-            // is held to the higher bar instead.
-            return QrDecoder.DecodeStrict(image);
-        });
+        // No apartment thread here any more. This used to run inside StaThread because the
+        // renderer was WPF; Skia needs no STA, and requiring one would make this test
+        // Windows-only for no reason. It is the matrix that has to run everywhere.
+        var image = SkiaRasterizer.Render(drawing, size, RgbColor.White);
+
+        // Deliberately the strict, camera-like pass. The app itself is more forgiving,
+        // because that pass has a measurable false-failure rate on clean renders and
+        // must not tell a user their good code is broken. A style shipped in the app
+        // is held to the higher bar instead.
+        var decoded = QrDecoder.DecodeStrict(image);
 
         var label = because is null ? string.Empty : $"[{because}] ";
         Assert.True(

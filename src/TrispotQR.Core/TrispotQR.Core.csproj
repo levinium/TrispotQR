@@ -34,6 +34,7 @@
     <!-- Lets the tests drive the settings-folder carry-over against temp directories
          rather than against the real %APPDATA%. -->
     <InternalsVisibleTo Include="TrispotQR.Tests" />
+    <InternalsVisibleTo Include="TrispotQR.Core.Tests" />
     <!-- Lets the app validate a chosen logo file with the same decoder (ImageSize, backed
          by Skia) that LogoCompositor uses to place it, instead of a WPF decoder that
          accepts formats Skia cannot later read. TrispotQR.App.csproj builds an assembly

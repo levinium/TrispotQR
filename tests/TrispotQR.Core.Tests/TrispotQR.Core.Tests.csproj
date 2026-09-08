@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Plain net10.0, deliberately. These tests exercise Core, which carries no Windows
+      dependency, so they must be runnable on macOS and Linux as well. That is the whole
+      point of the split: a portability claim asserted only from a Windows machine is not
+      evidence, and CI runs this project on all three operating systems.
+
+      Anything needing WPF, a window, or the app's view models belongs in TrispotQR.Tests,
+      which stays net10.0-windows.
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Core only. No reference to TrispotQR.App: that project is WPF and would drag the
+         Windows dependency straight back in. -->
+    <ProjectReference Include="..\..\src\TrispotQR.Core\TrispotQR.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

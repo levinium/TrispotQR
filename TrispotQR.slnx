@@ -4,6 +4,7 @@
     <Project Path="src/TrispotQR.Core/TrispotQR.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/TrispotQR.Core.Tests/TrispotQR.Core.Tests.csproj" />
     <Project Path="tests/TrispotQR.Tests/TrispotQR.Tests.csproj" />
   </Folder>
 </Solution>
