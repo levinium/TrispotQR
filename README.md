@@ -1,62 +1,99 @@
 # Trispot QR
 
-A standalone Windows app for making QR codes. Type anything in, style it, and save it as a
-PNG (with a transparent or solid background) or as an SVG for print.
+**Make a QR code, style it, and know it scans before you print it.**
 
-Nothing is sent anywhere. The code is generated on the machine it runs on, which is the
-main reason to use this rather than a website: online generators see your content, and many
-of them quietly turn your code into a redirect through their own servers that stops working
-the day they do.
+A standalone Windows app that generates QR codes entirely on your own machine. Nothing is
+uploaded, nothing is tracked, and nothing is installed.
 
-## Running it
+[![Latest release](https://img.shields.io/github/v/release/levinium/TrispotQR?label=download&color=2B5CE6)](https://github.com/levinium/TrispotQR/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/levinium/TrispotQR/total?color=2B5CE6)](https://github.com/levinium/TrispotQR/releases)
+![Platform](https://img.shields.io/badge/platform-Windows%20x64-555)
+![Tests](https://img.shields.io/badge/tests-683%20passing-3a9d3a)
 
-Copy `dist\TrispotQR.exe` anywhere and double-click it. Nothing needs to be installed, and
-nothing gets installed: there is no setup step, no admin prompt and no registry entry. The
-whole app, including the .NET runtime it runs on, is inside that one file, which is why it
-is around 67 MB. Delete the file and it is gone.
+![Trispot QR](docs/screenshots/main-window.png)
 
-It needs 64-bit Windows and nothing else.
+## Download
 
-`dist\framework-dependent\TrispotQR.exe` is the same app at around 13 MB, for machines that
-already have the .NET 10 Desktop Runtime: its size difference from the big build is the .NET
-runtime, not the drawing engine, since the native Skia library ships in both. If the runtime
-is missing, Windows shows a dialog naming it with a download link; it does not install
-anything on its own. Prefer the big one unless you are deploying somewhere the runtime is
-already managed.
+**[Download TrispotQR-v1.0.0-win-x64.zip](https://github.com/levinium/TrispotQR/releases/download/v1.0.0/TrispotQR-v1.0.0-win-x64.zip)** (65 MB)
+
+Unzip it anywhere and run `TrispotQR.exe`. That is the whole installation. There is no setup
+step, no admin prompt and no registry entry, because the .NET runtime it needs is inside the
+file. Delete it and it is gone. You need 64-bit Windows and nothing else.
+
+If your machine already has the .NET 10 Desktop Runtime, the
+[framework-dependent build](https://github.com/levinium/TrispotQR/releases/latest) is 6 MB
+instead. Take the big one unless you know you want that.
+
+## Why not just use a website?
+
+Online generators see whatever you type, and many of them quietly turn your code into a
+redirect through their own servers. That redirect is a link you do not control: it can be
+counted, changed, or switched off, and the day the site disappears every code you printed
+stops working. Trispot QR encodes the value you typed, locally, and hands you the file.
 
 ## What it does
 
-**Content.** Plain text, or one of the guided types: Link, Wi-Fi, Email, Phone, Text
-message, Contact card. Each one builds the exact payload phones expect. The Link type adds
-`https://` when it is missing and warns when what you typed is not a usable web address,
-which is the single most common way a QR code ends up scanning perfectly and doing nothing.
-Every type checks what you typed as you type it: a missing or malformed field is outlined in
-red with the reason underneath, and saving stays disabled until it is fixed.
+### It checks the code, rather than assuming
 
-**Style.** Six built-in looks, and full control underneath: shape of the dots, shape of the
-corner rings and their centres, a gap between dots, outlines, separate colours for the
+This is the part most generators skip. After every change the app renders the code and reads
+it back with a real barcode decoder, then tells you what it found.
+
+Low contrast, an inverted palette, a missing quiet zone and an oversized logo are all flagged
+even when the decode succeeds, because those are the codes that read fine on a monitor and
+then fail on printed paper. If a style genuinely will not scan, saving asks you to confirm
+first.
+
+That check is also why the style options are safe to use. A diamond-shaped corner marker was
+built, tested against the decoder, and found to break the 1:1:3:1:1 ratio scanners rely on to
+locate a code. It was removed rather than shipped.
+
+### It builds the payload phones actually expect
+
+Pick a type and fill in the fields. Plain text, Link, Wi-Fi, Email, Phone, Text message, or
+Contact card. Each one produces the exact format a phone recognises, including the escaping
+rules that are easy to get wrong by hand.
+
+Every field is checked as you type, and the box at fault is the one that turns red.
+
+![Field validation](docs/screenshots/validation.png)
+
+The Link type adds `https://` when you leave it off, which is the single most common way a QR
+code ends up scanning perfectly and doing nothing.
+
+### It has real styling
+
+Six built-in looks, and full control underneath: the shape of the dots, the shape of the
+corner rings and their centres, the gap between dots, outlines, separate colours for the
 corner markers, error correction level, margin size, and a logo in the middle.
 
-**Checking.** After every change the app renders the code and reads it back with a real
-barcode decoder, then shows a badge: green for scannable, amber when something about it is
-risky. Low contrast, an inverted palette and a missing margin get flagged even when the
-decode succeeds, because those are the codes that read on a monitor and then fail on a
-printed flyer.
+### It saves in the formats you need
 
-**Saving.** PNG at three sizes or a custom one, SVG for print, or straight to the clipboard
-for pasting into Word, PowerPoint or an email.
+PNG at three sizes or a custom one, with a genuinely transparent background if you want one.
+SVG for print, which stays sharp at any size. Or straight to the clipboard, ready to paste
+into Word, PowerPoint or an email.
 
-## Anything still worth checking by hand
+### It follows your theme
 
-The app's own decoder is strict but it is not a phone camera. Before a code goes to print,
-scan the saved file with an actual phone. That is the only test that fully counts.
+Light and dark, following Windows by default.
+
+![Main window in dark mode](docs/screenshots/main-window-dark.png)
+
+Settings cover appearance, warnings, where files are saved, the size new codes start at, and
+whether your last style comes back when you reopen.
+
+![Settings](docs/screenshots/settings.png)
+
+## Before you print
+
+The app's decoder is strict, but it is not a phone camera. Scan the saved file with an actual
+phone before a code goes to print. That is the only test that fully counts.
 
 ## Building from source
 
 Needs the .NET 10 SDK.
 
 ```powershell
-dotnet test          # 681+ tests
+dotnet test          # 683 tests
 .\publish.ps1        # builds dist\TrispotQR.exe
 ```
 
@@ -68,36 +105,41 @@ dotnet test          # 681+ tests
 src\TrispotQR.Core\    encoding, styling, geometry, export, scannability checking
 src\TrispotQR.App\     the WPF window and view models
 tests\TrispotQR.Tests\ the test suite
-tools\               one-off build utilities (the app icon generator)
+tools\                 one-off build utilities (the app icon generator)
 ```
 
 ### The design that matters
 
 Everything is drawn once into Core's own platform-neutral geometry model (`QrPath`), measured
-in **module units**, one unit per QR module. That single description then feeds the
-on-screen preview, the Skia rasteriser, and the SVG writer. There is no second renderer to
-drift out of sync, which is why the SVG and the PNG always match what the preview showed.
+in **module units**, one unit per QR module. That single description then feeds the on-screen
+preview, the Skia rasteriser, and the SVG writer. There is no second renderer to drift out of
+sync, which is why the SVG and the PNG always match what the preview showed.
+
+`TrispotQR.Core` targets plain `net10.0` and rasterises with SkiaSharp, so it carries no
+Windows dependency. A test asserts that, because one convenient `using System.Windows.Media`
+would undo it silently on a Windows machine. macOS and Linux versions are the reason.
 
 ### Why the test suite is shaped the way it is
 
-The scannability matrix in `StyleMatrixScanTests` renders every combination the UI can
-produce and decodes it back. It is not a formality. It caught a diamond-shaped corner
-marker that looked good and failed to scan in every single configuration, because scanners
-locate a code by the 1:1:3:1:1 run of dark and light through its corner markers and a
-diamond breaks that ratio. That option was removed rather than shipped. Run this matrix
-before believing any change to the renderer is safe.
+The scannability matrix in `StyleMatrixScanTests` renders every combination the UI can produce
+and decodes it back. It is not a formality. It is what caught the diamond corner marker
+described above. Run this matrix before believing any change to the renderer is safe.
 
 `MainWindowSmokeTests` lays out the real window offscreen and fails on WPF data binding
 errors, which are otherwise invisible: a mistyped binding path shows an empty control and
 writes a line to a trace listener nobody reads.
 
+`ContrastTests` walks every window in both themes and fails any text that falls below a
+readable contrast ratio, after a set of radio buttons once shipped as black on a dark
+background.
+
 ### Where settings live
 
 `%APPDATA%\TrispotQR\` on Windows holds `presets.json` (saved styles) and `settings.json`
-(last used style and window size). The location resolves per platform (`~/Library/Application
-Support/TrispotQR` on macOS, `$XDG_CONFIG_HOME/TrispotQR` or `~/.config/TrispotQR` on Linux),
-though only the Windows app ships in this phase. A file that will not parse is moved aside
-and the app starts on the built-in styles rather than refusing to open.
+(last used style and window size). The location resolves per platform
+(`~/Library/Application Support/TrispotQR` on macOS, `$XDG_CONFIG_HOME/TrispotQR` or
+`~/.config/TrispotQR` on Linux), though only the Windows app ships today. A file that will not
+parse is moved aside and the app starts on the built-in styles rather than refusing to open.
 
 ## Third-party components
 
@@ -105,3 +147,4 @@ and the app starts on the built-in styles rather than refusing to open.
 | --- | --- | --- |
 | Net.Codecrete.QrCodeGenerator | MIT | QR encoding |
 | ZXing.Net | Apache 2.0 | decoding, for the scannability check |
+| SkiaSharp | MIT | rasterising, so the renderer is not tied to Windows |
