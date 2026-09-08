@@ -1,10 +1,10 @@
 using System.IO;
 using System.Windows.Media;
-using TrispotQR.App.Rendering;
 using TrispotQR.App.Services;
 using TrispotQR.App.ViewModels;
 using TrispotQR.Core.Payloads;
 using TrispotQR.Core.Presets;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
@@ -241,7 +241,7 @@ public class MainViewModelTests : IDisposable
         vm.BackgroundChoice = BackgroundChoice.White;
         Assert.Equal(BackgroundChoice.White, vm.BackgroundChoice);
 
-        vm.CustomBackground = Colors.LightGoldenrodYellow;
+        vm.CustomBackground = RgbColor.FromRgb(0xFA, 0xFA, 0xD2);
         Assert.Equal(BackgroundChoice.Custom, vm.BackgroundChoice);
         Assert.True(vm.IsCustomBackground);
     }
@@ -259,7 +259,7 @@ public class MainViewModelTests : IDisposable
 
         Assert.Equal(BackgroundChoice.Custom, vm.BackgroundChoice);
         Assert.True(vm.IsCustomBackground);
-        Assert.Equal(Colors.White, vm.CustomBackground);
+        Assert.Equal(RgbColor.White, vm.CustomBackground);
     }
 
     [Fact]
@@ -308,12 +308,22 @@ public class MainViewModelTests : IDisposable
         Assert.False(vm.UseCustomMarkerColors);
 
         vm.UseCustomMarkerColors = true;
-        vm.MarkerFrameColor = Colors.Crimson;
-        Assert.Equal(Colors.Crimson, vm.MarkerFrameColor);
+        vm.MarkerFrameColor = RgbColor.FromRgb(0xDC, 0x14, 0x3C);
+        Assert.Equal(RgbColor.FromRgb(0xDC, 0x14, 0x3C), vm.MarkerFrameColor);
 
         vm.UseCustomMarkerColors = false;
         Assert.False(vm.UseCustomMarkerColors);
         Assert.Equal(vm.Foreground, vm.MarkerFrameColor);
+    }
+
+    [Fact]
+    public void TheColourProperties_SpeakCoresColourType()
+    {
+        var vm = Create();
+
+        vm.Foreground = RgbColor.FromRgb(0x1B, 0x2A, 0x4A);
+
+        Assert.Equal(RgbColor.FromRgb(0x1B, 0x2A, 0x4A), vm.Foreground);
     }
 
     [Fact]
@@ -347,13 +357,13 @@ public class MainViewModelTests : IDisposable
         var vm = Create();
         vm.ModuleShape = ModuleShape.Diamond;
         vm.QuietZone = 1;
-        vm.Foreground = Colors.Crimson;
+        vm.Foreground = RgbColor.FromRgb(0xDC, 0x14, 0x3C);
 
         vm.ResetCommand.Execute(null);
 
         Assert.Equal(QrStyle.Default.ModuleShape, vm.ModuleShape);
         Assert.Equal(QrStyle.Default.QuietZoneModules, vm.QuietZone);
-        Assert.Equal(WpfGeometryAdapter.ToColor(QrStyle.Default.Foreground), vm.Foreground);
+        Assert.Equal(QrStyle.Default.Foreground, vm.Foreground);
     }
 
     [Fact]
@@ -714,5 +724,7 @@ public class MainViewModelTests : IDisposable
         public void ShowInformation(string title, string message)
         {
         }
+
+        public AppSettings? EditSettings(AppSettings current) => null;
     }
 }

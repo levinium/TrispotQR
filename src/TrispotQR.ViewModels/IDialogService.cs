@@ -1,3 +1,5 @@
+using TrispotQR.Core.Presets;
+
 namespace TrispotQR.ViewModels;
 
 /// <summary>
@@ -25,4 +27,13 @@ public interface IDialogService
     void ShowError(string title, string message);
 
     void ShowInformation(string title, string message);
+
+    /// <summary>
+    /// Shows the settings window and returns what the user chose, or null if they cancelled.
+    ///
+    /// The whole exchange lives behind this call because opening a window, owning it, and
+    /// applying the chosen theme are all things only a UI toolkit can do. The view model's
+    /// part is deciding what to persist afterwards.
+    /// </summary>
+    AppSettings? EditSettings(AppSettings current);
 }

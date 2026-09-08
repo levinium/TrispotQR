@@ -292,6 +292,8 @@ public class MainWindowSmokeTests
         public void ShowInformation(string title, string message)
         {
         }
+
+        public AppSettings? EditSettings(AppSettings current) => null;
     }
 }
 

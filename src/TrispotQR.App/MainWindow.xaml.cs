@@ -52,7 +52,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnSettingsClicked(object sender, RoutedEventArgs e) => _viewModel.OpenSettings(this);
+    private void OnSettingsClicked(object sender, RoutedEventArgs e) => _viewModel.OpenSettings();
 
     private void OnAboutClicked(object sender, RoutedEventArgs e)
     {

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using Microsoft.Win32;
+using TrispotQR.Core.Presets;
 using TrispotQR.ViewModels;
 
 namespace TrispotQR.App.Services;
@@ -75,6 +76,21 @@ public sealed class DialogService : IDialogService
 
     public void ShowInformation(string title, string message) =>
         MessageBox.Show(Owner(), message, title, MessageBoxButton.OK, MessageBoxImage.Information);
+
+    public AppSettings? EditSettings(AppSettings current)
+    {
+        var window = new Views.SettingsWindow(current) { Owner = Owner() };
+
+        if (window.ShowDialog() != true)
+        {
+            return null;
+        }
+
+        // Applied here rather than by the caller because the theme is a property of the
+        // running application, not of the settings record.
+        ThemeManager.Apply(window.Result.Theme);
+        return window.Result;
+    }
 
     private static Window Owner() => Application.Current?.MainWindow!;
 }

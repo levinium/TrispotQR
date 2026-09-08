@@ -2,8 +2,6 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
-using System.Windows;
-using System.Windows.Media;
 using TrispotQR.App.Export;
 using TrispotQR.App.Rendering;
 using TrispotQR.App.Services;
@@ -173,15 +171,10 @@ public sealed class MainViewModel : ObservableObject
 
     #region Style, simple
 
-    /// <summary>
-    /// The style's colours are exposed as WPF colours because that is what the colour
-    /// picker and the XAML bindings speak. This handful of properties is the only place
-    /// the two colour types meet, and every crossing goes through the adapter.
-    /// </summary>
-    public Color Foreground
+    public RgbColor Foreground
     {
-        get => WpfGeometryAdapter.ToColor(_style.Foreground);
-        set => UpdateStyle(s => s with { Foreground = WpfGeometryAdapter.ToRgbColor(value) });
+        get => _style.Foreground;
+        set => UpdateStyle(s => s with { Foreground = value });
     }
 
     /// <summary>
@@ -230,13 +223,13 @@ public sealed class MainViewModel : ObservableObject
 
     public bool IsCustomBackground => BackgroundChoice == BackgroundChoice.Custom;
 
-    public Color CustomBackground
+    public RgbColor CustomBackground
     {
-        get => WpfGeometryAdapter.ToColor(_style.Background ?? RgbColor.White);
+        get => _style.Background ?? RgbColor.White;
         set
         {
             _backgroundIsCustom = true;
-            UpdateStyle(s => s with { Background = WpfGeometryAdapter.ToRgbColor(value) });
+            UpdateStyle(s => s with { Background = value });
             OnPropertyChanged(nameof(BackgroundChoice));
             OnPropertyChanged(nameof(IsCustomBackground));
         }
@@ -291,22 +284,22 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    public Color MarkerFrameColor
+    public RgbColor MarkerFrameColor
     {
-        get => WpfGeometryAdapter.ToColor(_style.EffectiveMarkerFrameColor);
+        get => _style.EffectiveMarkerFrameColor;
         set
         {
-            UpdateStyle(s => s with { MarkerFrameColor = WpfGeometryAdapter.ToRgbColor(value) });
+            UpdateStyle(s => s with { MarkerFrameColor = value });
             OnPropertyChanged(nameof(UseCustomMarkerColors));
         }
     }
 
-    public Color MarkerCenterColor
+    public RgbColor MarkerCenterColor
     {
-        get => WpfGeometryAdapter.ToColor(_style.EffectiveMarkerCenterColor);
+        get => _style.EffectiveMarkerCenterColor;
         set
         {
-            UpdateStyle(s => s with { MarkerCenterColor = WpfGeometryAdapter.ToRgbColor(value) });
+            UpdateStyle(s => s with { MarkerCenterColor = value });
             OnPropertyChanged(nameof(UseCustomMarkerColors));
         }
     }
@@ -317,10 +310,10 @@ public sealed class MainViewModel : ObservableObject
         set => UpdateStyle(s => s with { Outline = s.Outline with { Enabled = value } });
     }
 
-    public Color OutlineColor
+    public RgbColor OutlineColor
     {
-        get => WpfGeometryAdapter.ToColor(_style.Outline.Color);
-        set => UpdateStyle(s => s with { Outline = s.Outline with { Color = WpfGeometryAdapter.ToRgbColor(value) } });
+        get => _style.Outline.Color;
+        set => UpdateStyle(s => s with { Outline = s.Outline with { Color = value } });
     }
 
     public double OutlineThickness
@@ -517,21 +510,18 @@ public sealed class MainViewModel : ObservableObject
         });
 
     /// <summary>
-    /// Opens the settings window and takes on whatever comes back. Written to persist
-    /// immediately rather than at shutdown, so a preference survives even if the app is
-    /// later closed in a way that skips the normal save.
+    /// Takes on whatever the settings window returns. Written to persist immediately rather
+    /// than at shutdown, so a preference survives even if the app is later closed in a way
+    /// that skips the normal save.
     /// </summary>
-    public void OpenSettings(Window owner)
+    public void OpenSettings()
     {
-        var window = new Views.SettingsWindow(_settings) { Owner = owner };
-
-        if (window.ShowDialog() != true)
+        if (_dialogs.EditSettings(_settings) is not { } updated)
         {
             return;
         }
 
-        _settings = window.Result;
-        ThemeManager.Apply(_settings.Theme);
+        _settings = updated;
         _settingsStore.Save(_settings with { Style = _style });
 
         OnPropertyChanged(nameof(PixelSize));

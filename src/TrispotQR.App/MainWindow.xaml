@@ -20,6 +20,7 @@
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
         <conv:StringToVisibilityConverter x:Key="StringToVisibility" />
         <conv:ColorToBrushConverter x:Key="ColorToBrush" />
+        <conv:RgbColorToColorConverter x:Key="RgbToColor" />
         <conv:VerdictToBrushConverter x:Key="VerdictToBrush" />
         <conv:EqualityConverter x:Key="Equality" />
         <conv:FriendlyNameConverter x:Key="Friendly" />
@@ -332,7 +333,7 @@
                             <TextBlock Text="Code colour" VerticalAlignment="Center"
                                        Style="{StaticResource CaptionStyle}" Width="86" />
                             <views:ColorPicker Grid.Column="1" HorizontalAlignment="Left"
-                                               SelectedColor="{Binding Foreground, Mode=TwoWay}" />
+                                               SelectedColor="{Binding Foreground, Converter={StaticResource RgbToColor}, Mode=TwoWay}" />
                         </Grid>
 
                         <TextBlock Text="Background" Style="{StaticResource FieldLabelStyle}" />
@@ -348,7 +349,7 @@
                                           IsChecked="{Binding BackgroundChoice, Converter={StaticResource Equality},
                                                       ConverterParameter=Custom, Mode=TwoWay}" />
                             <views:ColorPicker VerticalAlignment="Center"
-                                               SelectedColor="{Binding CustomBackground, Mode=TwoWay}"
+                                               SelectedColor="{Binding CustomBackground, Converter={StaticResource RgbToColor}, Mode=TwoWay}"
                                                Visibility="{Binding IsCustomBackground,
                                                             Converter={StaticResource BoolToVisibility}}" />
                         </StackPanel>
@@ -439,11 +440,11 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Ring" VerticalAlignment="Center" Style="{StaticResource CaptionStyle}" />
                                 <views:ColorPicker Grid.Column="1" Margin="8,0,18,0"
-                                                   SelectedColor="{Binding MarkerFrameColor, Mode=TwoWay}" />
+                                                   SelectedColor="{Binding MarkerFrameColor, Converter={StaticResource RgbToColor}, Mode=TwoWay}" />
                                 <TextBlock Grid.Column="2" Text="Centre" VerticalAlignment="Center"
                                            Style="{StaticResource CaptionStyle}" />
                                 <views:ColorPicker Grid.Column="3" Margin="8,0,0,0"
-                                                   SelectedColor="{Binding MarkerCenterColor, Mode=TwoWay}" />
+                                                   SelectedColor="{Binding MarkerCenterColor, Converter={StaticResource RgbToColor}, Mode=TwoWay}" />
                             </Grid>
 
                             <Separator Margin="0,14,0,4" />
@@ -461,7 +462,7 @@
                                     <TextBlock Text="Colour" VerticalAlignment="Center" Width="86"
                                                Style="{StaticResource CaptionStyle}" />
                                     <views:ColorPicker Grid.Column="1" HorizontalAlignment="Left"
-                                                       SelectedColor="{Binding OutlineColor, Mode=TwoWay}" />
+                                                       SelectedColor="{Binding OutlineColor, Converter={StaticResource RgbToColor}, Mode=TwoWay}" />
                                 </Grid>
 
                                 <TextBlock Text="Thickness" Style="{StaticResource FieldLabelStyle}" />

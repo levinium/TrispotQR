@@ -174,5 +174,7 @@ public class ReadmeSnapshotTests
         public void ShowInformation(string title, string message)
         {
         }
+
+        public AppSettings? EditSettings(AppSettings current) => null;
     }
 }

@@ -1,5 +1,4 @@
 using System.IO;
-using TrispotQR.App.Rendering;
 using TrispotQR.App.Services;
 using TrispotQR.App.ViewModels;
 using TrispotQR.Core.Presets;
@@ -42,12 +41,12 @@ public class ExportGuardTests : IDisposable
 
         if (style is { } s)
         {
-            vm.Foreground = WpfGeometryAdapter.ToColor(s.Foreground);
+            vm.Foreground = s.Foreground;
             vm.BackgroundChoice = s.Background is null ? BackgroundChoice.Transparent : BackgroundChoice.Custom;
 
             if (s.Background is { } bg)
             {
-                vm.CustomBackground = WpfGeometryAdapter.ToColor(bg);
+                vm.CustomBackground = bg;
             }
 
             vm.QuietZone = s.QuietZoneModules;
@@ -241,5 +240,7 @@ public class ExportGuardTests : IDisposable
         public void ShowInformation(string title, string message)
         {
         }
+
+        public AppSettings? EditSettings(AppSettings current) => null;
     }
 }
