@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using TrispotQR.Core.Presets;
 using TrispotQR.UI.Views;
 using TrispotQR.ViewModels;
@@ -13,12 +14,63 @@ namespace TrispotQR.UI.Services;
 /// MainViewModel already reads as "the user cancelled": the logo picker, the save-preset
 /// prompt and the settings window all arrive in Phase 2c along with the UI that reaches them.
 /// </summary>
-public sealed class AvaloniaDialogService(Window owner) : IDialogService
+public sealed class AvaloniaDialogService : IDialogService
 {
     /// <summary>Generous, because the wait is on a person rather than on code.</summary>
     private static readonly TimeSpan DialogTimeout = TimeSpan.FromMinutes(10);
 
-    private readonly Window _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+    private readonly Window _owner;
+
+    /// <summary>
+    /// Messages raised before the owner was on screen, replayed once it is.
+    ///
+    /// MainWindow is the composition root, so it builds MainViewModel in its own constructor,
+    /// and MainViewModel's constructor reports an unreadable presets.json through ShowError.
+    /// That happens inside App.OnFrameworkInitializationCompleted -- before Show(), and before
+    /// the main loop exists. Avalonia refuses a modal there ("Cannot show window with
+    /// non-visible owner", confirmed empirically), so a corrupt presets file would have killed
+    /// the app at launch instead of warning about it.
+    ///
+    /// Queued here rather than fixed by building the view model later, because the alternative
+    /// is a window that briefly exists with no DataContext and bindings that resolve on a
+    /// second pass -- a heavier change to the shell to accommodate one message. The queue is
+    /// also honest about what the app can offer at that moment: it cannot ask a question
+    /// before it has a window, but it can certainly remember to say something.
+    /// </summary>
+    private readonly Queue<(string Title, string Message)> _pending = new();
+
+    public AvaloniaDialogService(Window owner)
+    {
+        _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+        _owner.Opened += OnOwnerOpened;
+    }
+
+    /// <summary>
+    /// Whether a modal can be parented on the owner yet. WindowBase overrides IsVisible to
+    /// default to false, so this is false for a constructed-but-never-shown window and true
+    /// from Show() onwards -- the same condition Avalonia's own ShowDialog guard tests.
+    /// </summary>
+    private bool CanShowDialog => _owner.IsVisible;
+
+    private void OnOwnerOpened(object? sender, EventArgs e)
+    {
+        _owner.Opened -= OnOwnerOpened;
+
+        // Posted rather than shown here. Opened fires from inside Show(), so showing a modal
+        // now would push a dispatcher frame into Show()'s own call stack, before the desktop
+        // lifetime has started its loop. Posting lets the window finish opening and the main
+        // loop take over first.
+        Dispatcher.UIThread.Post(FlushPending, DispatcherPriority.Background);
+    }
+
+    private void FlushPending()
+    {
+        while (_pending.Count > 0)
+        {
+            var (title, message) = _pending.Dequeue();
+            Show(title, message);
+        }
+    }
 
     public string? AskForSavePath(string title, string filter, string defaultExtension, string suggestedName, string? directory)
     {
@@ -74,23 +126,53 @@ public sealed class AvaloniaDialogService(Window owner) : IDialogService
     /// <summary>Phase 2c, with the settings window. Null reads as a cancelled dialog.</summary>
     public AppSettings? EditSettings(AppSettings current) => null;
 
-    public bool Confirm(string title, string message) =>
-        DispatcherWait.For(
-            MessageWindow.ShowAsync(_owner, title, message, "OK", "Cancel", defaultToConfirm: true),
-            DialogTimeout);
+    public bool Confirm(string title, string message) => Ask(title, message, "OK", "Cancel", defaultToProceed: true);
 
+    /// <summary>
+    /// severe is deliberately unused. It tells a WPF ConfirmWindow to paint a red rather than
+    /// an amber heading, and MessageWindow has no styling of any kind yet -- that arrives with
+    /// the rest of the visual work in Phase 2c. The distinction is not lost meanwhile: the
+    /// heading text and the default button that MainViewModel derives from the same verdict
+    /// already differ between a code that did not scan and one that merely might not.
+    /// </summary>
     public bool ConfirmRisk(string heading, string message, string proceedLabel, bool defaultToProceed, bool severe) =>
-        DispatcherWait.For(
-            MessageWindow.ShowAsync(_owner, heading, message, proceedLabel, "Cancel", defaultToProceed),
-            DialogTimeout);
+        Ask(heading, message, proceedLabel, "Cancel", defaultToProceed);
 
-    public void ShowError(string title, string message) =>
+    public void ShowError(string title, string message) => Show(title, message);
+
+    public void ShowInformation(string title, string message) => Show(title, message);
+
+    /// <summary>
+    /// One button, nothing to answer. Errors and information read identically to the user, so
+    /// they share a body rather than two copies of it that could drift apart.
+    /// </summary>
+    private void Show(string title, string message)
+    {
+        if (!CanShowDialog)
+        {
+            _pending.Enqueue((title, message));
+            return;
+        }
+
         DispatcherWait.For(
             MessageWindow.ShowAsync(_owner, title, message, "OK", cancelLabel: null, defaultToConfirm: true),
             DialogTimeout);
+    }
 
-    public void ShowInformation(string title, string message) =>
-        DispatcherWait.For(
-            MessageWindow.ShowAsync(_owner, title, message, "OK", cancelLabel: null, defaultToConfirm: true),
+    private bool Ask(string title, string message, string confirmLabel, string cancelLabel, bool defaultToProceed)
+    {
+        // A question needs an answer now, so unlike a message it cannot be queued for later.
+        // False is the answer that changes nothing, which is the right one to assume when
+        // there is no window to ask through. Unreachable today -- MainViewModel only confirms
+        // from a command, long after the window is up -- but stated rather than left to a
+        // crash if that ever stops being true.
+        if (!CanShowDialog)
+        {
+            return false;
+        }
+
+        return DispatcherWait.For(
+            MessageWindow.ShowAsync(_owner, title, message, confirmLabel, cancelLabel, defaultToProceed),
             DialogTimeout);
+    }
 }
