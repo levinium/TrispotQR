@@ -465,9 +465,9 @@ public class MainViewModelTests : IDisposable
         // FileShare.None lock nor a ReadOnly attribute stops it on Unix: rename acts on the
         // directory entry, not the file. A directory in the target's place is refused
         // everywhere, because a rename cannot replace one.
-        var target = Path.Combine(_directory, "locked.png");
-        Directory.CreateDirectory(target);
-        _dialogs.NextSavePath = target;
+        var directoryInTheWayOfTheSave = Path.Combine(_directory, "code.png");
+        Directory.CreateDirectory(directoryInTheWayOfTheSave);
+        _dialogs.NextSavePath = directoryInTheWayOfTheSave;
 
         vm.SavePngCommand.Execute(null);
 

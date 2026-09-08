@@ -1,8 +1,11 @@
 name: CI
 
 on:
+  # Every branch, not just main. The whole value of this workflow is catching a Unix-only
+  # failure before it reaches main, which it cannot do if it only runs once the work has
+  # already landed. Dispatching each run by hand instead is how two such failures got as
+  # far as they did during the view model extraction.
   push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
