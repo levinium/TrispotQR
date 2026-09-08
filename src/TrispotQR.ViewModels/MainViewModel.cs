@@ -2,9 +2,6 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
-using TrispotQR.App.Export;
-using TrispotQR.App.Rendering;
-using TrispotQR.App.Services;
 using TrispotQR.Core.Export;
 using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Payloads;
@@ -13,9 +10,8 @@ using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
 using TrispotQR.Core.Validation;
-using TrispotQR.ViewModels;
 
-namespace TrispotQR.App.ViewModels;
+namespace TrispotQR.ViewModels;
 
 /// <summary>
 /// Drives the whole window.
@@ -57,12 +53,12 @@ public sealed class MainViewModel : ObservableObject
     private int _scanGeneration;
     private string _statusDetail = string.Empty;
 
-    public MainViewModel(IDialogService dialogs, PresetStore? presets = null, AppSettingsStore? settingsStore = null, IImageClipboard? clipboard = null, IUiTimer? timer = null)
+    public MainViewModel(IDialogService dialogs, IUiTimer timer, IImageClipboard clipboard, PresetStore? presets = null, AppSettingsStore? settingsStore = null)
     {
         _dialogs = dialogs;
         _presets = presets ?? new PresetStore();
         _settingsStore = settingsStore ?? new AppSettingsStore();
-        _clipboard = clipboard ?? new WpfImageClipboard();
+        _clipboard = clipboard;
 
         ContentEditors = CreateEditors();
 
@@ -91,9 +87,7 @@ public sealed class MainViewModel : ObservableObject
 
         Presets = new ObservableCollection<PresetItem>();
 
-        // The WpfUiTimer fallback is temporary: it is the last WPF coupling left on this
-        // class, and it goes away once this view model moves to TrispotQR.ViewModels.
-        _debounce = timer ?? new WpfUiTimer();
+        _debounce = timer;
         _debounce.Interval = RenderDebounce;
         _debounce.Tick += (_, _) =>
         {

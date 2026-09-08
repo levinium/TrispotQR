@@ -1,9 +1,10 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
+using TrispotQR.App.Export;
 using TrispotQR.App.Services;
-using TrispotQR.App.ViewModels;
 using TrispotQR.App.Views;
+using TrispotQR.ViewModels;
 
 namespace TrispotQR.App;
 
@@ -12,7 +13,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
 
     public MainWindow()
-        : this(new MainViewModel(new DialogService()))
+        : this(new MainViewModel(new DialogService(), new WpfUiTimer(), new WpfImageClipboard()))
     {
     }
 

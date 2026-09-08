@@ -5,8 +5,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using TrispotQR.App;
+using TrispotQR.App.Export;
 using TrispotQR.App.Services;
-using TrispotQR.App.ViewModels;
 using TrispotQR.Core.Export;
 using TrispotQR.Core.Presets;
 using TrispotQR.Core.Rendering;
@@ -64,6 +64,8 @@ public class ReadmeSnapshotTests
                 {
                     var viewModel = new MainViewModel(
                         new SilentDialogService(),
+                        new WpfUiTimer(),
+                        new WpfImageClipboard(),
                         new PresetStore(directory),
                         new AppSettingsStore(directory));
 

@@ -1,6 +1,6 @@
 using System.IO;
+using TrispotQR.App.Export;
 using TrispotQR.App.Services;
-using TrispotQR.App.ViewModels;
 using TrispotQR.Core.Presets;
 using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
@@ -36,7 +36,8 @@ public class ExportGuardTests : IDisposable
 
     private MainViewModel Create(string text, QrStyle? style = null) => StaThread.Run(() =>
     {
-        var vm = new MainViewModel(_dialogs, new PresetStore(_directory), new AppSettingsStore(_directory));
+        var vm = new MainViewModel(
+            _dialogs, new WpfUiTimer(), new WpfImageClipboard(), new PresetStore(_directory), new AppSettingsStore(_directory));
         ((PlainTextEditor)vm.ContentEditors[0]).Text = text;
 
         if (style is { } s)

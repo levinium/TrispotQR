@@ -7,5 +7,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/TrispotQR.Core.Tests/TrispotQR.Core.Tests.csproj" />
     <Project Path="tests/TrispotQR.Tests/TrispotQR.Tests.csproj" />
+    <Project Path="tests/TrispotQR.ViewModels.Tests/TrispotQR.ViewModels.Tests.csproj" />
   </Folder>
 </Solution>

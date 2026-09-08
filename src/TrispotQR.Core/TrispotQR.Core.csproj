@@ -40,6 +40,8 @@
          accepts formats Skia cannot later read. TrispotQR.App.csproj builds an assembly
          named "TrispotQR" (see its AssemblyName), not "TrispotQR.App". -->
     <InternalsVisibleTo Include="TrispotQR" />
+    <!-- MainViewModel calls ImageSize directly and now lives here rather than in the app. -->
+    <InternalsVisibleTo Include="TrispotQR.ViewModels" />
   </ItemGroup>
 
 </Project>

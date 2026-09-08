@@ -4,8 +4,8 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using TrispotQR.App;
+using TrispotQR.App.Export;
 using TrispotQR.App.Services;
-using TrispotQR.App.ViewModels;
 using TrispotQR.App.Views;
 using TrispotQR.Core.Export;
 using TrispotQR.Core.Payloads;
@@ -333,6 +333,8 @@ public class ValidationUiTests
                 {
                     var viewModel = new MainViewModel(
                         new NullDialogService(),
+                        new WpfUiTimer(),
+                        new WpfImageClipboard(),
                         new PresetStore(directory),
                         new AppSettingsStore(directory));
 

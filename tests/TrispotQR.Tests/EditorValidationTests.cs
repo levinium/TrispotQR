@@ -1,4 +1,3 @@
-using TrispotQR.App.ViewModels;
 using TrispotQR.Core.Payloads;
 using TrispotQR.ViewModels;
 

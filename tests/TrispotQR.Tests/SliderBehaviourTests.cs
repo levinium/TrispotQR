@@ -3,8 +3,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using TrispotQR.App;
+using TrispotQR.App.Export;
 using TrispotQR.App.Services;
-using TrispotQR.App.ViewModels;
 using TrispotQR.App.Views;
 using TrispotQR.Core.Presets;
 using TrispotQR.ViewModels;
@@ -41,7 +41,7 @@ public class SliderBehaviourTests
             var offenders = _host.Run(() =>
             {
                 var viewModel = new MainViewModel(
-                    new NullDialogs(), new PresetStore(directory), new AppSettingsStore(directory));
+                    new NullDialogs(), new WpfUiTimer(), new WpfImageClipboard(), new PresetStore(directory), new AppSettingsStore(directory));
 
                 var window = new MainWindow(viewModel);
                 var content = (FrameworkElement)window.Content;
@@ -115,7 +115,7 @@ public class SliderBehaviourTests
                 pickerContent.UpdateLayout();
 
                 var viewModel = new MainViewModel(
-                    new NullDialogs(), new PresetStore(directory), new AppSettingsStore(directory));
+                    new NullDialogs(), new WpfUiTimer(), new WpfImageClipboard(), new PresetStore(directory), new AppSettingsStore(directory));
                 var window = new MainWindow(viewModel);
                 var content = (FrameworkElement)window.Content;
                 window.Content = null;

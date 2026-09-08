@@ -1,7 +1,6 @@
 <Window x:Class="TrispotQR.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="clr-namespace:TrispotQR.App.ViewModels"
         xmlns:ed="clr-namespace:TrispotQR.ViewModels;assembly=TrispotQR.ViewModels"
         xmlns:views="clr-namespace:TrispotQR.App.Views"
         xmlns:conv="clr-namespace:TrispotQR.App.Converters"

@@ -1,7 +1,7 @@
 using System.IO;
 using System.Windows.Media;
+using TrispotQR.App.Export;
 using TrispotQR.App.Services;
-using TrispotQR.App.ViewModels;
 using TrispotQR.Core.Payloads;
 using TrispotQR.Core.Presets;
 using TrispotQR.Core.Primitives;
@@ -30,7 +30,8 @@ public class MainViewModelTests : IDisposable
     }
 
     private MainViewModel Create(IUiTimer? timer = null) => StaThread.Run(() =>
-        new MainViewModel(_dialogs, new PresetStore(_directory), new AppSettingsStore(_directory), timer: timer));
+        new MainViewModel(
+            _dialogs, timer ?? new WpfUiTimer(), new WpfImageClipboard(), new PresetStore(_directory), new AppSettingsStore(_directory)));
 
     /// <summary>A view model with something encodable already typed in.</summary>
     private MainViewModel CreateWithContent(string text = "https://www.example.org")
