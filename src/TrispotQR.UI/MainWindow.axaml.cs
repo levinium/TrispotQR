@@ -32,6 +32,13 @@ public partial class MainWindow : Window
             new AvaloniaImageClipboard(this));
 
         DataContext = _model;
+
+        // OnClosing has always written these; nothing read them back, so the window reopened
+        // at the XAML's 1000x700 however the user had left it. The WPF app restores them the
+        // same way (MainWindow.xaml.cs), and it is the same settings file behind both.
+        var settings = _model.LoadedSettings;
+        Width = settings.WindowWidth;
+        Height = settings.WindowHeight;
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)

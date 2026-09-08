@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using Avalonia.Threading;
 using Avalonia.VisualTree;
 using TrispotQR.UI.Services;
 using TrispotQR.UI.Views;
@@ -16,13 +15,12 @@ public class MessageWindowTests
     [AvaloniaFact]
     public void ReturnsFalseWhenDismissedByTheTitleBarOrEscapeRatherThanConfirm()
     {
-        var (owner, dialog, task) = ShowRiskWarning();
+        var (dialog, task) = ShowRiskWarning();
 
         // Stands in for the title bar X or Escape: both dismiss the window without ever
         // running OnConfirm, the only place _confirmed is set to true. This is the path that
         // matters most for ConfirmRisk -- reading a dismissed "may not scan" warning as
         // permission to proceed would export something the user just declined.
-        _ = owner;
         dialog.Close();
 
         var confirmed = DispatcherWait.For(task, TimeSpan.FromSeconds(5));
@@ -38,8 +36,7 @@ public class MessageWindowTests
         // both would show "returns false", and a permanently stuck ConfirmRisk would pass it
         // right along with a working one. Only a test proving the confirm path returns true
         // makes the pair actually discriminate.
-        var (owner, dialog, task) = ShowRiskWarning();
-        _ = owner;
+        var (dialog, task) = ShowRiskWarning();
 
         // A real simulated mouse click on the rendered Confirm button, not a direct call to
         // OnConfirm -- this is what was actually broken before InitializeComponent() replaced
@@ -61,7 +58,7 @@ public class MessageWindowTests
     /// that creates the Task, so this polls (bounded, so a genuine regression fails fast rather
     /// than hanging).
     /// </summary>
-    private static (Window Owner, MessageWindow Dialog, Task<bool> Task) ShowRiskWarning()
+    private static (MessageWindow Dialog, Task<bool> Task) ShowRiskWarning()
     {
         var owner = new Window { Width = 400, Height = 300 };
         owner.Show();
@@ -69,14 +66,10 @@ public class MessageWindowTests
         var task = MessageWindow.ShowAsync(owner, "Risky code", "This code may not scan.", "Save anyway", "Cancel", defaultToConfirm: false);
 
         MessageWindow? dialog = null;
-        for (var i = 0; i < 50 && dialog is null; i++)
-        {
-            Dispatcher.UIThread.RunJobs();
-            dialog = owner.OwnedWindows.OfType<MessageWindow>().SingleOrDefault();
-        }
+        DispatcherPump.DrainUntil(() => (dialog = owner.OwnedWindows.OfType<MessageWindow>().SingleOrDefault()) is not null);
 
         Assert.NotNull(dialog);
-        return (owner, dialog, task);
+        return (dialog, task);
     }
 
     /// <summary>
@@ -94,10 +87,7 @@ public class MessageWindowTests
         var confirmButton = (Button)field.GetValue(dialog)!;
 
         // Force layout so the button has real, non-zero bounds to click.
-        for (var i = 0; i < 20; i++)
-        {
-            Dispatcher.UIThread.RunJobs();
-        }
+        DispatcherPump.Drain();
 
         // GetTransformedBounds gives the button's bounds and its transform into the window's own
         // coordinate space (there is no TranslatePoint on Visual in this Avalonia version) --
@@ -112,9 +102,6 @@ public class MessageWindowTests
         dialog.MouseDown(center, MouseButton.Left);
         dialog.MouseUp(center, MouseButton.Left);
 
-        for (var i = 0; i < 20; i++)
-        {
-            Dispatcher.UIThread.RunJobs();
-        }
+        DispatcherPump.Drain();
     }
 }

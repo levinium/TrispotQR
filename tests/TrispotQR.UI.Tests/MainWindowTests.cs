@@ -1,7 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
-using Avalonia.Threading;
 using Avalonia.VisualTree;
 using TrispotQR.UI;
 using TrispotQR.UI.Controls;
@@ -38,22 +37,6 @@ public class MainWindowTests
         return (window, model, editor);
     }
 
-    /// <summary>
-    /// Runs the dispatcher enough times for a ContentPresenter to realise its DataTemplate's
-    /// child (the TextBox or placeholder TextBlock does not exist in the visual tree until
-    /// that happens) and for a bound Button's IsEffectivelyEnabled to catch up with the latest
-    /// CanExecuteChanged. Bounded and repeated rather than a single call, the same way
-    /// MessageWindowTests' ClickConfirmButton forces layout before reading a control's
-    /// on-screen state.
-    /// </summary>
-    private static void Pump()
-    {
-        for (var i = 0; i < 10; i++)
-        {
-            Dispatcher.UIThread.RunJobs();
-        }
-    }
-
     private static Button FindButton(Window window, string content) =>
         window.GetVisualDescendants().OfType<Button>().Single(b => Equals(b.Content, content));
 
@@ -71,12 +54,23 @@ public class MainWindowTests
             ?? throw new InvalidOperationException("MainWindow no longer has a ContentEditorHost.");
 
     [AvaloniaFact]
-    public void OpensWithAViewModelAttached()
+    public void OpensAtTheSizeTheLastSessionLeftBehind()
     {
-        var (_, model, editor) = Open();
+        // OnClosing has always written Width and Height into settings.json; nothing read them
+        // back, so every launch reverted to the 1000x700 hardcoded in MainWindow.axaml. The
+        // WPF app restores them from the same file, and the two share it, so a user switching
+        // between them saw the Avalonia one silently discard the size the other kept.
+        //
+        // Asserted against LoadedSettings rather than a literal because MainWindow is the
+        // composition root and builds the real settings store: there is no fixture to point at
+        // a temporary file without changing MainViewModel. The XAML's 1000x700 is not the
+        // stored default (1180x800), so a regression that dropped the restore shows up here on
+        // any machine that has never run the app, CI included.
+        var (window, model, _) = Open();
+        var settings = model.LoadedSettings;
 
-        Assert.NotEmpty(model.ContentEditors);
-        Assert.Same(editor, model.SelectedContent);
+        Assert.Equal(settings.WindowWidth, window.Width);
+        Assert.Equal(settings.WindowHeight, window.Height);
     }
 
     [AvaloniaFact]
@@ -89,7 +83,7 @@ public class MainWindowTests
         // RefreshNow skips the debounce timer, which is what the window uses in normal running.
         // Waiting on a real 150ms tick here would make the test slow and flaky for no gain.
         model.RefreshNow();
-        Dispatcher.UIThread.RunJobs();
+        DispatcherPump.Drain();
 
         Assert.NotNull(model.PreviewDrawing);
 
@@ -104,7 +98,7 @@ public class MainWindowTests
 
         editor.Text = string.Empty;
         model.RefreshNow();
-        Pump();
+        DispatcherPump.Drain();
 
         Assert.False(model.CanExport);
         Assert.False(model.SavePngCommand.CanExecute(null));
@@ -126,7 +120,7 @@ public class MainWindowTests
 
         editor.Text = "https://www.emanuelnyc.org";
         model.RefreshNow();
-        Pump();
+        DispatcherPump.Drain();
 
         Assert.True(model.CanExport);
         Assert.True(model.SavePngCommand.CanExecute(null));
@@ -143,7 +137,7 @@ public class MainWindowTests
         // Reproduced empirically: reordering MainWindow.axaml's DataTemplates so the base-type
         // catch-all comes first turned this test red while leaving the rest of the suite green.
         var (window, _, editor) = Open();
-        Pump();
+        DispatcherPump.Drain();
 
         var textBox = Assert.Single(ContentHost(window).GetVisualDescendants().OfType<TextBox>());
 
@@ -156,7 +150,7 @@ public class MainWindowTests
         // catch-all placeholder template had won, there would be no TextBox here to receive
         // this at all.
         editor.Text = "round-trip";
-        Pump();
+        DispatcherPump.Drain();
         Assert.Equal("round-trip", textBox.Text);
     }
 
@@ -166,13 +160,13 @@ public class MainWindowTests
         var (window, model, _) = Open();
         var link = model.ContentEditors.OfType<LinkEditor>().Single();
         model.SelectedContent = link;
-        Pump();
+        DispatcherPump.Drain();
 
         var textBox = Assert.Single(ContentHost(window).GetVisualDescendants().OfType<TextBox>());
         Assert.Same(link, textBox.DataContext);
 
         link.Address = "example.org";
-        Pump();
+        DispatcherPump.Drain();
         Assert.Equal("example.org", textBox.Text);
     }
 
@@ -186,7 +180,7 @@ public class MainWindowTests
         var (window, model, _) = Open();
         var wifi = model.ContentEditors.OfType<WifiEditor>().Single();
         model.SelectedContent = wifi;
-        Pump();
+        DispatcherPump.Drain();
 
         var host = ContentHost(window);
         Assert.Empty(host.GetVisualDescendants().OfType<TextBox>());
@@ -210,7 +204,7 @@ public class MainWindowTests
 
         editor.Text = "test";
         model.RefreshNow();
-        Dispatcher.UIThread.RunJobs();
+        DispatcherPump.Drain();
 
         Assert.NotNull(window.CaptureRenderedFrame());
     }
