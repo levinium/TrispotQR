@@ -300,32 +300,84 @@ public class ColorPickerTests
         }
     }
 
+    /// <summary>
+    /// The captions the popup writes out in full, by the words they show: one over each of the
+    /// three sections, and one naming each of the three colour channels. The channel readouts
+    /// show whatever number the colour currently is, so they are pinned by name instead.
+    /// </summary>
+    private static readonly string[] Captions =
+    [
+        "Pick a colour", "Or start from a preset", "Or type a colour code",
+        "Red", "Green", "Blue",
+    ];
+
+    /// <summary>The three channel readouts, whose text moves with the colour.</summary>
+    private static readonly string[] Readouts = ["RedValue", "GreenValue", "BlueValue"];
+
     [AvaloniaFact]
     public void EveryCaptionInThePopupIsSetInTheCaptionTreatment()
     {
-        // The same guard for TextBlock.caption. Nine elements carry the class -- three headings,
-        // and a label and a readout for each of the three colour channels -- and every one of
-        // them has to actually get the treatment, because a selector that matched none of them
-        // would leave the lot at the theme's larger, darker default with nothing else
-        // complaining. The count is asserted too, so a caption added later without the class is
-        // noticed rather than silently skipped by the loop.
+        // A guard for TextBlock.caption, in the shape StylingPanelTests uses for headings and
+        // labels. Each caption is found by the words it shows -- or, for the three readouts, by
+        // its name -- then checked for the class and for the two properties the class's setter
+        // controls. Both halves are load bearing: without the class check a caption could
+        // quietly lose it, and without the FontSize and Foreground checks the style itself could
+        // be deleted, which is the failure this codebase has shipped twice.
+        //
+        // This replaces a version that collected the TextBlocks already carrying the class and
+        // asserted there were nine of them, under a comment claiming that caught a caption added
+        // later without the class. It could not: an unclassed caption is invisible to a search
+        // for the class, so the nine never moved. Verified by injecting an unclassed TextBlock
+        // into the popup, which left the whole suite green.
+        //
+        // The backstop below is what catches that case now. Every TextBlock written into this
+        // control's own markup is a caption, with exactly one exception -- the hex error line,
+        // which carries a warning treatment of its own -- so anything else authored here without
+        // the class fails. It is scoped to authored TextBlocks (TemplatedParent is null) because
+        // the hex box and the sliders bring TextBlocks of their own from their control
+        // templates, which this control neither writes nor styles.
         var (window, picker) = Open();
         OpenPopup(window, picker);
 
-        var captions = PopupContent(picker)
-            .GetSelfAndVisualDescendants()
-            .OfType<TextBlock>()
-            .Where(t => t.Classes.Contains("caption"))
-            .ToList();
+        var captions = new List<TextBlock>();
 
-        Assert.Equal(9, captions.Count);
+        foreach (var text in Captions)
+        {
+            var caption = Assert.Single(PopupTextBlocks(picker), t => t.Text == text);
+
+            Assert.True(caption.Classes.Contains("caption"), $"the \"{text}\" caption is not classed as one");
+            captions.Add(caption);
+        }
+
+        foreach (var name in Readouts)
+        {
+            var readout = Part<TextBlock>(picker, name);
+
+            Assert.True(readout.Classes.Contains("caption"), $"the {name} readout is not classed as a caption");
+            captions.Add(readout);
+        }
 
         foreach (var caption in captions)
         {
             Assert.Equal(12d, caption.FontSize);
             Assert.Equal(Color.FromRgb(0x5A, 0x5F, 0x66), ((ISolidColorBrush)caption.Foreground!).Color);
         }
+
+        var loose = PopupTextBlocks(picker)
+            .Where(t => t.TemplatedParent is null && t.Name != "HexError")
+            .Where(t => !t.Classes.Contains("caption"))
+            .Select(t => t.Name ?? (string.IsNullOrEmpty(t.Text) ? "an unnamed empty TextBlock" : $"\"{t.Text}\""))
+            .ToList();
+
+        Assert.True(
+            loose.Count == 0,
+            "these are written into the popup's own markup, where everything but the hex error "
+                + $"line is a caption, and are not classed as one: {string.Join(", ", loose)}");
     }
+
+    /// <summary>Every TextBlock the open popup is showing, template-generated ones included.</summary>
+    private static IEnumerable<TextBlock> PopupTextBlocks(ColorPicker picker) =>
+        PopupContent(picker).GetSelfAndVisualDescendants().OfType<TextBlock>();
 
     [AvaloniaFact]
     public void TheSwatchStaysAPlainColourFrameWhileThePopupIsOpen()

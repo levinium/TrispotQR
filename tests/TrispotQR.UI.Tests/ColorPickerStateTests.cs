@@ -37,10 +37,20 @@ public class ColorPickerStateTests
         Assert.Equal(1.0, state.Value, 2);
     }
 
-    [Fact]
-    public void DraggingBrightnessToZeroAndBackReturnsTheOriginalColour()
+    [Theory]
+    // Red first, as the WPF original had it. On its own it proves nothing: red's hue is 0, and
+    // 0 is also what a state that re-derived the hue from black would come back with, so every
+    // assertion below holds even when nothing retains the hue at all. Blue is the case that
+    // discriminates, because 240 is a hue black cannot supply. Verified by making the state
+    // adopt hue, saturation and value from every colour it publishes, guarding neither the
+    // HSV-driven write nor the greys: the blue case failed with a hue of 0 and the red case
+    // stayed green.
+    [InlineData(0xFF, 0x00, 0x00, 0)]
+    [InlineData(0x00, 0x00, 0xFF, 240)]
+    public void DraggingBrightnessToZeroAndBackReturnsTheOriginalColour(int r, int g, int b, double hue)
     {
-        var state = new ColorPickerState { Color = Red };
+        var colour = RgbColor.FromRgb((byte)r, (byte)g, (byte)b);
+        var state = new ColorPickerState { Color = colour };
 
         // Down to black, which cannot express a hue or a saturation of its own.
         state.SetSaturationValue(1.0, 0.0);
@@ -51,8 +61,8 @@ public class ColorPickerStateTests
         state.SetSaturationValue(1.0, 1.0);
 
         Assert.Equal(RgbColor.Black, atBlack);
-        Assert.Equal(0, hueAtBlack, 3);
-        Assert.Equal(Red, state.Color);
+        Assert.Equal(hue, hueAtBlack, 3);
+        Assert.Equal(colour, state.Color);
     }
 
     [Fact]

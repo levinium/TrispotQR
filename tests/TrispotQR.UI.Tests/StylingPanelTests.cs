@@ -704,8 +704,14 @@ public class StylingPanelTests
         //
         // The structural check below is what catches that case now. Inside the advanced panel a
         // bare TextBlock at the top level is a section heading by construction: every label lives
-        // inside its own labelled group. So an unclassed heading dropped in there is a top-level
-        // TextBlock that is not in the list, and it fails here.
+        // inside its own labelled group. So a top-level TextBlock there without the class fails
+        // here, whether or not its words are in the list above.
+        //
+        // It filters on the class, not on the text. Filtering on the text made the check report
+        // the wrong thing: a correctly classed heading whose words were not yet in the list --
+        // which is what every heading added later looks like -- was named as unclassed, so the
+        // message accused code that was right. The by-text loop above is what pins the
+        // enumerated headings; this only ever asks whether the class is there.
         UiHarness.WithWindow(session =>
         {
             GiveItSomethingToDraw(session);
@@ -721,8 +727,8 @@ public class StylingPanelTests
 
             var loose = AdvancedPanel(session.Window).Children
                 .OfType<TextBlock>()
+                .Where(t => !t.Classes.Contains("heading"))
                 .Select(t => t.Text ?? string.Empty)
-                .Where(t => !Headings.Contains(t))
                 .ToList();
 
             Assert.True(
