@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Data;
@@ -164,9 +165,7 @@ public class ColorPickerTests
         OpenPopup(window, picker);
 
         // The first swatch is black, and starting from white makes that an unmistakable change.
-        var swatch = Part<ItemsControl>(picker, "PaletteItems")
-            .GetVisualDescendants().OfType<Button>().First();
-        Click(window, At(swatch, 0.5, 0.5));
+        Click(window, At(PaletteSwatches(picker).First(), 0.5, 0.5));
 
         Assert.Equal(RgbColor.Black, holder.Colour);
     }
@@ -243,6 +242,127 @@ public class ColorPickerTests
     }
 
     [AvaloniaFact]
+    public void APartTransparentColourKeepsItsAlphaThroughASaturationDrag()
+    {
+        var holder = new ColourHolder { Colour = RgbColor.FromArgb(0x80, 0xFF, 0x00, 0x00) };
+        var (window, picker) = Open(holder);
+
+        OpenPopup(window, picker);
+        var square = Part<Control>(picker, "SvSquare");
+
+        // Top right to the middle of the left edge: saturation to zero, value to one half,
+        // which is a mid-grey. The alpha has to come through untouched.
+        Drag(window, At(square, 0.98, 0.02), At(square, 0.0, 0.5));
+
+        Assert.Equal(0x80, holder.Colour.A);
+        Assert.Equal(holder.Colour.R, holder.Colour.G);
+        Assert.Equal(holder.Colour.G, holder.Colour.B);
+        Assert.InRange(holder.Colour.R, 0x70, 0x90);
+    }
+
+    [AvaloniaFact]
+    public void APaletteSwatchReplacesTheWholeColourIncludingItsAlpha()
+    {
+        // Pinned because it is the one place the picker deliberately does not preserve alpha,
+        // and the reasoning is invisible from the code. A palette entry is a named opaque
+        // colour; choosing one is choosing the whole colour, not editing the current one the
+        // way the square, the strip and the hex box do.
+        var holder = new ColourHolder { Colour = RgbColor.FromArgb(0x80, 0xFF, 0x00, 0x00) };
+        var (window, picker) = Open(holder);
+
+        OpenPopup(window, picker);
+        Click(window, At(PaletteSwatches(picker).First(), 0.5, 0.5));
+
+        Assert.Equal(RgbColor.Black, holder.Colour);
+    }
+
+    [AvaloniaFact]
+    public void EveryPaletteSwatchIsAPlainColourChipRatherThanAThemedButton()
+    {
+        // A guard for the Button.palette style, not for the palette itself. This codebase has
+        // twice shipped a style that silently did nothing while every test stayed green, once
+        // because an Avalonia type selector does not match subclasses. Asserting the rendered
+        // properties the setters control -- on the buttons the ItemsControl actually realised,
+        // reached through the visual tree -- is what makes deleting the style fail a test
+        // instead of quietly restoring the theme's padded, accent-bordered button.
+        var (window, picker) = Open();
+        OpenPopup(window, picker);
+
+        var swatches = PaletteSwatches(picker).ToList();
+        Assert.Equal(16, swatches.Count);
+
+        foreach (var swatch in swatches)
+        {
+            Assert.Equal(new Thickness(0), swatch.Padding);
+            Assert.Equal(new Thickness(1), swatch.BorderThickness);
+            Assert.Equal(new CornerRadius(4), swatch.CornerRadius);
+            Assert.Equal(Color.FromArgb(0x40, 0, 0, 0), ((ISolidColorBrush)swatch.BorderBrush!).Color);
+        }
+    }
+
+    [AvaloniaFact]
+    public void EveryCaptionInThePopupIsSetInTheCaptionTreatment()
+    {
+        // The same guard for TextBlock.caption. Nine elements carry the class -- three headings,
+        // and a label and a readout for each of the three colour channels -- and every one of
+        // them has to actually get the treatment, because a selector that matched none of them
+        // would leave the lot at the theme's larger, darker default with nothing else
+        // complaining. The count is asserted too, so a caption added later without the class is
+        // noticed rather than silently skipped by the loop.
+        var (window, picker) = Open();
+        OpenPopup(window, picker);
+
+        var captions = PopupContent(picker)
+            .GetSelfAndVisualDescendants()
+            .OfType<TextBlock>()
+            .Where(t => t.Classes.Contains("caption"))
+            .ToList();
+
+        Assert.Equal(9, captions.Count);
+
+        foreach (var caption in captions)
+        {
+            Assert.Equal(12d, caption.FontSize);
+            Assert.Equal(Color.FromRgb(0x5A, 0x5F, 0x66), ((ISolidColorBrush)caption.Foreground!).Color);
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheSwatchStaysAPlainColourFrameWhileThePopupIsOpen()
+    {
+        // The :checked half of the swatch styling. Without it the Fluent theme paints its accent
+        // colour behind the swatch for exactly as long as the popup is open, which is exactly
+        // when the user is looking at the colour they are choosing.
+        var (window, picker) = Open();
+        picker.SelectedColor = Navy;
+
+        OpenPopup(window, picker);
+
+        var button = Part<ToggleButton>(picker, "SwatchButton");
+        Assert.True(button.IsChecked, "opening the popup did not leave the swatch button checked");
+        Assert.Equal(Colors.Transparent, ((ISolidColorBrush)Presenter(button).Background!).Color);
+    }
+
+    [AvaloniaFact]
+    public void TheSwatchStaysAPlainColourFrameUnderThePointer()
+    {
+        // The :pointerover half. The headless backend does raise real pointer-over state -- the
+        // assertion below on IsPointerOver is there so this cannot pass vacuously if that ever
+        // stops being true, because a hover that never happened would leave the presenter at the
+        // resting background and look exactly like a working style.
+        var (window, picker) = Open();
+        picker.SelectedColor = Navy;
+        DispatcherPump.Drain();
+
+        var button = Part<ToggleButton>(picker, "SwatchButton");
+        window.MouseMove(At(button, 0.5, 0.5));
+        DispatcherPump.Drain();
+
+        Assert.True(button.IsPointerOver, "the headless backend no longer reports pointer-over, so this proves nothing");
+        Assert.Equal(Colors.Transparent, ((ISolidColorBrush)Presenter(button).Background!).Color);
+    }
+
+    [AvaloniaFact]
     public void ATransparentColourShowsTheCheckerboardRatherThanReadingAsWhite()
     {
         var (window, picker) = Open();
@@ -313,6 +433,28 @@ public class ColorPickerTests
     private static T Part<T>(ColorPicker picker, string name)
         where T : Control =>
         picker.FindControl<T>(name) ?? throw new InvalidOperationException($"ColorPicker has no {name}.");
+
+    /// <summary>
+    /// What the popup is showing. Not a visual descendant of the picker: an open popup's content
+    /// is hosted by the window (its overlay layer, in the headless backend), so walking down from
+    /// the picker finds nothing at all. Named elements inside it are still reachable by name,
+    /// because the whole thing shares one name scope; anonymous ones have to be found from here.
+    /// </summary>
+    private static Control PopupContent(ColorPicker picker) =>
+        Part<Popup>(picker, "PickerPopup").Child
+            ?? throw new InvalidOperationException("The picker's popup has no content.");
+
+    /// <summary>The palette buttons the ItemsControl actually realised, in the order shown.</summary>
+    private static IEnumerable<Button> PaletteSwatches(ColorPicker picker) =>
+        Part<ItemsControl>(picker, "PaletteItems").GetVisualDescendants().OfType<Button>();
+
+    /// <summary>
+    /// The presenter inside a templated control, which is where a "/template/ ContentPresenter"
+    /// setter lands. The control's own Background says nothing about it: the theme's checked and
+    /// hover treatments are written against the presenter, not the control.
+    /// </summary>
+    private static ContentPresenter Presenter(TemplatedControl control) =>
+        control.GetVisualDescendants().OfType<ContentPresenter>().First();
 
     /// <summary>
     /// A point inside <paramref name="control"/>, in the window coordinates the headless input
