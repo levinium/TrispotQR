@@ -309,15 +309,24 @@
             <CheckBox x:Name="UseCustomMarkerColorsBox" Content="Give the corners their own colours"
                       IsChecked="{Binding UseCustomMarkerColors}" />
 
-            <Grid x:Name="MarkerColorsRow" ColumnDefinitions="Auto,Auto,Auto,Auto"
-                  IsVisible="{Binding UseCustomMarkerColors}">
-              <TextBlock Text="Ring" Classes="label" VerticalAlignment="Center" />
-              <controls:ColorPicker x:Name="MarkerFramePicker" Grid.Column="1" Margin="8,0,18,0"
-                                    SelectedColor="{Binding MarkerFrameColor}" />
-              <TextBlock Grid.Column="2" Text="Centre" Classes="label" VerticalAlignment="Center" />
-              <controls:ColorPicker x:Name="MarkerCenterPicker" Grid.Column="3" Margin="8,0,0,0"
-                                    SelectedColor="{Binding MarkerCenterColor}" />
-            </Grid>
+            <!-- Two labelled pickers: 8 between a label and its swatch, 18 between the pairs.
+                 Both gaps belong to the panel that arranges the things they separate, which is
+                 why this is a nested pair of spaced StackPanels rather than a Grid with a Margin
+                 on each picker. The FieldBox guard in MainWindowTests only reaches content
+                 editors, so nothing but the convention itself keeps this right. -->
+            <StackPanel x:Name="MarkerColorsRow" Orientation="Horizontal" Spacing="18"
+                        IsVisible="{Binding UseCustomMarkerColors}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Ring" Classes="label" VerticalAlignment="Center" />
+                <controls:ColorPicker x:Name="MarkerFramePicker"
+                                      SelectedColor="{Binding MarkerFrameColor}" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Centre" Classes="label" VerticalAlignment="Center" />
+                <controls:ColorPicker x:Name="MarkerCenterPicker"
+                                      SelectedColor="{Binding MarkerCenterColor}" />
+              </StackPanel>
+            </StackPanel>
 
             <Separator />
             <TextBlock Text="Outline" Classes="heading" />

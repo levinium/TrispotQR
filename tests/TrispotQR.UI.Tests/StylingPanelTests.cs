@@ -442,7 +442,7 @@ public class StylingPanelTests
         {
             GiveItSomethingToDraw(session);
             OpenAdvanced(session);
-            var row = Named<Grid>(session.Window, "MarkerColorsRow");
+            var row = Named<StackPanel>(session.Window, "MarkerColorsRow");
 
             Assert.False(row.IsEffectivelyVisible);
 
@@ -471,7 +471,7 @@ public class StylingPanelTests
             Toggle(session, "UseCustomMarkerColorsBox");
 
             var drawing = Redraw(session);
-            Assert.False(Named<Grid>(session.Window, "MarkerColorsRow").IsEffectivelyVisible);
+            Assert.False(Named<StackPanel>(session.Window, "MarkerColorsRow").IsEffectivelyVisible);
             Assert.Equal(RgbColor.Black, Layer(drawing, QrLayerNames.MarkerFrames).Fill);
             Assert.True(session.Model.CanExport, session.Model.ExportBlockedReason ?? "export was blocked");
         });
@@ -669,29 +669,76 @@ public class StylingPanelTests
 
     #region The treatments
 
+    /// <summary>Every section heading in the window, by the words it shows.</summary>
+    private static readonly string[] Headings =
+    [
+        "What goes in the code", "How it looks", "Save",
+        "Shapes", "Corner colours", "Outline", "Reliability",
+    ];
+
+    /// <summary>
+    /// Every field label, by the words it shows. The last five need the corner colours and the
+    /// outline switched on before they exist at all.
+    /// </summary>
+    private static readonly string[] Labels =
+    [
+        "Code colour", "Background", "Size",
+        "Dot shape", "Gap between dots", "Corner ring shape", "Corner centre shape",
+        "Error correction", "Margin around the code",
+        "Ring", "Centre", "Colour", "Thickness", "Applies to",
+    ];
+
     [AvaloniaFact]
     public void EverySectionHeadingIsSetInTheHeadingTreatment()
     {
-        // A guard for the TextBlock.heading style, not for the headings. This codebase has twice
-        // shipped a style that silently did nothing while every test stayed green. Asserting the
-        // rendered property the setter controls, on the elements that actually carry the class,
-        // is what makes deleting the style fail a test instead of quietly reverting every
-        // heading to body text. The count is asserted too, so a heading added later without the
-        // class is noticed rather than skipped by the loop.
+        // Each heading is found by the words it shows, then checked for the class and for the
+        // weight the class's setter controls. Both halves are load bearing: without the class
+        // check a heading could quietly lose it, and without the weight check the style itself
+        // could be deleted, which is the failure this codebase has shipped twice.
+        //
+        // This replaces a version that counted the elements already carrying the class. That
+        // count could only ever fire on a heading added *with* the class -- an unclassed one is
+        // invisible to a search for the class -- so it triggered on correct code and stayed
+        // silent on the mistake its comment advertised. Verified: two unclassed TextBlocks were
+        // added to the advanced panel and the whole suite stayed green.
+        //
+        // The structural check below is what catches that case now. Inside the advanced panel a
+        // bare TextBlock at the top level is a section heading by construction: every label lives
+        // inside its own labelled group. So an unclassed heading dropped in there is a top-level
+        // TextBlock that is not in the list, and it fails here.
         UiHarness.WithWindow(session =>
         {
             GiveItSomethingToDraw(session);
             OpenAdvanced(session);
 
-            var headings = Classed(session.Window, "heading");
-            Assert.Equal(7, headings.Count);
-            Assert.All(headings, h => Assert.Equal(FontWeight.SemiBold, h.FontWeight));
+            foreach (var text in Headings)
+            {
+                var heading = Assert.Single(WithText(session.Window, text));
+
+                Assert.True(heading.Classes.Contains("heading"), $"the \"{text}\" heading is not classed as one");
+                Assert.Equal(FontWeight.SemiBold, heading.FontWeight);
+            }
+
+            var loose = AdvancedPanel(session.Window).Children
+                .OfType<TextBlock>()
+                .Select(t => t.Text ?? string.Empty)
+                .Where(t => !Headings.Contains(t))
+                .ToList();
+
+            Assert.True(
+                loose.Count == 0,
+                "these sit at the top of the advanced panel, where only section headings belong, "
+                    + $"and are not classed as headings: {string.Join(", ", loose)}");
         });
     }
 
     [AvaloniaFact]
     public void EveryFieldLabelIsSetInTheLabelTreatment()
     {
+        // The same shape, and the same structural backstop in the form that fits a label: every
+        // dropdown and every slider in the advanced panel is introduced by a labelled group, and
+        // that group's one TextBlock has to carry the class. A control added later with a bare
+        // TextBlock over it fails here rather than shipping at the theme's default size.
         UiHarness.WithWindow(session =>
         {
             GiveItSomethingToDraw(session);
@@ -699,14 +746,45 @@ public class StylingPanelTests
             Toggle(session, "UseCustomMarkerColorsBox");
             Toggle(session, "OutlineEnabledBox");
 
-            var labels = Classed(session.Window, "label");
-            Assert.Equal(14, labels.Count);
-            Assert.All(labels, l => Assert.Equal(12d, l.FontSize));
+            foreach (var text in Labels)
+            {
+                var label = Assert.Single(WithText(session.Window, text));
+
+                Assert.True(label.Classes.Contains("label"), $"the \"{text}\" label is not classed as one");
+                Assert.Equal(12d, label.FontSize);
+            }
+
+            var groups = AdvancedPanel(session.Window)
+                .GetSelfAndVisualDescendants()
+                .OfType<StackPanel>()
+                .Where(p => p.Children.Any(c => c is ComboBox or Slider))
+                .ToList();
+
+            Assert.True(groups.Count > 0, "the advanced panel realised no labelled groups at all");
+
+            foreach (var group in groups)
+            {
+                var label = Assert.Single(group.Children.OfType<TextBlock>());
+                Assert.True(
+                    label.Classes.Contains("label"),
+                    $"the group holding \"{label.Text}\" introduces a control with an unclassed label");
+            }
         });
     }
 
-    private static List<TextBlock> Classed(Window window, string cssClass) =>
-        window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains(cssClass)).ToList();
+    /// <summary>Every TextBlock showing exactly these words.</summary>
+    private static List<TextBlock> WithText(Window window, string text) =>
+        window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Text == text).ToList();
+
+    /// <summary>
+    /// The panel the advanced expander holds, which is the StackPanel wrapping every control
+    /// behind it. Reached through the expander so the structural checks above cannot wander into
+    /// the rest of the window, where a bare TextBlock is an ordinary caption rather than a
+    /// heading.
+    /// </summary>
+    private static StackPanel AdvancedPanel(Window window) =>
+        (StackPanel)(Named<Expander>(window, "AdvancedOptions").Content
+            ?? throw new InvalidOperationException("the advanced expander holds nothing."));
 
     #endregion
 
