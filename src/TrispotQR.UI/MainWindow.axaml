@@ -141,7 +141,13 @@
     </Grid>
 
     <!-- Controls -->
-    <ScrollViewer Grid.Column="1">
+    <!--
+      Avalonia's scrollbar floats above the content rather than taking a column of layout the
+      way WPF's does, so without this the bar sat across the right edge of every dropdown and
+      field. 16 is the measured width of the expanded bar, 4 is so the content does not touch
+      it. The WPF window solved the same problem with Padding="0,0,8,0"; the port dropped it.
+    -->
+    <ScrollViewer Grid.Column="1" x:Name="FormScroll" Padding="0,0,20,0">
       <StackPanel Spacing="16">
 
         <StackPanel Spacing="6">

@@ -1,6 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.VisualTree;
 using TrispotQR.Core.Payloads;
 using TrispotQR.UI;
@@ -246,6 +249,59 @@ public class MainWindowTests
                     .ToArray();
 
                 Assert.Equal(Captions[editor.Title].OrderBy(f => f.Field, StringComparer.Ordinal), actual);
+            }
+        });
+    }
+
+    [AvaloniaFact]
+    public void TheScrollbarDoesNotSitOnTopOfTheForm()
+    {
+        // Avalonia's scrollbar is an overlay: it floats above the content instead of taking a
+        // column of layout the way WPF's does. The WPF window compensated with
+        // Padding="0,0,8,0" on its ScrollViewer; the port dropped that, so the bar sat across
+        // the right-hand edge of every dropdown and field in the form.
+        //
+        // Measured in window coordinates rather than by reading the Padding back, because the
+        // property being right is not the same claim as the bar and the content not touching --
+        // the bar's width is the theme's to choose, not ours.
+        UiHarness.WithWindow(session =>
+        {
+            var model = session.Model;
+            model.SelectedContent = model.ContentEditors.OfType<ContactEditor>().Single();
+
+            DispatcherPump.Drain();
+
+            var scroll = session.Window.FindControl<ScrollViewer>("FormScroll")
+                ?? throw new InvalidOperationException("MainWindow no longer has a FormScroll.");
+
+            // The harness opens the window tall enough for the whole form, which is what most
+            // tests want and precisely wrong here: a window that never scrolls has no bar to
+            // overlap anything. Shrink it until the contact card -- the tallest form -- cannot fit,
+            // and wait on that condition rather than assuming one drain settled the layout.
+            session.Window.Height = 420;
+            DispatcherPump.DrainUntil(() => scroll.Extent.Height > scroll.Viewport.Height);
+
+            // Its own bar, not a nested one: every ComboBox in the form brings a ScrollViewer of
+            // its own, so a plain descendant search finds several and picks arbitrarily.
+            var bar = scroll.GetVisualDescendants().OfType<ScrollBar>()
+                .SingleOrDefault(b => b.Orientation == Orientation.Vertical
+                                      && ReferenceEquals(b.TemplatedParent, scroll))
+                ?? throw new InvalidOperationException("FormScroll has no vertical ScrollBar of its own.");
+
+            // The contact card is the tallest form, so the bar is genuinely needed here. Without
+            // this the test would pass on a window that simply never scrolls.
+            Assert.True(
+                scroll.Extent.Height > scroll.Viewport.Height,
+                "the form fits without scrolling, so this proves nothing about an overlapping bar");
+
+            var barLeft = bar.TranslatePoint(new Point(0, 0), session.Window)!.Value.X;
+
+            foreach (var box in UiHarness.VisibleBoxes(session.Window))
+            {
+                var right = box.TranslatePoint(new Point(box.Bounds.Width, 0), session.Window)!.Value.X;
+                Assert.True(
+                    right <= barLeft,
+                    $"the field for \"{box.Label}\" reaches x={right:0.#}, under a scrollbar that starts at x={barLeft:0.#}");
             }
         });
     }
