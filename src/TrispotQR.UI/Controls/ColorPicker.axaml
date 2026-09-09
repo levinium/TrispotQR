@@ -1,0 +1,201 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:TrispotQR.UI.Controls"
+             x:Class="TrispotQR.UI.Controls.ColorPicker">
+
+  <UserControl.Styles>
+    <!-- The swatch button is a plain frame around the colour: no theme chrome, no checked
+         highlight, because the thing being looked at is the colour itself. Namespace-qualified
+         and scoped to this control's own tree, since a bare "ToggleButton" selector inside a
+         UserControl's Styles would still only match by exact type and would apply to any
+         ToggleButton this control ever contains. -->
+    <Style Selector="local|ColorPicker ToggleButton#SwatchButton">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="local|ColorPicker ToggleButton#SwatchButton:checked /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="local|ColorPicker ToggleButton#SwatchButton:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+    <!-- Palette swatches are the same idea: the button is the colour. -->
+    <Style Selector="local|ColorPicker Button.palette">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="BorderBrush" Value="#40000000"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+
+    <Style Selector="local|ColorPicker TextBlock.caption">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Foreground" Value="#5A5F66"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Grid>
+    <ToggleButton x:Name="SwatchButton"
+                  Width="46" Height="28"
+                  ToolTip.Tip="Click to change this colour">
+      <Border CornerRadius="3" BorderBrush="#40000000" BorderThickness="1" Margin="3">
+        <Grid>
+          <!-- Checkerboard shows through when the colour is partly transparent. -->
+          <Rectangle Fill="{DynamicResource CheckerBrush}"/>
+          <Rectangle x:Name="SwatchFill"/>
+        </Grid>
+      </Border>
+    </ToggleButton>
+
+    <!-- A Popup rather than a Flyout. The two behave the same way here (both light-dismiss, and
+         in the headless backend both host their content in the window's own overlay layer), but
+         a Popup keeps IsOpen as an ordinary property this control owns, which is what lets the
+         swatch button and the popup stay in step in three lines of code-behind. A Flyout would
+         take that ownership away and give nothing back. IsLightDismissEnabled is the Avalonia
+         spelling of WPF's StaysOpen="False". -->
+    <Popup x:Name="PickerPopup"
+           IsLightDismissEnabled="True"
+           PlacementTarget="{Binding #SwatchButton}"
+           Placement="Bottom"
+           VerticalOffset="4">
+      <Border Background="#FFFFFF"
+              BorderBrush="#D6D6D6"
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="12">
+        <StackPanel Width="242">
+
+          <TextBlock Text="Pick a colour" Classes="caption" Margin="0,0,0,6"/>
+
+          <!--
+              Saturation across, value down. Built from three stacked layers: the pure hue
+              underneath, white fading out to the right, then black fading in downwards. That
+              composition is what gives every point in the square its colour without drawing a
+              single pixel by hand.
+          -->
+          <Grid x:Name="SvSquare" Height="150"
+                Background="Transparent"
+                Cursor="Cross"
+                ToolTip.Tip="Drag to choose shade and brightness"
+                PointerPressed="OnSquarePointerPressed"
+                PointerMoved="OnSquarePointerMoved"
+                PointerReleased="OnSquarePointerReleased"
+                SizeChanged="OnPickerResized">
+            <Border CornerRadius="4" ClipToBounds="True"
+                    BorderBrush="#30000000" BorderThickness="1">
+              <Grid>
+                <Rectangle x:Name="SvHueLayer"/>
+                <Rectangle>
+                  <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                      <GradientStop Offset="0" Color="#FFFFFFFF"/>
+                      <GradientStop Offset="1" Color="#00FFFFFF"/>
+                    </LinearGradientBrush>
+                  </Rectangle.Fill>
+                </Rectangle>
+                <Rectangle>
+                  <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                      <GradientStop Offset="0" Color="#00000000"/>
+                      <GradientStop Offset="1" Color="#FF000000"/>
+                    </LinearGradientBrush>
+                  </Rectangle.Fill>
+                </Rectangle>
+              </Grid>
+            </Border>
+
+            <!-- Not hit testable, so it can never swallow a drag. -->
+            <Canvas x:Name="SvMarkerLayer" IsHitTestVisible="False">
+              <Ellipse x:Name="SvMarker" Width="14" Height="14"
+                       Stroke="White" StrokeThickness="2"/>
+            </Canvas>
+          </Grid>
+
+          <Grid x:Name="HueStrip" Height="16" Margin="0,10,0,0"
+                Background="Transparent"
+                Cursor="Cross"
+                ToolTip.Tip="Drag to choose the colour"
+                PointerPressed="OnHuePointerPressed"
+                PointerMoved="OnHuePointerMoved"
+                PointerReleased="OnHuePointerReleased"
+                SizeChanged="OnPickerResized">
+            <Border CornerRadius="3" ClipToBounds="True"
+                    BorderBrush="#30000000" BorderThickness="1">
+              <Rectangle>
+                <Rectangle.Fill>
+                  <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                    <GradientStop Offset="0.000" Color="#FFFF0000"/>
+                    <GradientStop Offset="0.167" Color="#FFFFFF00"/>
+                    <GradientStop Offset="0.333" Color="#FF00FF00"/>
+                    <GradientStop Offset="0.500" Color="#FF00FFFF"/>
+                    <GradientStop Offset="0.667" Color="#FF0000FF"/>
+                    <GradientStop Offset="0.833" Color="#FFFF00FF"/>
+                    <GradientStop Offset="1.000" Color="#FFFF0000"/>
+                  </LinearGradientBrush>
+                </Rectangle.Fill>
+              </Rectangle>
+            </Border>
+
+            <Canvas x:Name="HueMarkerLayer" IsHitTestVisible="False">
+              <Border x:Name="HueMarker" Width="8" Height="22" CornerRadius="3"
+                      BorderBrush="White" BorderThickness="2"/>
+            </Canvas>
+          </Grid>
+
+          <TextBlock Text="Or start from a preset" Classes="caption" Margin="0,12,0,4"/>
+
+          <ItemsControl x:Name="PaletteItems">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="local:PaletteColor">
+                <Button Width="26" Height="26" Margin="2"
+                        Classes="palette"
+                        Background="{Binding Brush}"
+                        ToolTip.Tip="{Binding Name}"
+                        Click="OnPaletteColorClicked"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <TextBlock Text="Or type a colour code" Classes="caption" Margin="0,12,0,4"/>
+          <TextBox x:Name="HexBox"
+                   KeyDown="OnHexKeyDown"
+                   LostFocus="OnHexCommitted"
+                   ToolTip.Tip="A hex colour such as #1B2A4A"/>
+
+          <TextBlock x:Name="HexError"
+                     Text="That is not a colour code. Try something like #1B2A4A."
+                     Foreground="{DynamicResource WarningBrush}"
+                     FontSize="11.5"
+                     TextWrapping="Wrap"
+                     IsVisible="False"
+                     Margin="0,4,0,0"/>
+
+          <!-- Three channels, one row each: caption, track, readout. Inlined rather than made
+               into a LabelledSlider control of its own, because these three are the only
+               sliders on the branch that need the shape and Task 3's styling panel binds its
+               own numbers straight to the view model. -->
+          <Grid Margin="0,10,0,0" ColumnDefinitions="46,*,34" RowDefinitions="Auto,Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Red" Classes="caption" VerticalAlignment="Center"/>
+            <Slider x:Name="RedSlider" Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="255" VerticalAlignment="Center"/>
+            <TextBlock x:Name="RedValue" Grid.Row="0" Grid.Column="2" Classes="caption" TextAlignment="Right" VerticalAlignment="Center"/>
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Green" Classes="caption" VerticalAlignment="Center"/>
+            <Slider x:Name="GreenSlider" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="255" VerticalAlignment="Center"/>
+            <TextBlock x:Name="GreenValue" Grid.Row="1" Grid.Column="2" Classes="caption" TextAlignment="Right" VerticalAlignment="Center"/>
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Blue" Classes="caption" VerticalAlignment="Center"/>
+            <Slider x:Name="BlueSlider" Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="255" VerticalAlignment="Center"/>
+            <TextBlock x:Name="BlueValue" Grid.Row="2" Grid.Column="2" Classes="caption" TextAlignment="Right" VerticalAlignment="Center"/>
+          </Grid>
+
+        </StackPanel>
+      </Border>
+    </Popup>
+  </Grid>
+</UserControl>
