@@ -456,44 +456,14 @@ public class ColorPickerTests
     private static ContentPresenter Presenter(TemplatedControl control) =>
         control.GetVisualDescendants().OfType<ContentPresenter>().First();
 
-    /// <summary>
-    /// A point inside <paramref name="control"/>, in the window coordinates the headless input
-    /// API takes. There is no TranslatePoint on Visual in this Avalonia version; the transform
-    /// GetTransformedBounds returns carries the control's origin within its root in M31/M32.
-    /// </summary>
-    private static Point At(Control control, double fractionX, double fractionY)
-    {
-        var transformed = control.GetTransformedBounds()
-            ?? throw new InvalidOperationException($"{control.Name ?? control.GetType().Name} never got a layout pass.");
+    // At, Click and Drag now live on UiHarness: the styling panel drives the same gestures at
+    // rendered controls, and one copy of the M31/M32 arithmetic is enough.
+    private static Point At(Control control, double fractionX, double fractionY) =>
+        UiHarness.At(control, fractionX, fractionY);
 
-        return new Point(
-            transformed.Transform.M31 + (transformed.Bounds.Width * fractionX),
-            transformed.Transform.M32 + (transformed.Bounds.Height * fractionY));
-    }
+    private static void Click(Window window, Point point) => UiHarness.Click(window, point);
 
-    private static void Click(Window window, Point point)
-    {
-        window.MouseMove(point);
-        window.MouseDown(point, MouseButton.Left);
-        window.MouseUp(point, MouseButton.Left);
-        DispatcherPump.Drain();
-    }
-
-    /// <summary>
-    /// A press, a move with the button still down, and a release. The left-button modifier on
-    /// the move is what tells Avalonia the pointer is still pressed; without it the move
-    /// arrives looking like an ordinary hover.
-    /// </summary>
-    private static void Drag(Window window, Point from, Point to)
-    {
-        window.MouseMove(from);
-        window.MouseDown(from, MouseButton.Left);
-        DispatcherPump.Drain();
-        window.MouseMove(to, RawInputModifiers.LeftMouseButton);
-        DispatcherPump.Drain();
-        window.MouseUp(to, MouseButton.Left);
-        DispatcherPump.Drain();
-    }
+    private static void Drag(Window window, Point from, Point to) => UiHarness.Drag(window, from, to);
 
     /// <summary>Selects the hex box, types over it and commits with Enter, as a user would.</summary>
     private static void TypeHex(Window window, ColorPicker picker, string text)

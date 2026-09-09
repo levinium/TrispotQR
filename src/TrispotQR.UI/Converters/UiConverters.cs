@@ -1,4 +1,5 @@
 using System.Globalization;
+using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
@@ -34,6 +35,45 @@ public sealed class VerdictToBrushConverter : IValueConverter
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException("A verdict cannot be recovered from a colour.");
+}
+
+/// <summary>
+/// True when the bound value equals the parameter. It is what lets a row of radio buttons stand
+/// for one property that is not a bool: the background choice, and the three export sizes.
+///
+/// Ported from the WPF original, including the comparison on the text form. The parameter
+/// arrives from XAML as a string, so "White" has to match BackgroundChoice.White and "512" has
+/// to match the integer 512; comparing the objects themselves would never match either.
+///
+/// ConvertBack answers only for the button being switched on. The one being switched off also
+/// reports back, with false, and writing that anywhere would clear the property the instant
+/// another button in the group took it.
+/// </summary>
+public sealed class EqualityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is null)
+        {
+            return parameter is null;
+        }
+
+        return string.Equals(value.ToString(), parameter?.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not true || parameter is null)
+        {
+            return BindingOperations.DoNothing;
+        }
+
+        var target = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+        return target.IsEnum
+            ? Enum.Parse(target, parameter.ToString()!, ignoreCase: true)
+            : System.Convert.ChangeType(parameter, target, culture);
+    }
 }
 
 /// <summary>

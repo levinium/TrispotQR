@@ -9,9 +9,27 @@
         Width="1000" Height="700"
         MinWidth="760" MinHeight="560">
 
+  <Window.Styles>
+    <!-- Two treatments, named once. The styling panel alone carries seven section headings and
+         a dozen field labels, and a window that spelled FontSize and FontWeight out at every one
+         of them is a window where the twentieth is quietly different from the other nineteen.
+         Plain type selectors, which is safe here because every element wearing these is a
+         TextBlock itself: an Avalonia type selector does not match subclasses. -->
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+  </Window.Styles>
+
   <Window.Resources>
     <converters:VerdictToBrushConverter x:Key="VerdictToBrush" />
     <converters:FriendlyNameConverter x:Key="Friendly" />
+
+    <!-- Lets a row of radio buttons stand for one property that is not a bool: the background
+         choice and the three export sizes. -->
+    <converters:EqualityConverter x:Key="Equality" />
 
     <!-- Every enum dropdown renders its items through this, so the UI says "WPA / WPA2" while
          the code and the saved files keep saying Wpa. Phase 2d's six styling dropdowns reuse
@@ -46,7 +64,7 @@
       <StackPanel Spacing="10">
         <controls:FieldBox Label="Network name" Text="{Binding Ssid}" FieldName="Ssid"/>
         <StackPanel Spacing="4">
-          <TextBlock Text="Security" FontSize="12"/>
+          <TextBlock Text="Security" Classes="label"/>
           <ComboBox ItemsSource="{Binding SecurityOptions}" SelectedItem="{Binding Security}"
                     ItemTemplate="{StaticResource FriendlyEnumTemplate}"
                     HorizontalAlignment="Stretch"/>
@@ -127,7 +145,7 @@
       <StackPanel Spacing="16">
 
         <StackPanel Spacing="6">
-          <TextBlock Text="What goes in the code" FontWeight="SemiBold" />
+          <TextBlock Text="What goes in the code" Classes="heading" />
           <ComboBox ItemsSource="{Binding ContentEditors}"
                     SelectedItem="{Binding SelectedContent}"
                     HorizontalAlignment="Stretch">
@@ -172,8 +190,62 @@
 
         <TextBlock Text="{Binding CapacityText}" Opacity="0.7" FontSize="12" />
 
-        <StackPanel Spacing="6">
-          <TextBlock Text="Save" FontWeight="SemiBold" />
+        <!-- How it looks -->
+        <StackPanel Spacing="10">
+          <TextBlock Text="How it looks" Classes="heading" />
+
+          <Grid ColumnDefinitions="86,*">
+            <TextBlock Text="Code colour" Classes="label" VerticalAlignment="Center" />
+            <controls:ColorPicker x:Name="ForegroundPicker" Grid.Column="1"
+                                  HorizontalAlignment="Left"
+                                  SelectedColor="{Binding Foreground}" />
+          </Grid>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Background" Classes="label" />
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <!-- Three choices for one property that is not a bool, so each button compares the
+                   property against the value it stands for. Mode is spelled out because the
+                   converter's ConvertBack is the whole mechanism: without it the buttons would
+                   light up correctly and choose nothing. -->
+              <RadioButton x:Name="BackgroundWhite" GroupName="Background" Content="White"
+                           IsChecked="{Binding BackgroundChoice, Mode=TwoWay,
+                                       Converter={StaticResource Equality}, ConverterParameter=White}" />
+              <RadioButton x:Name="BackgroundTransparent" GroupName="Background" Content="Transparent"
+                           ToolTip.Tip="No background at all, so the code sits on whatever is behind it"
+                           IsChecked="{Binding BackgroundChoice, Mode=TwoWay,
+                                       Converter={StaticResource Equality}, ConverterParameter=Transparent}" />
+              <RadioButton x:Name="BackgroundCustom" GroupName="Background" Content="Custom"
+                           IsChecked="{Binding BackgroundChoice, Mode=TwoWay,
+                                       Converter={StaticResource Equality}, ConverterParameter=Custom}" />
+              <controls:ColorPicker x:Name="CustomBackgroundPicker" VerticalAlignment="Center"
+                                    SelectedColor="{Binding CustomBackground}"
+                                    IsVisible="{Binding IsCustomBackground}" />
+            </StackPanel>
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel Spacing="10">
+          <TextBlock Text="Save" Classes="heading" />
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Size" Classes="label" />
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <RadioButton x:Name="SizeSmall" GroupName="Size" Content="Small"
+                           ToolTip.Tip="512 pixels. Good for a web page or an email."
+                           IsChecked="{Binding PixelSize, Mode=TwoWay,
+                                       Converter={StaticResource Equality}, ConverterParameter=512}" />
+              <RadioButton x:Name="SizeMedium" GroupName="Size" Content="Medium"
+                           ToolTip.Tip="1024 pixels. Good for a slide or a document."
+                           IsChecked="{Binding PixelSize, Mode=TwoWay,
+                                       Converter={StaticResource Equality}, ConverterParameter=1024}" />
+              <RadioButton x:Name="SizePrint" GroupName="Size" Content="Print"
+                           ToolTip.Tip="2048 pixels. Good for a printed flyer or a sign."
+                           IsChecked="{Binding PixelSize, Mode=TwoWay,
+                                       Converter={StaticResource Equality}, ConverterParameter=2048}" />
+            </StackPanel>
+          </StackPanel>
+
           <TextBlock Text="{Binding SizeSummary}" Opacity="0.7" FontSize="12" />
           <TextBlock Text="{Binding ExportBlockedReason}" TextWrapping="Wrap" FontSize="12"
                      Foreground="#B3261E" IsVisible="{Binding !CanExport}" />
@@ -184,8 +256,127 @@
           </StackPanel>
         </StackPanel>
 
+        <!--
+            Advanced options, folded away. Eleven more controls unfolded on every launch would
+            bury the three steps that matter, which is why the WPF window has always kept them
+            behind an expander. Avalonia's Expander is the same idea with the same Header and
+            IsExpanded; what differs is that its content is not in the visual tree at all until
+            it is opened, which the tests have to account for.
+
+            Each labelled group is its own named StackPanel carrying the guidance tip, rather
+            than the tip sitting on the label as it does in WPF. The sentence explains the
+            control, so hovering the control itself should show it, which in the WPF original it
+            does not.
+        -->
+        <Expander x:Name="AdvancedOptions" Header="Advanced options" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="10">
+
+            <TextBlock Text="Shapes" Classes="heading" />
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Dot shape" Classes="label" />
+              <ComboBox x:Name="ModuleShapeBox" ItemsSource="{Binding ModuleShapes}"
+                        SelectedItem="{Binding ModuleShape}"
+                        ItemTemplate="{StaticResource FriendlyEnumTemplate}"
+                        HorizontalAlignment="Stretch" />
+            </StackPanel>
+
+            <StackPanel x:Name="ModuleScaleField" Spacing="4"
+                        ToolTip.Tip="A bigger gap looks lighter. Too big and the code stops scanning.">
+              <TextBlock Text="Gap between dots" Classes="label" />
+              <Slider x:Name="ModuleScaleSlider" Minimum="0.55" Maximum="1.0" Value="{Binding ModuleScale}" />
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Corner ring shape" Classes="label" />
+              <ComboBox x:Name="MarkerFrameShapeBox" ItemsSource="{Binding MarkerFrameShapes}"
+                        SelectedItem="{Binding MarkerFrameShape}"
+                        ItemTemplate="{StaticResource FriendlyEnumTemplate}"
+                        HorizontalAlignment="Stretch" />
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Corner centre shape" Classes="label" />
+              <ComboBox x:Name="MarkerCenterShapeBox" ItemsSource="{Binding MarkerCenterShapes}"
+                        SelectedItem="{Binding MarkerCenterShape}"
+                        ItemTemplate="{StaticResource FriendlyEnumTemplate}"
+                        HorizontalAlignment="Stretch" />
+            </StackPanel>
+
+            <Separator />
+            <TextBlock Text="Corner colours" Classes="heading" />
+
+            <CheckBox x:Name="UseCustomMarkerColorsBox" Content="Give the corners their own colours"
+                      IsChecked="{Binding UseCustomMarkerColors}" />
+
+            <Grid x:Name="MarkerColorsRow" ColumnDefinitions="Auto,Auto,Auto,Auto"
+                  IsVisible="{Binding UseCustomMarkerColors}">
+              <TextBlock Text="Ring" Classes="label" VerticalAlignment="Center" />
+              <controls:ColorPicker x:Name="MarkerFramePicker" Grid.Column="1" Margin="8,0,18,0"
+                                    SelectedColor="{Binding MarkerFrameColor}" />
+              <TextBlock Grid.Column="2" Text="Centre" Classes="label" VerticalAlignment="Center" />
+              <controls:ColorPicker x:Name="MarkerCenterPicker" Grid.Column="3" Margin="8,0,0,0"
+                                    SelectedColor="{Binding MarkerCenterColor}" />
+            </Grid>
+
+            <Separator />
+            <TextBlock Text="Outline" Classes="heading" />
+
+            <CheckBox x:Name="OutlineEnabledBox" Content="Draw an outline around the shapes"
+                      IsChecked="{Binding OutlineEnabled}" />
+
+            <StackPanel x:Name="OutlineDetail" Spacing="10" IsVisible="{Binding OutlineEnabled}">
+              <Grid ColumnDefinitions="86,*">
+                <TextBlock Text="Colour" Classes="label" VerticalAlignment="Center" />
+                <controls:ColorPicker x:Name="OutlinePicker" Grid.Column="1"
+                                      HorizontalAlignment="Left"
+                                      SelectedColor="{Binding OutlineColor}" />
+              </Grid>
+
+              <StackPanel Spacing="4">
+                <TextBlock Text="Thickness" Classes="label" />
+                <Slider x:Name="OutlineThicknessSlider" Minimum="0.01" Maximum="0.25"
+                        Value="{Binding OutlineThickness}" />
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Text="Applies to" Classes="label" />
+                <ComboBox x:Name="OutlineTargetBox" ItemsSource="{Binding OutlineTargets}"
+                          SelectedItem="{Binding OutlineTarget}"
+                          ItemTemplate="{StaticResource FriendlyEnumTemplate}"
+                          HorizontalAlignment="Stretch" />
+              </StackPanel>
+            </StackPanel>
+
+            <Separator />
+            <TextBlock Text="Reliability" Classes="heading" />
+
+            <StackPanel x:Name="EccField" Spacing="4"
+                        ToolTip.Tip="How much damage the code can survive. Higher means it still scans if it is scratched or partly covered, but the code becomes denser.">
+              <TextBlock Text="Error correction" Classes="label" />
+              <ComboBox x:Name="EccBox" ItemsSource="{Binding EccLevels}" SelectedItem="{Binding Ecc}"
+                        ItemTemplate="{StaticResource FriendlyEnumTemplate}"
+                        HorizontalAlignment="Stretch" />
+            </StackPanel>
+
+            <StackPanel x:Name="QuietZoneField" Spacing="4"
+                        ToolTip.Tip="Clear space scanners need to find the code. 4 is the standard.">
+              <TextBlock Text="Margin around the code" Classes="label" />
+              <!-- A quiet zone is counted in whole modules; three and a half of them is not
+                   something the renderer can draw, so the slider snaps. -->
+              <Slider x:Name="QuietZoneSlider" Minimum="0" Maximum="8"
+                      TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding QuietZone}" />
+            </StackPanel>
+
+            <Separator />
+            <Button x:Name="ResetButton" Content="Reset everything" Command="{Binding ResetCommand}"
+                    HorizontalAlignment="Left" />
+
+          </StackPanel>
+        </Expander>
+
         <TextBlock TextWrapping="Wrap" Opacity="0.6" FontSize="12"
-                   Text="Styling, presets, the logo picker and settings are still in the Windows build. They arrive here next." />
+                   Text="Presets, the logo picker and settings are still in the Windows build. They arrive here next." />
 
       </StackPanel>
     </ScrollViewer>

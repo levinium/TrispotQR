@@ -1,6 +1,8 @@
 using System.IO;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.VisualTree;
 using TrispotQR.Core.Presets;
 using TrispotQR.UI;
@@ -133,4 +135,48 @@ internal static class UiHarness
     /// </summary>
     public static TextBox Input(FieldBox box) =>
         box.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "Input");
+
+    /// <summary>
+    /// A point inside <paramref name="control"/>, in the window coordinates the headless input
+    /// API takes. There is no TranslatePoint on Visual in this Avalonia version; the transform
+    /// GetTransformedBounds returns carries the control's origin within its root in M31/M32.
+    ///
+    /// Here rather than in one test class because two of them now drive real gestures at
+    /// rendered controls -- the colour picker's square, strip and swatches, and the styling
+    /// panel's sliders, radio buttons and check boxes -- and a second copy of this arithmetic
+    /// is a second place for the M31/M32 detail to be got wrong.
+    /// </summary>
+    public static Point At(Control control, double fractionX, double fractionY)
+    {
+        var transformed = control.GetTransformedBounds()
+            ?? throw new InvalidOperationException($"{control.Name ?? control.GetType().Name} never got a layout pass.");
+
+        return new Point(
+            transformed.Transform.M31 + (transformed.Bounds.Width * fractionX),
+            transformed.Transform.M32 + (transformed.Bounds.Height * fractionY));
+    }
+
+    public static void Click(Window window, Point point)
+    {
+        window.MouseMove(point);
+        window.MouseDown(point, MouseButton.Left);
+        window.MouseUp(point, MouseButton.Left);
+        DispatcherPump.Drain();
+    }
+
+    /// <summary>
+    /// A press, a move with the button still down, and a release. The left-button modifier on
+    /// the move is what tells Avalonia the pointer is still pressed; without it the move
+    /// arrives looking like an ordinary hover.
+    /// </summary>
+    public static void Drag(Window window, Point from, Point to)
+    {
+        window.MouseMove(from);
+        window.MouseDown(from, MouseButton.Left);
+        DispatcherPump.Drain();
+        window.MouseMove(to, RawInputModifiers.LeftMouseButton);
+        DispatcherPump.Drain();
+        window.MouseUp(to, MouseButton.Left);
+        DispatcherPump.Drain();
+    }
 }
