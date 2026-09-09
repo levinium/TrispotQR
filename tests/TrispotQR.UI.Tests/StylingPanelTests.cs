@@ -735,10 +735,26 @@ public class StylingPanelTests
     [AvaloniaFact]
     public void EveryFieldLabelIsSetInTheLabelTreatment()
     {
-        // The same shape, and the same structural backstop in the form that fits a label: every
-        // dropdown and every slider in the advanced panel is introduced by a labelled group, and
-        // that group's one TextBlock has to carry the class. A control added later with a bare
-        // TextBlock over it fails here rather than shipping at the theme's default size.
+        // The same shape as the heading test: every label is found by the words it shows, then
+        // checked for the class and for the size the class's setter controls.
+        //
+        // The structural backstop covers, exactly: any panel inside the advanced options whose
+        // own children include a dropdown, a slider or a colour picker. That panel must hold one
+        // TextBlock and it must carry the class, so a control added later with a bare TextBlock
+        // over it fails here rather than shipping at the theme's default size. Panel, not
+        // StackPanel: the first version of this checked StackPanels alone and was blind to the
+        // Grid-plus-label idiom this same file already uses for the outline colour row, which is
+        // precisely the shape Phase 2e's logo controls might reach for.
+        //
+        // What it does NOT cover, stated rather than implied:
+        //
+        //  - Labelled rows outside the advanced options. "Code colour", "Background" and "Size"
+        //    are checked by the lookup above and by nothing structural. The scope stops at the
+        //    expander deliberately: the background row is a panel of radio buttons and a colour
+        //    picker with no label of its own, so a guard reaching it would fire on correct code.
+        //  - A label nested deeper than its group, rather than beside the control it introduces.
+        //    Catching that means walking the whole tree for anything shaped like a label, which
+        //    would fire on the preview and the content editors too.
         UiHarness.WithWindow(session =>
         {
             GiveItSomethingToDraw(session);
@@ -756,8 +772,8 @@ public class StylingPanelTests
 
             var groups = AdvancedPanel(session.Window)
                 .GetSelfAndVisualDescendants()
-                .OfType<StackPanel>()
-                .Where(p => p.Children.Any(c => c is ComboBox or Slider))
+                .OfType<Panel>()
+                .Where(p => p.Children.Any(c => c is ComboBox or Slider or ColorPicker))
                 .ToList();
 
             Assert.True(groups.Count > 0, "the advanced panel realised no labelled groups at all");
