@@ -11,7 +11,7 @@ namespace TrispotQR.UI.Controls;
 /// A labelled text box that shows its own validation problem.
 ///
 /// One control rather than a label, a box and an error line repeated at every field. There
-/// are eighteen of these across the seven content types, and the point is that the red
+/// are seventeen of these across the seven content types, and the point is that the red
 /// treatment is defined once and cannot drift between forms, or be forgotten on the one
 /// field nobody thought to test.
 ///
@@ -53,6 +53,16 @@ public partial class FieldBox : UserControl
         Input[!!TextBox.TextProperty] = this[!!TextProperty];
 
         DataContextChanged += (_, _) => Rewire();
+
+        // Deliberately unpaired: there is no AttachedToVisualTree -> Rewire() counterpart, and
+        // this is a faithful port of the shipping WPF control's Unloaded idiom rather than an
+        // oversight. Detaching without re-attaching is only safe because nothing in this window
+        // takes a box out of the tree and puts the same one back: the content-type templates
+        // build fresh boxes each time, and a DataContext change rewires on its own. Anything
+        // that recycles a realised box with an unchanged DataContext -- a TabControl, or a
+        // virtualising list -- would leave it silently stale, showing a problem that has since
+        // been fixed or missing one that has since appeared, with every test still green.
+        // Whoever adds such a container adds the AttachedToVisualTree half at the same time.
         DetachedFromVisualTree += (_, _) => Detach();
     }
 

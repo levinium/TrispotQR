@@ -11,6 +11,20 @@
 
   <Window.Resources>
     <converters:VerdictToBrushConverter x:Key="VerdictToBrush" />
+    <converters:FriendlyNameConverter x:Key="Friendly" />
+
+    <!-- Every enum dropdown renders its items through this, so the UI says "WPA / WPA2" while
+         the code and the saved files keep saying Wpa. Phase 2d's six styling dropdowns reuse
+         the same key rather than each spelling out a template of their own.
+
+         Compiled bindings are off for this one template. The binding has no path (it is the
+         item itself, handed to the converter), so the compiler would otherwise type it
+         against the enclosing x:DataType, MainViewModel, which is not what a ComboBox item
+         is. Turning them off here is what keeps the template usable for any enum at all,
+         which is the whole point of having one. -->
+    <DataTemplate x:Key="FriendlyEnumTemplate" x:CompileBindings="False">
+      <TextBlock Text="{Binding Converter={StaticResource Friendly}}" />
+    </DataTemplate>
   </Window.Resources>
 
   <Window.DataTemplates>
@@ -22,25 +36,34 @@
       <controls:FieldBox Label="Web address" Text="{Binding Address}" FieldName="Address"/>
     </DataTemplate>
 
+    <!-- FieldSpacing on the container, never a Margin on the box. Nine of these call sites
+         used to hand-write Margin="0,10,0,0", which is the one treatment FieldBox exists to
+         own: a gap that can be forgotten on the one field nobody thought to test is exactly
+         the drift the control was introduced to stop. The security label and its dropdown are
+         a tighter pair, so they get their own inner panel rather than an exception to the
+         rule. MainWindowTests asserts no realised FieldBox carries a Margin of its own. -->
     <DataTemplate DataType="vm:WifiEditor">
-      <StackPanel>
+      <StackPanel Spacing="10">
         <controls:FieldBox Label="Network name" Text="{Binding Ssid}" FieldName="Ssid"/>
-        <TextBlock Text="Security" FontSize="12" Margin="0,10,0,4"/>
-        <ComboBox ItemsSource="{Binding SecurityOptions}" SelectedItem="{Binding Security}"
-                  HorizontalAlignment="Stretch"/>
+        <StackPanel Spacing="4">
+          <TextBlock Text="Security" FontSize="12"/>
+          <ComboBox ItemsSource="{Binding SecurityOptions}" SelectedItem="{Binding Security}"
+                    ItemTemplate="{StaticResource FriendlyEnumTemplate}"
+                    HorizontalAlignment="Stretch"/>
+        </StackPanel>
         <controls:FieldBox Label="Password" Text="{Binding Password}" FieldName="Password"
-                           Margin="0,10,0,0" IsVisible="{Binding NeedsPassword}"/>
-        <CheckBox Content="This is a hidden network" IsChecked="{Binding Hidden}" Margin="0,10,0,0"/>
+                           IsVisible="{Binding NeedsPassword}"/>
+        <CheckBox Content="This is a hidden network" IsChecked="{Binding Hidden}"/>
       </StackPanel>
     </DataTemplate>
 
     <DataTemplate DataType="vm:EmailEditor">
-      <StackPanel>
+      <StackPanel Spacing="10">
         <controls:FieldBox Label="To" Text="{Binding Address}" FieldName="Address"/>
         <controls:FieldBox Label="Subject" IsOptional="True" Text="{Binding Subject}"
-                           FieldName="Subject" Margin="0,10,0,0"/>
+                           FieldName="Subject"/>
         <controls:FieldBox Label="Message" IsOptional="True" Text="{Binding Body}"
-                           FieldName="Body" InputHeight="60" Margin="0,10,0,0"/>
+                           FieldName="Body" InputHeight="60"/>
       </StackPanel>
     </DataTemplate>
 
@@ -49,30 +72,33 @@
     </DataTemplate>
 
     <DataTemplate DataType="vm:SmsEditor">
-      <StackPanel>
+      <StackPanel Spacing="10">
         <controls:FieldBox Label="Phone number" Text="{Binding Number}" FieldName="Number"/>
         <controls:FieldBox Label="Message" IsOptional="True" Text="{Binding Text}"
-                           FieldName="Text" InputHeight="60" Margin="0,10,0,0"/>
+                           FieldName="Text" InputHeight="60"/>
       </StackPanel>
     </DataTemplate>
 
     <DataTemplate DataType="vm:ContactEditor">
-      <StackPanel>
-        <Grid ColumnDefinitions="*,10,*" RowDefinitions="Auto,Auto,Auto">
+      <StackPanel Spacing="10">
+        <!-- RowSpacing rather than a top margin on rows two and three, for the same reason the
+             StackPanels use Spacing: the gap belongs to the container that arranges the fields,
+             not to each field. The 10-wide middle column is the matching horizontal gutter. -->
+        <Grid ColumnDefinitions="*,10,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
           <controls:FieldBox Grid.Row="0" Grid.Column="0" Label="First name"
                              Text="{Binding FirstName}" FieldName="FirstName"/>
           <controls:FieldBox Grid.Row="0" Grid.Column="2" Label="Last name"
                              Text="{Binding LastName}" FieldName="LastName"/>
-          <controls:FieldBox Grid.Row="1" Grid.Column="0" Label="Organisation" Margin="0,10,0,0"
+          <controls:FieldBox Grid.Row="1" Grid.Column="0" Label="Organisation"
                              Text="{Binding Organization}" FieldName="Organization"/>
           <controls:FieldBox Grid.Row="1" Grid.Column="2" Label="Job title" IsOptional="True"
-                             Margin="0,10,0,0" Text="{Binding JobTitle}" FieldName="JobTitle"/>
+                             Text="{Binding JobTitle}" FieldName="JobTitle"/>
           <controls:FieldBox Grid.Row="2" Grid.Column="0" Label="Phone" IsOptional="True"
-                             Margin="0,10,0,0" Text="{Binding Phone}" FieldName="Phone"/>
+                             Text="{Binding Phone}" FieldName="Phone"/>
           <controls:FieldBox Grid.Row="2" Grid.Column="2" Label="Email" IsOptional="True"
-                             Margin="0,10,0,0" Text="{Binding Email}" FieldName="Email"/>
+                             Text="{Binding Email}" FieldName="Email"/>
         </Grid>
-        <controls:FieldBox Label="Website" IsOptional="True" Margin="0,10,0,0"
+        <controls:FieldBox Label="Website" IsOptional="True"
                            Text="{Binding Website}" FieldName="Website"/>
       </StackPanel>
     </DataTemplate>
