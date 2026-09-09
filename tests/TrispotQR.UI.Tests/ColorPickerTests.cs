@@ -336,6 +336,12 @@ public class ColorPickerTests
         // the class fails. It is scoped to authored TextBlocks (TemplatedParent is null) because
         // the hex box and the sliders bring TextBlocks of their own from their control
         // templates, which this control neither writes nor styles.
+        //
+        // That scoping has one consequence worth stating rather than discovering: a TextBlock
+        // authored inside a ControlTemplate written in THIS file would also carry a
+        // TemplatedParent, so the backstop would not see it. This file authors no
+        // ControlTemplates today, so there is nothing it misses; if one is ever added here,
+        // this guard stops covering its contents.
         var (window, picker) = Open();
         OpenPopup(window, picker);
 
