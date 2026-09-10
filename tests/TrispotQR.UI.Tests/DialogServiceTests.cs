@@ -133,14 +133,49 @@ public class DialogServiceTests
     }
 
     [AvaloniaFact]
-    public void TheTwoRemainingPhase2cMembersReportCancellationRatherThanCrashing()
+    public void ALogoRequestWithACorruptRememberedDirectoryDoesNotCrashTheApp()
     {
         var (_, dialogs) = Create();
 
-        // The logo picker and the settings window arrive in Phase 2c. Until then these must
-        // behave like a cancelled dialog, because that is the one answer every caller in
-        // MainViewModel already handles. The save-preset prompt is implemented.
-        Assert.Null(dialogs.AskForImage(null));
+        // MainViewModel hands AskForImage the same remembered SaveDirectory it hands
+        // AskForSavePath, so the picker inherits that call's one hazard: an embedded NUL makes
+        // StorageProvider.TryGetFolderFromPathAsync throw ArgumentException rather than resolve
+        // to null. ChooseLogo does not guard this call, so without the try/catch around
+        // SuggestedStartLocation a corrupt settings.json would bring the app down the moment
+        // anyone reached for a logo.
+        //
+        // It doubles as the no-picker check the save path has: the headless platform has no
+        // file picker, so nothing here can assert on a chosen image, but the call still has to
+        // reach the storage provider and come back rather than deadlocking the dispatcher.
+        Assert.Null(dialogs.AskForImage("C:\\bad\0path"));
+    }
+
+    [AvaloniaFact]
+    public void AskingForALogoReturnsNullBeforeTheOwnerIsOnScreen()
+    {
+        // Same guard as AskForText, for the same reason: a picker parented on a window that is
+        // not on screen has no owner to sit over, and null is the cancelled dialog every caller
+        // already handles.
+        //
+        // Stated plainly because it matters to anyone reading this as evidence: on the headless
+        // platform this test cannot fail. Deleting the CanShowDialog guard was tried, and the
+        // headless storage provider returns an empty file list for a window that was never
+        // shown just as it does for one that was, so the answer is null either way. What the
+        // test pins is the contract on a real platform, where the picker is a real window.
+        var owner = new Window();
+        var service = new AvaloniaDialogService(owner);
+
+        Assert.Null(service.AskForImage(null));
+    }
+
+    [AvaloniaFact]
+    public void TheSettingsWindowReportsCancellationRatherThanCrashing()
+    {
+        var (_, dialogs) = Create();
+
+        // The settings window is the last member still to be built. Until it is, it has to
+        // behave like a cancelled dialog, because that is the one answer MainViewModel already
+        // handles. Everything else on IDialogService is implemented.
         Assert.Null(dialogs.EditSettings(new AppSettings()));
     }
 

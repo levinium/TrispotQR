@@ -10,9 +10,9 @@ namespace TrispotQR.UI.Services;
 /// <summary>
 /// Everything the view model needs from the world outside it, in Avalonia terms.
 ///
-/// Two members are not implemented in this phase and return null, which every caller in
-/// MainViewModel already reads as "the user cancelled": the logo picker and the settings window
-/// both arrive in Phase 2c along with the UI that reaches them.
+/// One member is still not implemented and returns null, which every caller in MainViewModel
+/// already reads as "the user cancelled": the settings window arrives with the UI that reaches
+/// it. Everything else on the interface is real.
 /// </summary>
 public sealed class AvaloniaDialogService : IDialogService
 {
@@ -117,8 +117,60 @@ public sealed class AvaloniaDialogService : IDialogService
         return file?.TryGetLocalPath();
     }
 
-    /// <summary>Phase 2c, with the logo picker. Null reads as a cancelled dialog.</summary>
-    public string? AskForImage(string? directory) => null;
+    public string? AskForImage(string? directory)
+    {
+        var options = new FilePickerOpenOptions
+        {
+            Title = "Choose a logo",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Images")
+                {
+                    Patterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp"],
+
+                    // Set so the macOS panel does not grey out every file. Without an
+                    // AppleUniformTypeIdentifiers entry the pattern list is ignored there.
+                    AppleUniformTypeIdentifiers = ["public.image"],
+                    MimeTypes = ["image/*"],
+                },
+
+                // The list above is what Core's decoder is known to read, not a limit on what it
+                // can try: a file it cannot open is refused with a message rather than silently
+                // producing a code with no logo, so letting the user reach for anything costs
+                // nothing and saves an argument about an unusual extension.
+                new FilePickerFileType("All files") { Patterns = ["*"] },
+            ],
+        };
+
+        if (directory is not null)
+        {
+            // The same swallow as AskForSavePath, and for the same reason: a remembered
+            // directory is never validated when it is written, and one containing an embedded
+            // NUL throws rather than resolving to null. A lost start folder must not cost the
+            // picker itself.
+            try
+            {
+                options.SuggestedStartLocation = DispatcherWait.For(
+                    _owner.StorageProvider.TryGetFolderFromPathAsync(directory), DialogTimeout);
+            }
+            catch (Exception)
+            {
+                // Left null: the picker still opens, just without a preselected folder.
+            }
+        }
+
+        if (!CanShowDialog)
+        {
+            return null;
+        }
+
+        var files = DispatcherWait.For(_owner.StorageProvider.OpenFilePickerAsync(options), DialogTimeout);
+
+        // TryGetLocalPath returns null for a location with no file system path. Core reads the
+        // image off disk by path, so one it cannot name is one it cannot use.
+        return files.Count > 0 ? files[0].TryGetLocalPath() : null;
+    }
 
     public string? AskForText(string title, string prompt, string initialValue)
     {
@@ -133,7 +185,7 @@ public sealed class AvaloniaDialogService : IDialogService
             TextPromptWindow.ShowAsync(_owner, title, prompt, initialValue), DialogTimeout);
     }
 
-    /// <summary>Phase 2c, with the settings window. Null reads as a cancelled dialog.</summary>
+    /// <summary>Arrives with the settings window. Null reads as a cancelled dialog.</summary>
     public AppSettings? EditSettings(AppSettings current) => null;
 
     public bool Confirm(string title, string message) => Ask(title, message, "OK", "Cancel", defaultToProceed: true);

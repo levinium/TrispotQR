@@ -55,7 +55,14 @@ internal static class UiHarness
     /// DataTemplates included -- stays exactly what ships, which is what makes this a real
     /// rendered tree rather than a stand-in for one.
     /// </summary>
-    public static T WithWindow<T>(Func<Session, T> work)
+    /// <param name="dialogs">
+    /// Stands in for the real dialog service when a test needs a command to come back with an
+    /// answer. The headless platform has no file picker, so AvaloniaDialogService.AskForImage
+    /// can only ever report a cancelled dialog there -- which leaves no way at all to reach the
+    /// half of the logo panel that only exists once an image has been chosen. Null, the default,
+    /// keeps every other test on the real service.
+    /// </param>
+    public static T WithWindow<T>(Func<Session, T> work, IDialogService? dialogs = null)
     {
         var directory = Path.Combine(Path.GetTempPath(), $"TrispotQR-ui-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
@@ -71,7 +78,7 @@ internal static class UiHarness
             var restoredSize = new Size(window.Width, window.Height);
 
             var model = new MainViewModel(
-                new AvaloniaDialogService(window),
+                dialogs ?? new AvaloniaDialogService(window),
                 new AvaloniaUiTimer(),
                 new AvaloniaImageClipboard(window),
                 new PresetStore(directory),
@@ -92,12 +99,14 @@ internal static class UiHarness
     }
 
     /// <summary>The same, for a body that asserts as it goes rather than returning a value.</summary>
-    public static void WithWindow(Action<Session> work) =>
-        WithWindow<object?>(session =>
-        {
-            work(session);
-            return null;
-        });
+    public static void WithWindow(Action<Session> work, IDialogService? dialogs = null) =>
+        WithWindow<object?>(
+            session =>
+            {
+                work(session);
+                return null;
+            },
+            dialogs);
 
     /// <summary>
     /// The realised content editor, scoped to exactly what the "what goes in the code"

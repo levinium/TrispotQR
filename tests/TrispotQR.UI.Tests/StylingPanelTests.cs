@@ -673,7 +673,7 @@ public class StylingPanelTests
     private static readonly string[] Headings =
     [
         "What goes in the code", "How it looks", "Save",
-        "Shapes", "Corner colours", "Outline", "Reliability",
+        "Shapes", "Corner colours", "Outline", "Reliability", "Logo",
     ];
 
     /// <summary>
@@ -686,6 +686,7 @@ public class StylingPanelTests
         "Dot shape", "Gap between dots", "Corner ring shape", "Corner centre shape",
         "Error correction", "Margin around the code",
         "Ring", "Centre", "Colour", "Thickness", "Applies to",
+        "Logo size", "Space around it",
     ];
 
     [AvaloniaFact]
