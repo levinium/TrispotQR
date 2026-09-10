@@ -26,7 +26,7 @@ public partial class TextPromptWindow : Window
     ///
     /// InitializeComponent(), never AvaloniaXamlLoader.Load(this) -- see the comment in
     /// MessageWindow.axaml.cs. Load(this) populates the NameScope but leaves the generated
-    /// fields null, so Input on the next line would be null.
+    /// fields null, so Input.TextChanged on the next line would throw.
     /// </summary>
     public TextPromptWindow()
     {
