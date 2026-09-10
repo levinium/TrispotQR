@@ -1,0 +1,50 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The dark half of the app's own chrome. Every key in Palette.Light.axaml must also appear
+    here; a missing one falls back to the light value and shows up as one wrongly coloured
+    piece of an otherwise dark window.
+
+    The accent is lifted from #2B5CE6 to #5B8DFF because the light blue reads as muddy against
+    a dark surface, and text on the accent flips to near black for the same reason: white on a
+    lightened blue is not enough contrast.
+  -->
+
+  <Color x:Key="AccentColor">#5B8DFF</Color>
+  <SolidColorBrush x:Key="AccentBrush" Color="#5B8DFF"/>
+  <SolidColorBrush x:Key="AccentHoverBrush" Color="#7FA8FF"/>
+  <SolidColorBrush x:Key="OnAccentBrush" Color="#11151C"/>
+
+  <SolidColorBrush x:Key="PageBrush" Color="#16181D"/>
+  <SolidColorBrush x:Key="SurfaceBrush" Color="#212429"/>
+  <SolidColorBrush x:Key="BorderBrush" Color="#383D45"/>
+  <SolidColorBrush x:Key="SubtleBorderBrush" Color="#2A2E35"/>
+  <SolidColorBrush x:Key="TextBrush" Color="#E8EAEE"/>
+  <SolidColorBrush x:Key="MutedTextBrush" Color="#9AA1AC"/>
+  <SolidColorBrush x:Key="WarningBrush" Color="#FFB454"/>
+
+  <!-- Lifted well above the light theme's #C62828, which on the dark card reads as a muddy
+       brown and falls under the contrast floor. -->
+  <SolidColorBrush x:Key="DangerBrush" Color="#FF7B7B"/>
+
+  <SolidColorBrush x:Key="HoverBrush" Color="#2B3037"/>
+  <SolidColorBrush x:Key="DisabledBrush" Color="#3A3F47"/>
+  <SolidColorBrush x:Key="DisabledTextBrush" Color="#6B717A"/>
+
+  <!-- Muted so the checkerboard reads as "nothing here" rather than competing with the code
+       drawn on top of it. -->
+  <DrawingBrush x:Key="CheckerBrush"
+                TileMode="Tile"
+                DestinationRect="0,0,16,16"
+                Stretch="None">
+    <DrawingBrush.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Brush="#2E333B" Geometry="M0,0 H16 V16 H0 Z"/>
+        <GeometryDrawing Brush="#262B32" Geometry="M0,0 H8 V8 H0 Z"/>
+        <GeometryDrawing Brush="#262B32" Geometry="M8,8 H16 V16 H8 Z"/>
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+
+</ResourceDictionary>

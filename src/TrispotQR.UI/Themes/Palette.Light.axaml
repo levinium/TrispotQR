@@ -1,0 +1,52 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The light half of the app's own chrome. Palette.Dark.axaml defines exactly the same keys,
+    and ThemeTests asserts that, because a key present in one variant only produces a window
+    that is half themed.
+  -->
+
+  <Color x:Key="AccentColor">#2B5CE6</Color>
+  <SolidColorBrush x:Key="AccentBrush" Color="#2B5CE6"/>
+  <SolidColorBrush x:Key="AccentHoverBrush" Color="#1F49C4"/>
+
+  <!-- Text drawn on top of the accent colour. -->
+  <SolidColorBrush x:Key="OnAccentBrush" Color="#FFFFFF"/>
+
+  <SolidColorBrush x:Key="PageBrush" Color="#F4F5F7"/>
+  <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
+  <SolidColorBrush x:Key="BorderBrush" Color="#DDE0E5"/>
+  <SolidColorBrush x:Key="SubtleBorderBrush" Color="#ECEEF1"/>
+  <SolidColorBrush x:Key="TextBrush" Color="#1B1F27"/>
+  <SolidColorBrush x:Key="MutedTextBrush" Color="#666E7A"/>
+  <SolidColorBrush x:Key="WarningBrush" Color="#B26100"/>
+
+  <!-- Input that is wrong, as opposed to merely worth a comment. Dark enough to clear the
+       contrast floor as text on a white card, not only as a border. -->
+  <SolidColorBrush x:Key="DangerBrush" Color="#C62828"/>
+
+  <SolidColorBrush x:Key="HoverBrush" Color="#F0F2F5"/>
+  <SolidColorBrush x:Key="DisabledBrush" Color="#C8CDD6"/>
+  <SolidColorBrush x:Key="DisabledTextBrush" Color="#A9B0BA"/>
+
+  <!-- Checkerboard behind anything that can be part transparent, so a see-through colour is
+       visibly see-through rather than looking like a white one.
+
+       WPF's Viewport plus ViewportUnits="Absolute" is Avalonia's DestinationRect in absolute
+       units, and Avalonia's GeometryDrawing takes one Geometry, so the two pale squares are
+       two drawings instead of a GeometryGroup. Spelling, not substance. -->
+  <DrawingBrush x:Key="CheckerBrush"
+                TileMode="Tile"
+                DestinationRect="0,0,16,16"
+                Stretch="None">
+    <DrawingBrush.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Brush="#FFFFFF" Geometry="M0,0 H16 V16 H0 Z"/>
+        <GeometryDrawing Brush="#E8EAED" Geometry="M0,0 H8 V8 H0 Z"/>
+        <GeometryDrawing Brush="#E8EAED" Geometry="M8,8 H16 V16 H8 Z"/>
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+
+</ResourceDictionary>

@@ -6,36 +6,14 @@
     <FluentTheme />
   </Application.Styles>
 
+  <!-- Application scope rather than a window's, because FieldBox resolves DangerBrush and
+       WarningBrush from inside a realised DataTemplate, and from a bare window in its own
+       tests. -->
   <Application.Resources>
-    <!-- Named to match the WPF theme, so Phase 2e can replace these two definitions with
-         theme-variant ones and nothing in the templates has to move. Application scope
-         rather than a window's, because FieldBox resolves them from inside a realised
-         DataTemplate, and from a bare window in its own tests. -->
-    <SolidColorBrush x:Key="DangerBrush" Color="#B3261E"/>
-    <SolidColorBrush x:Key="WarningBrush" Color="#B56E00"/>
-
-    <!-- Checkerboard behind anything that can be part transparent, so a see-through colour is
-         visibly see-through rather than looking like a white one.
-
-         Avalonia does have DrawingBrush, contrary to what the plan for this task assumed, so
-         this is a direct port of the WPF original rather than a substitute for it. The two
-         differences are spelling, not substance: WPF's Viewport plus ViewportUnits="Absolute"
-         is Avalonia's DestinationRect in absolute units, and Avalonia's GeometryDrawing takes
-         one Geometry, so the two dark squares are two drawings instead of a GeometryGroup.
-
-         Light-theme greys, matching Theme.Light.xaml. Phase 2e replaces this one definition
-         with a theme-variant pair; nothing that uses it has to move. -->
-    <DrawingBrush x:Key="CheckerBrush"
-                  TileMode="Tile"
-                  DestinationRect="0,0,16,16"
-                  Stretch="None">
-      <DrawingBrush.Drawing>
-        <DrawingGroup>
-          <GeometryDrawing Brush="#FFFFFF" Geometry="M0,0 H16 V16 H0 Z"/>
-          <GeometryDrawing Brush="#E8EAED" Geometry="M0,0 H8 V8 H0 Z"/>
-          <GeometryDrawing Brush="#E8EAED" Geometry="M8,8 H16 V16 H8 Z"/>
-        </DrawingGroup>
-      </DrawingBrush.Drawing>
-    </DrawingBrush>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://TrispotQR.UI/Themes/Palette.axaml"/>
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
   </Application.Resources>
 </Application>

@@ -1,0 +1,28 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The app's own chrome, in two variants. Application.RequestedThemeVariant picks between
+    them, and ThemeVariant.Default means "follow the operating system" on every platform, so
+    nothing here reads a registry.
+
+    Only chrome lives here. The colours of a generated code come from the user's style and are
+    deliberately untouched by the theme: it would be alarming if switching appearance quietly
+    altered an export.
+
+    Anything referring to these from XAML must use DynamicResource. A StaticResource resolves
+    once when its element loads and would simply ignore a theme change.
+
+    The Default entry is the light palette a second time, and it is load bearing rather than
+    decorative: a lookup that names ThemeVariant.Default finds nothing in a Light or Dark
+    theme dictionary, so without it every TryGetResource(key, ThemeVariant.Default) in the
+    suite, and any caller that does not care which variant is showing, comes back empty. It
+    never shadows a real variant, because an exact match on Light or Dark is tried first.
+  -->
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceInclude x:Key="Default" Source="avares://TrispotQR.UI/Themes/Palette.Light.axaml"/>
+    <ResourceInclude x:Key="Light" Source="avares://TrispotQR.UI/Themes/Palette.Light.axaml"/>
+    <ResourceInclude x:Key="Dark" Source="avares://TrispotQR.UI/Themes/Palette.Dark.axaml"/>
+  </ResourceDictionary.ThemeDictionaries>
+
+</ResourceDictionary>
