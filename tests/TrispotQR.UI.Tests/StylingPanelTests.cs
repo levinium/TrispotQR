@@ -43,7 +43,7 @@ public class StylingPanelTests
     {
         var editor = session.Model.ContentEditors.OfType<PlainTextEditor>().Single();
         session.Model.SelectedContent = editor;
-        editor.Text = "https://www.emanuelnyc.org";
+        editor.Text = "https://www.example.org";
 
         // RefreshNow skips the debounce timer the app uses in normal running; waiting out a real
         // 150ms tick here would make every test in this file slow for no gain.

@@ -99,7 +99,7 @@ public class FieldBoxTests
     [AvaloniaFact]
     public void AValidFieldShowsNoMessage()
     {
-        var editor = new LinkEditor { Address = "www.emanuelnyc.org" };
+        var editor = new LinkEditor { Address = "www.example.org" };
 
         var (_, box) = Show(editor, "Address", "Web address");
 
@@ -127,7 +127,7 @@ public class FieldBoxTests
         var (_, box) = Show(editor, "Address", "Web address");
         Assert.True(box.Classes.Contains(":error"));
 
-        editor.Address = "www.emanuelnyc.org";
+        editor.Address = "www.example.org";
         DispatcherPump.Drain();
 
         Assert.Null(box.ShownError);
@@ -191,7 +191,7 @@ public class FieldBoxTests
         var (_, box) = Show(first, "Address", "Web address");
         Assert.True(box.Classes.Contains(":error"));
 
-        box.DataContext = new LinkEditor { Address = "www.emanuelnyc.org" };
+        box.DataContext = new LinkEditor { Address = "www.example.org" };
         DispatcherPump.Drain();
         Assert.False(box.Classes.Contains(":error"));
 
@@ -630,7 +630,7 @@ Then cover it, because a note rendered in red is exactly the kind of thing no te
         var (window, model, _) = Open();
         var link = model.ContentEditors.OfType<LinkEditor>().Single();
         model.SelectedContent = link;
-        link.Address = "www.emanuelnyc.org";
+        link.Address = "www.example.org";
         DispatcherPump.Drain();
 
         Assert.False(link.FormMessageIsProblem);

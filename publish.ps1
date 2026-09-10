@@ -6,15 +6,17 @@
     Runs the test suite, then produces two builds in dist\:
 
       dist\TrispotQR.exe                      self-contained, needs nothing installed
-      dist\framework-dependent\TrispotQR.exe  small, needs the .NET 10 Desktop Runtime
+      dist\framework-dependent\TrispotQR.exe  small, needs the .NET 10 runtime
 
     The self-contained build is the one to copy onto another machine or a shared drive:
     it carries the .NET runtime inside it, so the target machine needs nothing installed.
-    That is what makes it roughly 67 MB, since WPF and Skia's native library cannot be
-    trimmed. The framework-dependent build is about 13 MB: it still carries that same
-    untrimmable native Skia library, which is why it is no longer the ~1 MB it used to be
-    before this phase, but leaving out the .NET runtime is what saves the other roughly
-    54 MB against the self-contained build.
+    The framework-dependent build leaves the runtime out, which is most of the difference
+    between them; both still carry Skia's native library, which cannot be trimmed.
+
+    From 1.1.0 this publishes TrispotQR.Desktop, the Avalonia app, rather than
+    TrispotQR.App, the WPF one that 1.0.0 shipped. They are the same product and share the
+    settings folder, so a saved style survives the change; the Avalonia build is the one
+    with the current feature set, and the only one that can be built for Mac and Linux.
 
 .PARAMETER SkipTests
     Publishes without running the tests first. Use only when the suite has just passed.
@@ -28,11 +30,14 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
-$project = Join-Path $root 'src\TrispotQR.App\TrispotQR.App.csproj'
+$project = Join-Path $root 'src\TrispotQR.Desktop\TrispotQR.Desktop.csproj'
 $dist = Join-Path $root 'dist'
 
 # Read straight out of the csproj, which is the single source of truth. Printed at the end
 # so whatever gets handed over is always identifiable. See CHANGELOG.md to release.
+#
+# Where-Object because the file has several PropertyGroups and only one carries a Version;
+# the others come back as empty strings.
 $version = ([xml](Get-Content $project)).Project.PropertyGroup.Version | Where-Object { $_ }
 if (-not $version) { throw 'No <Version> found in the project file.' }
 Write-Host "Building Trispot QR v$version" -ForegroundColor Cyan

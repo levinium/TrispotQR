@@ -30,7 +30,7 @@ scenario the automated suite structurally cannot reach, and the one that was act
 
 - [ ] 2. The window opens at the size the previous session left it (resize it, close, reopen), and
       at 1180x800 the very first time — not always the 1000x700 in the XAML.
-- [ ] 3. Choose "Plain text" and type `https://www.emanuelnyc.org`. The preview appears within
+- [ ] 3. Choose "Plain text" and type `https://www.example.org`. The preview appears within
       about a second and the badge goes green.
 - [ ] 4. Resize the window larger. The code stays sharp rather than going blocky (vector preview),
       and the resize itself stays smooth.

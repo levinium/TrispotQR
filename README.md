@@ -14,20 +14,29 @@ uploaded, nothing is tracked, and nothing is installed.
 
 ## Download
 
-**[Download TrispotQR-v1.0.0-win-x64.zip](https://github.com/levinium/TrispotQR/releases/download/v1.0.0/TrispotQR-v1.0.0-win-x64.zip)** (65 MB)
+**[Download TrispotQR-v1.1.0-win-x64.zip](https://github.com/levinium/TrispotQR/releases/download/v1.1.0/TrispotQR-v1.1.0-win-x64.zip)** (48 MB)
 
 Unzip it anywhere and run `TrispotQR.exe`. That is the whole installation. There is no setup
 step, no admin prompt and no registry entry, because the .NET runtime it needs is inside the
 file. Delete it and it is gone. You need 64-bit Windows and nothing else.
 
-If your machine already has the .NET 10 Desktop Runtime, the
-[framework-dependent build](https://github.com/levinium/TrispotQR/releases/latest) is 6 MB
+If your machine already has the .NET 10 runtime, the
+[framework-dependent build](https://github.com/levinium/TrispotQR/releases/latest) is 12 MB
 instead. Take the big one unless you know you want that.
+
+Upgrading from 1.0.0 is a straight replacement: saved styles and settings live outside the
+app and carry over untouched.
 
 ### Mac and Linux
 
-A cross-platform build is in progress. The Windows download above is the one to use today;
-Mac and Linux builds arrive once the port reaches feature parity.
+Close, but not yet released. As of 1.1.0 the app is built on Avalonia rather than WPF, which
+is what makes other platforms possible at all, and CI builds the desktop app and runs its
+whole test suite on Linux and macOS as well as Windows on every push.
+
+What is missing is not code but evidence: nobody has yet opened the built app on either
+platform, and a build that compiles and passes headless tests is not the same as one whose
+file dialogs, clipboard and fonts have been seen to work. Those builds ship once that has
+actually been checked.
 
 ## Why not just use a website?
 
@@ -68,8 +77,14 @@ code ends up scanning perfectly and doing nothing.
 ### It has real styling
 
 Six built-in looks, and full control underneath: the shape of the dots, the shape of the
-corner rings and their centres, the gap between dots, outlines, separate colours for the
+corner rings and their centers, the gap between dots, outlines, separate colors for the
 corner markers, error correction level, margin size, and a logo in the middle.
+
+The color picker offers the colors already in the code you are working on, and the ones you
+picked recently, so a second element can be matched to the first without writing a hex code
+down. Save a look you like as a favorite and it joins the strip of styles, logo included:
+the app keeps its own copy of the image, so a saved style still works after the original file
+is renamed, tidied away, or left on another machine.
 
 ### It saves in the formats you need
 
@@ -98,7 +113,7 @@ phone before a code goes to print. That is the only test that fully counts.
 Needs the .NET 10 SDK.
 
 ```powershell
-dotnet test          # 694 tests: 474 run on Windows, Linux and macOS
+dotnet test          # 960 tests: 740 run on Windows, Linux and macOS
 .\publish.ps1        # builds dist\TrispotQR.exe
 ```
 
@@ -109,10 +124,16 @@ dotnet test          # 694 tests: 474 run on Windows, Linux and macOS
 ```
 src\TrispotQR.Core\        encoding, styling, geometry, export, scannability checking
 src\TrispotQR.ViewModels\  presentation logic, shared across UI toolkits
-src\TrispotQR.App\         the WPF window and views
-tests\                     three test projects; two run on Windows, Linux and macOS
+src\TrispotQR.UI\          the Avalonia windows, views and controls
+src\TrispotQR.Desktop\     the executable that ships; Windows, Mac and Linux
+src\TrispotQR.App\         the original WPF app, kept as a reference until it is retired
+tests\                     four test projects; three run on Windows, Linux and macOS
 tools\                     one-off build utilities (the app icon generator)
 ```
+
+The WPF app is no longer what you download. It still builds and its tests still run, because
+it is the thing the Avalonia port is checked against, and it will be removed once that is no
+longer useful.
 
 ### The design that matters
 
@@ -124,6 +145,10 @@ sync, which is why the SVG and the PNG always match what the preview showed.
 `TrispotQR.Core` targets plain `net10.0` and rasterises with SkiaSharp, so it carries no
 Windows dependency. A test asserts that, because one convenient `using System.Windows.Media`
 would undo it silently on a Windows machine. macOS and Linux versions are the reason.
+
+The same reasoning runs one layer up. `TrispotQR.ViewModels` holds the presentation logic and
+knows nothing about a toolkit, which is what let the Avalonia app be written against the same
+view models the WPF one uses, and what makes the two comparable while both exist.
 
 ### Why the test suite is shaped the way it is
 

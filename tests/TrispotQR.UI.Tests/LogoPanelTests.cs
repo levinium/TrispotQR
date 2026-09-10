@@ -63,7 +63,7 @@ public class LogoPanelTests : IDisposable
     {
         var editor = session.Model.ContentEditors.OfType<PlainTextEditor>().Single();
         session.Model.SelectedContent = editor;
-        editor.Text = "https://www.emanuelnyc.org";
+        editor.Text = "https://www.example.org";
 
         // RefreshNow skips the debounce the app uses in normal running; waiting out a real tick
         // would make this slow for no gain.

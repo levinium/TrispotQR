@@ -2,13 +2,18 @@
 
 ## How versioning works here
 
-The version lives in exactly one place: `<Version>` in `src\TrispotQR.App\TrispotQR.App.csproj`.
-Everything else reads it from the compiled assembly, so the About window, the small label
-beside the gear, and the file properties of the published `.exe` can never disagree.
+The version lives in exactly one place: `<Version>` in
+`src\TrispotQR.Desktop\TrispotQR.Desktop.csproj`. Everything else reads it from the compiled
+assembly, so the About window, the small label beside the gear, and the file properties of the
+published `.exe` can never disagree.
+
+That moved in 1.1.0, when the shipped app became the Avalonia one. `TrispotQR.App`, the WPF
+build, still carries a `<Version>` of its own, but it now describes only itself and stays at
+1.0.0 until that project is retired.
 
 **To release a new version:**
 
-1. Bump `<Version>` in `src\TrispotQR.App\TrispotQR.App.csproj`.
+1. Bump `<Version>` in `src\TrispotQR.Desktop\TrispotQR.Desktop.csproj`.
 2. Add a section below describing what changed.
 3. Run `.\publish.ps1`, which runs the tests first and refuses to publish if any fail. It
    prints the version it built, so what you hand over is always identifiable.
@@ -27,6 +32,47 @@ instead of losing someone's work.
 
 That folder was called `Trispot` before the app was renamed. Anything left there is copied
 across once, on first run, and the old folder is left alone rather than moved.
+
+---
+
+## 1.1.0
+
+**The app is now built on Avalonia rather than WPF.** It looks and behaves the same, reads
+the same settings folder, and keeps your saved styles: upgrading is a straight replacement.
+The reason for the change is Mac and Linux, which WPF cannot reach. Those builds are not
+released yet, but CI now builds the app and runs its tests on all three operating systems.
+
+The self-contained download is 48 MB, down from 65.
+
+**Logos are saved with a style.** Saving a favorite used to drop its logo, because the only
+thing it could record was where the file happened to sit on disk, and that path stops being
+true the moment the file is renamed or the style is opened on another machine. The app now
+keeps its own copy of the image, so the pairing survives. Applying a style brings its logo,
+and applying one without a logo clears the current one.
+
+Images are stored by a hash of their contents, so several styles sharing a logo keep one
+copy between them, and copies nothing refers to any more are cleared out at startup.
+
+**The logo controls moved out of Advanced options** into "How it looks", along with the
+corner colors, which used to be separated from the code color they belong with.
+
+**The color picker offers colors you are already using.** Two new rows: the colors present in
+the code you are working on, and the ones you picked recently, kept across restarts. Matching
+a second element to the first no longer means writing a hex code down.
+
+**Favorites live in the strip of styles.** "Save this style" became a card at the end of the
+row rather than a button elsewhere, and a saved style carries a small remove button.
+
+**Fixes.**
+
+- Copy reported success without saying so and, in Word, Outlook and Excel, without working.
+  The confirmation was never shown at all, and the clipboard offered only PNG, which those
+  applications will not paste. It now offers a plain bitmap as well, flattened onto white so
+  they do not paste a black box.
+- The confirmation itself was invisible in dark mode, being near-black text furniture on a
+  near-black page. It now inverts with the theme.
+- Swatch outlines were too faint to see, particularly in dark mode.
+- US spelling throughout the interface.
 
 ---
 

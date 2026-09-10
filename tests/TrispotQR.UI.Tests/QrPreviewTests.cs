@@ -34,14 +34,14 @@ public class QrPreviewTests : IDisposable
 
     private static QrDrawing BuildDrawing()
     {
-        var encoded = QrEncoder.Encode("https://www.emanuelnyc.org", EccLevel.Medium);
+        var encoded = QrEncoder.Encode("https://www.example.org", EccLevel.Medium);
         return QrGeometryBuilder.Build(encoded.Matrix!, StylePresets.BuiltIn[0].Style);
     }
 
     /// <summary>The same code, with <paramref name="logo"/> placed in the middle of it.</summary>
     private static QrDrawing BuildDrawingWithLogo(string logo)
     {
-        var encoded = QrEncoder.Encode("https://www.emanuelnyc.org", EccLevel.High);
+        var encoded = QrEncoder.Encode("https://www.example.org", EccLevel.High);
         var style = StylePresets.BuiltIn[0].Style with
         {
             Ecc = EccLevel.High,

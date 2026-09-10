@@ -380,7 +380,7 @@ public class SkiaCoexistenceTests
         // unifies the graph up to it. That was proven by hand on Windows. This test exists so
         // it is also proven on Linux and macOS, where the native libSkiaSharp has to load as
         // well, and so it stays proven whenever either version moves.
-        const string payload = "https://www.emanuelnyc.org";
+        const string payload = "https://www.example.org";
 
         var encoded = QrEncoder.Encode(payload, EccLevel.Medium);
         Assert.True(encoded.Success);
@@ -479,7 +479,7 @@ public class QrPreviewTests
 {
     private static QrDrawing BuildDrawing()
     {
-        var encoded = QrEncoder.Encode("https://www.emanuelnyc.org", EccLevel.Medium);
+        var encoded = QrEncoder.Encode("https://www.example.org", EccLevel.Medium);
         return QrGeometryBuilder.Build(encoded.Matrix!, StylePresets.BuiltIn[0].Style);
     }
 
@@ -1382,7 +1382,7 @@ public class MainWindowTests
     {
         var (window, model, editor) = Open();
 
-        editor.Text = "https://www.emanuelnyc.org";
+        editor.Text = "https://www.example.org";
 
         // RefreshNow skips the debounce timer, which is what the window uses in normal running.
         // Waiting on a real 150ms tick here would make the test slow and flaky for no gain.
@@ -1411,7 +1411,7 @@ public class MainWindowTests
     {
         var (_, model, editor) = Open();
 
-        editor.Text = "https://www.emanuelnyc.org";
+        editor.Text = "https://www.example.org";
         model.RefreshNow();
         Dispatcher.UIThread.RunJobs();
 
@@ -1746,7 +1746,7 @@ dotnet run --project src/TrispotQR.Desktop/TrispotQR.Desktop.csproj
 Walk through all of this and report what happened at each point:
 
 1. The window opens, roughly 1000x700, with an empty preview area and the save buttons disabled.
-2. Choose "Plain text" and type `https://www.emanuelnyc.org`. The preview appears within about a second and the badge goes green.
+2. Choose "Plain text" and type `https://www.example.org`. The preview appears within about a second and the badge goes green.
 3. Resize the window larger. The code stays sharp rather than going blocky — that is the vector preview doing its job.
 4. Click Save PNG. A real save dialog opens, defaulting to a `.png` name. Save it, then open the file and confirm it is the same code.
 5. Click Save SVG, save it, open it in a browser, and confirm it matches.

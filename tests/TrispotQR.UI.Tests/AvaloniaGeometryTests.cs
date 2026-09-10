@@ -86,7 +86,7 @@ public class SkiaCoexistenceTests
         // unifies the graph up to it. That was proven by hand on Windows. This test exists so
         // it is also proven on Linux and macOS, where the native libSkiaSharp has to load as
         // well, and so it stays proven whenever either version moves.
-        const string payload = "https://www.emanuelnyc.org";
+        const string payload = "https://www.example.org";
 
         var encoded = QrEncoder.Encode(payload, EccLevel.Medium);
         Assert.True(encoded.Success);

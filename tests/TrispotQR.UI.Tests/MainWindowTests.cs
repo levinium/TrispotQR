@@ -98,7 +98,7 @@ public class MainWindowTests
         UiHarness.WithWindow(session =>
         {
             var editor = Editor<PlainTextEditor>(session.Model);
-            editor.Text = "https://www.emanuelnyc.org";
+            editor.Text = "https://www.example.org";
 
             // RefreshNow skips the debounce timer, which is what the window uses in normal
             // running. Waiting on a real 150ms tick here would make the test slow and flaky for
@@ -145,7 +145,7 @@ public class MainWindowTests
         UiHarness.WithWindow(session =>
         {
             var editor = Editor<PlainTextEditor>(session.Model);
-            editor.Text = "https://www.emanuelnyc.org";
+            editor.Text = "https://www.example.org";
             session.Model.RefreshNow();
             DispatcherPump.Drain();
 
@@ -389,11 +389,11 @@ public class MainWindowTests
             DispatcherPump.Drain();
             input.Clear();
 
-            session.Window.KeyTextInput("emanuelnyc.org");
+            session.Window.KeyTextInput("example.org");
             DispatcherPump.Drain();
 
-            Assert.Equal("emanuelnyc.org", input.Text);
-            Assert.Equal("emanuelnyc.org", link.Address);
+            Assert.Equal("example.org", input.Text);
+            Assert.Equal("example.org", link.Address);
         });
     }
 
@@ -463,7 +463,7 @@ public class MainWindowTests
         UiHarness.WithWindow(session =>
         {
             var link = Editor<LinkEditor>(session.Model);
-            link.Address = "www.emanuelnyc.org";
+            link.Address = "www.example.org";
             DispatcherPump.Drain();
 
             Assert.False(link.FormMessageIsProblem);
