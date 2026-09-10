@@ -221,7 +221,7 @@ public class MainWindowTests
                 ("FirstName", "First name", false, 0),
                 ("JobTitle", "Job title", true, 0),
                 ("LastName", "Last name", false, 0),
-                ("Organization", "Organisation", false, 0),
+                ("Organization", "Organization", false, 0),
                 ("Phone", "Phone", true, 0),
                 ("Website", "Website", true, 0),
             ],

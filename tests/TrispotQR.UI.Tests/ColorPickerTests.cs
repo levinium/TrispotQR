@@ -315,7 +315,7 @@ public class ColorPickerTests
     /// </summary>
     private static readonly string[] Captions =
     [
-        "Pick a colour", "Or start from a preset", "Or type a colour code",
+        "Pick a color", "Or start from a preset", "Or type a color code",
         "Red", "Green", "Blue",
     ];
 

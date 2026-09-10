@@ -271,7 +271,7 @@ public class ThemeTests
             // there has to keep following the theme like any other.
             var caption = Assert.Single(
                 card.GetSelfAndVisualDescendants().OfType<TextBlock>(),
-                t => t.Text == "Pick a colour");
+                t => t.Text == "Pick a color");
 
             foreach (var (theme, variant) in new[]
             {

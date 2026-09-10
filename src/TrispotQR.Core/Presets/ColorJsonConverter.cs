@@ -20,7 +20,7 @@ public sealed class ColorJsonConverter : JsonConverter<RgbColor>
 
         return RgbColor.TryParse(text, out var colour)
             ? colour
-            : throw new JsonException($"\"{text}\" is not a colour this app understands.");
+            : throw new JsonException($"\"{text}\" is not a color this app understands.");
     }
 
     public override void Write(Utf8JsonWriter writer, RgbColor value, JsonSerializerOptions options) =>

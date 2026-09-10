@@ -109,7 +109,7 @@
                              Text="{Binding FirstName}" FieldName="FirstName"/>
           <controls:FieldBox Grid.Row="0" Grid.Column="2" Label="Last name"
                              Text="{Binding LastName}" FieldName="LastName"/>
-          <controls:FieldBox Grid.Row="1" Grid.Column="0" Label="Organisation"
+          <controls:FieldBox Grid.Row="1" Grid.Column="0" Label="Organization"
                              Text="{Binding Organization}" FieldName="Organization"/>
           <controls:FieldBox Grid.Row="1" Grid.Column="2" Label="Job title" IsOptional="True"
                              Text="{Binding JobTitle}" FieldName="JobTitle"/>
@@ -279,11 +279,41 @@
           </ItemsControl>
 
           <Grid ColumnDefinitions="86,*">
-            <TextBlock Text="Code colour" Classes="label" VerticalAlignment="Center" />
+            <TextBlock Text="Code color" Classes="label" VerticalAlignment="Center" />
             <controls:ColorPicker x:Name="ForegroundPicker" Grid.Column="1"
                                   HorizontalAlignment="Left"
                                   SelectedColor="{Binding Foreground}" />
           </Grid>
+
+          <!-- The corner colours sit with the code colour rather than in Advanced options, where
+               they used to live. Splitting the three colours of one code across two places made
+               the two that are not the main one look like a different kind of setting; they are
+               not. The corner SHAPES stay in Advanced, which is a real distinction: a shape
+               changes what a scanner has to cope with, a colour does not.
+
+               The checkbox comes with them because it is not a visibility toggle. Off means the
+               corners inherit the code colour, which is a genuine choice about the code and the
+               state most people want. -->
+          <CheckBox x:Name="UseCustomMarkerColorsBox" Content="Give the corners their own colors"
+                    IsChecked="{Binding UseCustomMarkerColors}" />
+
+          <!-- Two labelled pickers: 8 between a label and its swatch, 18 between the pairs.
+               Both gaps belong to the panel that arranges the things they separate, which is
+               why this is a nested pair of spaced StackPanels rather than a Grid with a Margin
+               on each picker. -->
+          <StackPanel x:Name="MarkerColorsRow" Orientation="Horizontal" Spacing="18"
+                      IsVisible="{Binding UseCustomMarkerColors}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Corner ring" Classes="label" VerticalAlignment="Center" />
+              <controls:ColorPicker x:Name="MarkerFramePicker"
+                                    SelectedColor="{Binding MarkerFrameColor}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Corner center" Classes="label" VerticalAlignment="Center" />
+              <controls:ColorPicker x:Name="MarkerCenterPicker"
+                                    SelectedColor="{Binding MarkerCenterColor}" />
+            </StackPanel>
+          </StackPanel>
 
           <StackPanel Spacing="4">
             <TextBlock Text="Background" Classes="label" />
@@ -384,36 +414,11 @@
             </StackPanel>
 
             <StackPanel Spacing="4">
-              <TextBlock Text="Corner centre shape" Classes="label" />
+              <TextBlock Text="Corner center shape" Classes="label" />
               <ComboBox x:Name="MarkerCenterShapeBox" ItemsSource="{Binding MarkerCenterShapes}"
                         SelectedItem="{Binding MarkerCenterShape}"
                         ItemTemplate="{StaticResource FriendlyEnumTemplate}"
                         HorizontalAlignment="Stretch" />
-            </StackPanel>
-
-            <Separator />
-            <TextBlock Text="Corner colours" Classes="heading" />
-
-            <CheckBox x:Name="UseCustomMarkerColorsBox" Content="Give the corners their own colours"
-                      IsChecked="{Binding UseCustomMarkerColors}" />
-
-            <!-- Two labelled pickers: 8 between a label and its swatch, 18 between the pairs.
-                 Both gaps belong to the panel that arranges the things they separate, which is
-                 why this is a nested pair of spaced StackPanels rather than a Grid with a Margin
-                 on each picker. The FieldBox guard in MainWindowTests only reaches content
-                 editors, so nothing but the convention itself keeps this right. -->
-            <StackPanel x:Name="MarkerColorsRow" Orientation="Horizontal" Spacing="18"
-                        IsVisible="{Binding UseCustomMarkerColors}">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Ring" Classes="label" VerticalAlignment="Center" />
-                <controls:ColorPicker x:Name="MarkerFramePicker"
-                                      SelectedColor="{Binding MarkerFrameColor}" />
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Centre" Classes="label" VerticalAlignment="Center" />
-                <controls:ColorPicker x:Name="MarkerCenterPicker"
-                                      SelectedColor="{Binding MarkerCenterColor}" />
-              </StackPanel>
             </StackPanel>
 
             <Separator />
@@ -424,7 +429,7 @@
 
             <StackPanel x:Name="OutlineDetail" Spacing="10" IsVisible="{Binding OutlineEnabled}">
               <Grid ColumnDefinitions="86,*">
-                <TextBlock Text="Colour" Classes="label" VerticalAlignment="Center" />
+                <TextBlock Text="Color" Classes="label" VerticalAlignment="Center" />
                 <controls:ColorPicker x:Name="OutlinePicker" Grid.Column="1"
                                       HorizontalAlignment="Left"
                                       SelectedColor="{Binding OutlineColor}" />

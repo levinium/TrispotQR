@@ -673,25 +673,30 @@ public class StylingPanelTests
     private static readonly string[] Headings =
     [
         "What goes in the code", "How it looks", "Save",
-        "Shapes", "Corner colours", "Outline", "Reliability", "Logo",
+        "Shapes", "Outline", "Reliability", "Logo",
     ];
 
     /// <summary>
     /// Every field label, by the words it shows.
     ///
-    /// Five of these belong to the corner colours and the outline, which the test below switches
-    /// on, and the last two to the logo group, which stays collapsed because no image is chosen.
-    /// All of them are found either way: a group hidden with IsVisible is still realised, so its
-    /// labels are in the visual tree whether or not anyone can see them. Checked directly --
-    /// dropping the two toggles leaves the test green -- so this says "switched on" rather than
-    /// the "they do not exist until it is" the comment here used to claim.
+    /// Three of these belong to the outline and two to the corner colours, both of which the test
+    /// below switches on, and the last two to the logo group, which stays collapsed because no
+    /// image is chosen. All of them are found either way: a group hidden with IsVisible is still
+    /// realised, so its labels are in the visual tree whether or not anyone can see them. Checked
+    /// directly -- dropping the two toggles leaves the test green -- so this says "switched on"
+    /// rather than the "they do not exist until it is" the comment here used to claim.
+    ///
+    /// The first five now sit outside the advanced options: the corner colours moved up beside
+    /// the code colour, because splitting one code's three colours across two panels made two of
+    /// them look like a different kind of setting. Their SHAPES stayed behind, which is why
+    /// "Corner ring shape" and "Corner ring" are both here and are in different places.
     /// </summary>
     private static readonly string[] Labels =
     [
-        "Code colour", "Background", "Size",
-        "Dot shape", "Gap between dots", "Corner ring shape", "Corner centre shape",
+        "Code color", "Corner ring", "Corner center", "Background", "Size",
+        "Dot shape", "Gap between dots", "Corner ring shape", "Corner center shape",
         "Error correction", "Margin around the code",
-        "Ring", "Centre", "Colour", "Thickness", "Applies to",
+        "Color", "Thickness", "Applies to",
         "Logo size", "Space around it",
     ];
 
@@ -761,10 +766,13 @@ public class StylingPanelTests
         //
         // What it does NOT cover, stated rather than implied:
         //
-        //  - Labelled rows outside the advanced options. "Code colour", "Background" and "Size"
-        //    are checked by the lookup above and by nothing structural. The scope stops at the
-        //    expander deliberately: the background row is a panel of radio buttons and a colour
-        //    picker with no label of its own, so a guard reaching it would fire on correct code.
+        //  - Labelled rows outside the advanced options. "Code color", "Corner ring",
+        //    "Corner center", "Background" and "Size" are checked by the lookup above and by
+        //    nothing structural. The scope stops at the expander deliberately: the background row
+        //    is a panel of radio buttons and a colour picker with no label of its own, so a guard
+        //    reaching it would fire on correct code. The two corner colours joined this list when
+        //    they moved up out of the expander, so they lost the structural cover they used to
+        //    have; the by-text lookup is all that pins them now.
         //  - A label nested deeper than its group, rather than beside the control it introduces.
         //    Catching that means walking the whole tree for anything shaped like a label, which
         //    would fire on the preview and the content editors too.

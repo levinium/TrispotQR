@@ -84,7 +84,7 @@ public static class ScannabilityChecker
         }
         else if (contrast < MinimumContrast)
         {
-            issues.Add($"There is not enough contrast between the code colour and the background "
+            issues.Add($"There is not enough contrast between the code color and the background "
                      + $"(currently {contrast:0.0} to 1). Aim for at least {MinimumContrast:0} to 1 by darkening "
                      + "the code or lightening the background.");
         }
