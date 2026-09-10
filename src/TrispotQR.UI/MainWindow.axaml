@@ -23,6 +23,24 @@
     <Style Selector="TextBlock.label">
       <Setter Property="FontSize" Value="12"/>
     </Style>
+
+    <!-- The remove button is invisible until the card it sits on is hovered, so a row of styles
+         is a row of styles rather than a row of styles wearing delete buttons. Opacity rather
+         than IsVisible: the card must not change size when the pointer arrives, and IsVisible
+         would take the button out of the layout and shift the thumbnail under it.
+
+         Keyboard and screen reader users are not shut out by this. The button is still in the
+         tree, still focusable and still has its tooltip, and the context menu remains a second
+         route to the same command. -->
+    <Style Selector="Button.remove">
+      <Setter Property="Opacity" Value="0"/>
+    </Style>
+    <Style Selector="Button.presetCard:pointerover Button.remove">
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Button.remove:focus">
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
   </Window.Styles>
 
   <Window.Resources>
@@ -248,7 +266,17 @@
           <TextBlock Text="Pick a style. Every one of these has been tested to make sure it still scans."
                      Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
 
-          <ItemsControl x:Name="PresetsStrip" ItemsSource="{Binding Presets}">
+          <!-- The strip and the button that adds to it, in one wrapping row so the action sits
+               with the things it acts on rather than adrift below the whole section.
+
+               Two panels rather than one, and the reason is worth stating: an ItemsControl has
+               no footer, so a genuinely inline trailing card would mean binding the strip to
+               "presets plus a sentinel" and choosing templates by type. That machinery buys
+               inline placement when the strip is short and costs a view model that carries a
+               fake preset. This lands the card immediately after the last one, and after the
+               final row when the strip wraps, which is the same place a reader looks. -->
+          <WrapPanel>
+            <ItemsControl x:Name="PresetsStrip" ItemsSource="{Binding Presets}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <WrapPanel />
@@ -256,18 +284,37 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:CompileBindings="False">
-                <Button Margin="0,0,8,8" Padding="6"
+                <Button Classes="presetCard" Margin="0,0,8,8" Padding="6"
                         ToolTip.Tip="{Binding Description}"
                         Command="{Binding $parent[ItemsControl].DataContext.ApplyPresetCommand}"
                         CommandParameter="{Binding}">
-                  <StackPanel Width="64" Spacing="4">
-                    <controls:QrPreview Drawing="{Binding ThumbnailDrawing}" Width="54" Height="54" />
-                    <TextBlock Text="{Binding Name}" TextAlignment="Center" FontSize="11"
-                               TextTrimming="CharacterEllipsis" />
-                  </StackPanel>
+                  <Grid Width="64">
+                    <StackPanel Spacing="4">
+                      <controls:QrPreview Drawing="{Binding ThumbnailDrawing}" Width="54" Height="54" />
+                      <TextBlock Text="{Binding Name}" TextAlignment="Center" FontSize="11"
+                                 TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+
+                    <!-- A visible way to remove a style you saved. The context menu below still
+                         works and is the older route, but nothing about a card advertised that
+                         it could be removed at all, and a right click is not a thing most people
+                         try on a swatch. Only on styles the user saved: a built-in cannot be
+                         deleted, and offering an X that refuses is worse than offering none. -->
+                    <Button x:Name="RemoveFavoriteButton" Classes="remove"
+                            IsVisible="{Binding !IsBuiltIn}"
+                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Width="18" Height="18" Padding="0"
+                            ToolTip.Tip="Remove this style"
+                            Command="{Binding $parent[ItemsControl].DataContext.DeletePresetCommand}"
+                            CommandParameter="{Binding}">
+                      <TextBlock Text="&#x2715;" FontSize="10" HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
+                    </Button>
+                  </Grid>
+
                   <Button.ContextMenu>
                     <ContextMenu>
-                      <MenuItem Header="Delete this saved style"
+                      <MenuItem Header="Remove this style"
                                 IsVisible="{Binding !IsBuiltIn}"
                                 Command="{Binding $parent[ItemsControl].DataContext.DeletePresetCommand}"
                                 CommandParameter="{Binding}" />
@@ -276,7 +323,26 @@
                 </Button>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
-          </ItemsControl>
+            </ItemsControl>
+
+            <!-- Sized and spaced to match a preset card exactly, because it is meant to read as
+                 the empty slot at the end of the row rather than as a button that happens to be
+                 nearby. Dashed, so it is legible as "add one" without an icon set. -->
+            <Button x:Name="SavePresetButton" Classes="addFavorite"
+                    Margin="0,0,8,8" Padding="6"
+                    ToolTip.Tip="Keep the current style so you can come back to it"
+                    Command="{Binding SavePresetCommand}">
+              <StackPanel Width="64" Spacing="4">
+                <Border Width="54" Height="54" CornerRadius="4"
+                        BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}">
+                  <TextBlock Text="+" FontSize="22" Opacity="0.6"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="Favorite" TextAlignment="Center" FontSize="11"
+                           TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </Button>
+          </WrapPanel>
 
           <Grid ColumnDefinitions="86,*">
             <TextBlock Text="Code color" Classes="label" VerticalAlignment="Center" />
@@ -346,8 +412,6 @@
             </StackPanel>
           </StackPanel>
 
-          <Button x:Name="SavePresetButton" Content="Save this style..."
-                  Command="{Binding SavePresetCommand}" HorizontalAlignment="Left" />
         </StackPanel>
 
         <StackPanel Spacing="10">

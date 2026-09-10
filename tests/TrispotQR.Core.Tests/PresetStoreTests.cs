@@ -248,12 +248,32 @@ public class PresetStoreTests : IDisposable
             LastSaveDirectory = @"C:\Users\Someone\Pictures",
             WindowWidth = 1400,
             WindowHeight = 900,
+            RecentColors = ["#112233", "#445566"],
         };
 
         store.Save(settings);
         var reloaded = new AppSettingsStore(_directory).Load();
 
-        Assert.Equal(settings, reloaded);
+        // Member by member rather than Assert.Equal on the whole record, and the reason is worth
+        // writing down: AppSettings is a record, so its generated equality compares RecentColors
+        // by reference. Two lists holding the same strings are not equal, which makes a
+        // whole-record comparison fail on a round trip that in fact worked perfectly.
+        //
+        // The old whole-record assertion passed only because every instance's default was
+        // Array.Empty<string>(), which is interned, so both sides held the *same* list. It would
+        // have started failing the moment anything put a colour in it -- which is to say it was
+        // never really comparing this member at all.
+        Assert.Equal(settings.Style, reloaded.Style);
+        Assert.Equal(settings.ContentTypeIndex, reloaded.ContentTypeIndex);
+        Assert.Equal(settings.LastSaveDirectory, reloaded.LastSaveDirectory);
+        Assert.Equal(settings.WindowWidth, reloaded.WindowWidth);
+        Assert.Equal(settings.WindowHeight, reloaded.WindowHeight);
+        Assert.Equal(settings.Theme, reloaded.Theme);
+        Assert.Equal(settings.WarnOnRiskyCodes, reloaded.WarnOnRiskyCodes);
+        Assert.Equal(settings.DefaultSaveDirectory, reloaded.DefaultSaveDirectory);
+        Assert.Equal(settings.DefaultPixelSize, reloaded.DefaultPixelSize);
+        Assert.Equal(settings.RememberLastStyle, reloaded.RememberLastStyle);
+        Assert.Equal(settings.RecentColors, reloaded.RecentColors);
     }
 
     [Fact]

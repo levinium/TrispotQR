@@ -130,6 +130,69 @@ public class PresetsStripTests
     }
 
     [AvaloniaFact]
+    public void TheFavoriteCardSitsInTheStripWithTheStyles()
+    {
+        // It used to be a button below the whole section, which put the action to add a style a
+        // long way from the row of styles it adds to. Asserting the shared parent rather than a
+        // coordinate: the point is that they are arranged together, not where that lands.
+        UiHarness.WithWindow(session =>
+        {
+            var add = session.Window.FindControl<Button>("SavePresetButton")
+                ?? throw new InvalidOperationException("MainWindow no longer has a SavePresetButton.");
+            var strip = session.Window.FindControl<ItemsControl>("PresetsStrip")!;
+
+            Assert.Same(strip.GetVisualParent(), add.GetVisualParent());
+            Assert.Same(session.Model.SavePresetCommand, add.Command);
+        });
+    }
+
+    [AvaloniaFact]
+    public void OnlyASavedStyleOffersTheRemoveButton()
+    {
+        // The affordance the feature exists for: right click was the only route and nothing on a
+        // card said so. A built-in must not offer it, because the command refuses built-ins and
+        // an X that does nothing is worse than no X.
+        UiHarness.WithWindow(session =>
+        {
+            var saved = new PresetItem(
+                new StylePreset("Mine", "A saved style", QrStyle.Default, IsBuiltIn: false),
+                thumbnailDrawing: null);
+            session.Model.Presets.Add(saved);
+            DispatcherPump.Drain();
+
+            var builtIn = session.Model.Presets.First(p => p.IsBuiltIn);
+
+            Assert.False(RemoveButton(UiHarness.PresetCard(session.Window, builtIn)).IsVisible);
+            Assert.True(RemoveButton(UiHarness.PresetCard(session.Window, saved)).IsVisible);
+        });
+    }
+
+    [AvaloniaFact]
+    public void TheRemoveButtonDeletesThatStyleAndNoOther()
+    {
+        // Driven through the button rather than the command, so a wrong CommandParameter is
+        // caught: every card is bound to the same command and only the parameter says which
+        // style is meant.
+        UiHarness.WithWindow(session =>
+        {
+            var saved = new PresetItem(
+                new StylePreset("Mine", "A saved style", QrStyle.Default, IsBuiltIn: false),
+                thumbnailDrawing: null);
+            session.Model.Presets.Add(saved);
+            DispatcherPump.Drain();
+
+            var remove = RemoveButton(UiHarness.PresetCard(session.Window, saved));
+
+            Assert.Same(session.Model.DeletePresetCommand, remove.Command);
+            Assert.Same(saved, remove.CommandParameter);
+        });
+    }
+
+    /// <summary>The remove button on one card, by the name the template gives it.</summary>
+    private static Button RemoveButton(Button card) =>
+        card.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "RemoveFavoriteButton");
+
+    [AvaloniaFact]
     public void ACardWithNoThumbnailRendersInsteadOfThrowing()
     {
         // A preset saved from a style that failed to encode has no thumbnail. It must still
@@ -152,7 +215,7 @@ public class PresetsStripTests
 
             Assert.Null(preview.Drawing);
             Assert.True(preview.IsVisible);
-            Assert.Equal("Broken", card.GetVisualDescendants().OfType<TextBlock>().Single().Text);
+            Assert.Equal("Broken", UiHarness.PresetCardLabel(card).Text);
         });
     }
 
@@ -196,7 +259,7 @@ public class PresetsStripTests
             // CommandParameter both read back null. The literal header is the one thing the
             // XAML sets outright. What the bindings do once the menu is opened has its own
             // test, TheDeleteItemIsOnASavedStylesMenuAndOffABuiltInsAltogether.
-            Assert.Equal("Delete this saved style", delete.Header);
+            Assert.Equal("Remove this style", delete.Header);
 
             // Not executed either: DeletePreset asks the dialog service to confirm, which opens
             // a modal nothing can dismiss in a headless run. That the deletion goes through is
@@ -250,7 +313,7 @@ public class PresetsStripTests
         {
             var delete = Assert.Single(
                 window.GetVisualDescendants().OfType<MenuItem>(),
-                m => (m.Header as string) == "Delete this saved style");
+                m => (m.Header as string) == "Remove this style");
 
             return delete.IsVisible;
         }

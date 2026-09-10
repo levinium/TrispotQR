@@ -73,6 +73,12 @@ public sealed record AppSettings
     ///
     /// Capped where it is written rather than here, because a cap is a rule about recording and
     /// this record only has to carry what was recorded.
+    ///
+    /// One caveat, because it is the kind that bites silently: this is the only member of this
+    /// record that is not compared by value. A record's generated Equals compares a collection
+    /// by reference, so two AppSettings holding the same colours in different lists are not
+    /// equal. Nothing in the app compares whole AppSettings, and the one test that did now
+    /// compares member by member; anything that starts to should know this first.
     /// </summary>
     public IReadOnlyList<string> RecentColors { get; init; } = [];
 

@@ -141,15 +141,36 @@ internal static class UiHarness
     /// A full descendant walk rather than the ItemsControl's direct visual children: those are
     /// the control template's own Border and ItemsPresenter, so the WrapPanel holding the cards
     /// is two levels down and a shallow search silently returns nothing at all.
+    ///
+    /// Filtered on the card's own class rather than taking every Button found, because a card
+    /// now contains one: the remove button that appears on hover is a Button inside a Button, so
+    /// an unfiltered walk returns two elements per saved style and one per built-in. That made
+    /// six tests here fail at once when the remove button landed, which is the good outcome --
+    /// a helper that had instead returned the first Button per card would have kept them green
+    /// while quietly testing the wrong control.
     /// </remarks>
     public static IEnumerable<Button> PresetCards(Window window) =>
         (window.FindControl<ItemsControl>("PresetsStrip")
             ?? throw new InvalidOperationException("MainWindow no longer has a PresetsStrip."))
-        .GetVisualDescendants().OfType<Button>();
+        .GetVisualDescendants().OfType<Button>()
+        .Where(b => b.Classes.Contains("presetCard"));
 
     /// <summary>The card standing for one preset, by identity rather than by position.</summary>
     public static Button PresetCard(Window window, PresetItem item) =>
         PresetCards(window).Single(c => ReferenceEquals(c.DataContext, item));
+
+    /// <summary>
+    /// The style name shown on a card.
+    /// </summary>
+    /// <remarks>
+    /// Selected by which Button owns it rather than by taking the only TextBlock, because a
+    /// saved style's card holds two: its name, and the glyph inside the remove button. The
+    /// nearest Button ancestor tells them apart exactly -- the name's is the card itself, the
+    /// glyph's is the remove button nested inside it.
+    /// </remarks>
+    public static TextBlock PresetCardLabel(Button card) =>
+        card.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => ReferenceEquals(t.FindAncestorOfType<Button>(), card));
 
     /// <summary>
     /// Reaches past FieldBox's own public surface to the real inner TextBox, the same way a
