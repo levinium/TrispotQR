@@ -36,6 +36,21 @@ public partial class MainWindow : Window
 
         DataContext = _model;
 
+        // One handler for every colour picker the window will ever hold, present or not yet
+        // realised. Two of the five live inside panels that stay collapsed until a checkbox is
+        // ticked, so subscribing to instances at load would silently miss them; the event
+        // bubbles, so the window hears them all. The picker only raises this when the colour
+        // actually changed, which is what keeps opening and dismissing a picker out of the list.
+        AddHandler(
+            Controls.ColorPicker.ColorCommittedEvent,
+            (_, e) =>
+            {
+                if (e.Source is Controls.ColorPicker picker)
+                {
+                    _model.RecordRecentColor(picker.SelectedColor);
+                }
+            });
+
         // OnClosing has always written these; nothing read them back, so the window reopened
         // at the XAML's 1000x700 however the user had left it. The WPF app restores them the
         // same way (MainWindow.xaml.cs), and it is the same settings file behind both.

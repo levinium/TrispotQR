@@ -43,7 +43,51 @@ public partial class ColorPicker : UserControl
         AvaloniaProperty.Register<ColorPicker, RgbColor>(
             nameof(SelectedColor), RgbColor.Black, defaultBindingMode: BindingMode.TwoWay);
 
+    /// <summary>
+    /// The other colours the thing being styled is already wearing, offered so one part can be
+    /// matched to another without reading a hex code off a different picker.
+    ///
+    /// The control neither knows nor cares where these come from; the window binds them. That is
+    /// what keeps a picker usable anywhere, including in its own tests, without dragging a view
+    /// model in behind it.
+    /// </summary>
+    public static readonly StyledProperty<IEnumerable<RgbColor>?> ColorsInUseProperty =
+        AvaloniaProperty.Register<ColorPicker, IEnumerable<RgbColor>?>(nameof(ColorsInUse));
+
+    /// <summary>Colours chosen before, newest first. Bound in the same way and for the same reason.</summary>
+    public static readonly StyledProperty<IEnumerable<RgbColor>?> RecentColorsProperty =
+        AvaloniaProperty.Register<ColorPicker, IEnumerable<RgbColor>?>(nameof(RecentColors));
+
+    /// <summary>
+    /// Raised when the user finishes with a colour, meaning the popup closed on a different
+    /// colour from the one it opened on.
+    /// </summary>
+    ///
+    /// A routed event rather than a plain one, and this is load bearing: the pickers live in
+    /// three different places, two of them inside collapsed panels that are not realised at
+    /// window load, so nothing can reliably subscribe to each instance. Bubbling lets the window
+    /// add one handler and hear from every picker it will ever contain.
+    ///
+    /// It carries no colour of its own. The sender is the picker and its SelectedColor is the
+    /// answer, so an args type would only be a second copy of a value already in reach.
+    public static readonly RoutedEvent<RoutedEventArgs> ColorCommittedEvent =
+        RoutedEvent.Register<ColorPicker, RoutedEventArgs>(
+            nameof(ColorCommitted), RoutingStrategies.Bubble);
+
+    public event EventHandler<RoutedEventArgs>? ColorCommitted
+    {
+        add => AddHandler(ColorCommittedEvent, value);
+        remove => RemoveHandler(ColorCommittedEvent, value);
+    }
+
     private readonly ColorPickerState _state = new();
+
+    /// <summary>
+    /// The colour the popup was showing when it opened, so closing can tell a change from a
+    /// look. Without it, opening and dismissing a picker would file the colour as freshly
+    /// chosen and push it to the front of the recent list.
+    /// </summary>
+    private RgbColor _colorWhenOpened;
 
     /// <summary>
     /// Set while <see cref="Sync"/> is writing the current colour into the popup's parts, so
@@ -68,7 +112,61 @@ public partial class ColorPicker : UserControl
         SwatchButton.IsCheckedChanged += (_, _) => PickerPopup.IsOpen = SwatchButton.IsChecked == true;
         PickerPopup.Closed += (_, _) => SwatchButton.IsChecked = false;
 
+        PickerPopup.Opened += (_, _) =>
+        {
+            _colorWhenOpened = SelectedColor;
+            SyncOfferedColors();
+        };
+
+        PickerPopup.Closed += (_, _) =>
+        {
+            if (SelectedColor != _colorWhenOpened)
+            {
+                RaiseEvent(new RoutedEventArgs(ColorCommittedEvent));
+            }
+        };
+
         Sync();
+    }
+
+    public IEnumerable<RgbColor>? ColorsInUse
+    {
+        get => GetValue(ColorsInUseProperty);
+        set => SetValue(ColorsInUseProperty, value);
+    }
+
+    public IEnumerable<RgbColor>? RecentColors
+    {
+        get => GetValue(RecentColorsProperty);
+        set => SetValue(RecentColorsProperty, value);
+    }
+
+    /// <summary>
+    /// Fills the two offered rows and hides either one that has nothing to offer.
+    ///
+    /// Run when the popup opens rather than when the bound lists change, because that is the
+    /// only moment the contents are about to be looked at, and it means a colour recorded while
+    /// this picker was open is already there the next time it is.
+    /// </summary>
+    private void SyncOfferedColors()
+    {
+        // A picker never offers the colour it is already showing: choosing it would change
+        // nothing, and it takes a slot from a colour that would.
+        var inUse = (ColorsInUse ?? [])
+            .Where(c => c != SelectedColor)
+            .Select(c => new PaletteColor(c.ToHex(), c))
+            .ToList();
+
+        var recent = (RecentColors ?? [])
+            .Where(c => c != SelectedColor)
+            .Select(c => new PaletteColor(c.ToHex(), c))
+            .ToList();
+
+        InUseItems.ItemsSource = inUse;
+        InUseGroup.IsVisible = inUse.Count > 0;
+
+        RecentItems.ItemsSource = recent;
+        RecentGroup.IsVisible = recent.Count > 0;
     }
 
     public RgbColor SelectedColor
