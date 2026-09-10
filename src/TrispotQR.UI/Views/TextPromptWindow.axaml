@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TrispotQR.UI.Views.TextPromptWindow"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        SizeToContent="Height"
+        Width="380"
+        Title="Trispot QR">
+
+  <StackPanel Margin="18" Spacing="10">
+    <TextBlock x:Name="PromptText" TextWrapping="Wrap" />
+    <TextBox x:Name="Input" MaxLength="60" />
+
+    <TextBlock x:Name="ErrorText" IsVisible="False" TextWrapping="Wrap"
+               Foreground="{DynamicResource DangerBrush}" FontSize="12" />
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button x:Name="CancelButton" Content="Cancel" Width="86" Click="OnCancel" IsCancel="True" />
+      <Button x:Name="ConfirmButton" Content="Save" Width="86" Click="OnConfirm" IsDefault="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>

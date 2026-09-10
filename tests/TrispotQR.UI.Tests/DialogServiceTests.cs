@@ -144,4 +144,15 @@ public class DialogServiceTests
         Assert.Null(dialogs.AskForText("Save preset", "Name", "My style"));
         Assert.Null(dialogs.EditSettings(new AppSettings()));
     }
+
+    [AvaloniaFact]
+    public void AskForTextReturnsNullBeforeTheOwnerIsOnScreen()
+    {
+        // MainViewModel's constructor can reach the dialog service before Show(), and Avalonia
+        // refuses a modal on a non-visible owner. Null is a cancelled dialog, which is safe.
+        var owner = new Window();
+        var service = new AvaloniaDialogService(owner);
+
+        Assert.Null(service.AskForText("Trispot QR", "Name this style", "Custom"));
+    }
 }

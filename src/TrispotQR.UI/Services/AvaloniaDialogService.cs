@@ -10,9 +10,9 @@ namespace TrispotQR.UI.Services;
 /// <summary>
 /// Everything the view model needs from the world outside it, in Avalonia terms.
 ///
-/// Three members are not implemented in this phase and return null, which every caller in
-/// MainViewModel already reads as "the user cancelled": the logo picker, the save-preset
-/// prompt and the settings window all arrive in Phase 2c along with the UI that reaches them.
+/// Two members are not implemented in this phase and return null, which every caller in
+/// MainViewModel already reads as "the user cancelled": the logo picker and the settings window
+/// both arrive in Phase 2c along with the UI that reaches them.
 /// </summary>
 public sealed class AvaloniaDialogService : IDialogService
 {
@@ -120,8 +120,18 @@ public sealed class AvaloniaDialogService : IDialogService
     /// <summary>Phase 2c, with the logo picker. Null reads as a cancelled dialog.</summary>
     public string? AskForImage(string? directory) => null;
 
-    /// <summary>Phase 2c, with the save-preset flow. Null reads as a cancelled dialog.</summary>
-    public string? AskForText(string title, string prompt, string initialValue) => null;
+    public string? AskForText(string title, string prompt, string initialValue)
+    {
+        // A question needs an answer now, so like Ask it cannot be queued. Null is the answer
+        // that changes nothing, and is what MainViewModel already reads as a cancelled dialog.
+        if (!CanShowDialog)
+        {
+            return null;
+        }
+
+        return DispatcherWait.For(
+            TextPromptWindow.ShowAsync(_owner, title, prompt, initialValue), DialogTimeout);
+    }
 
     /// <summary>Phase 2c, with the settings window. Null reads as a cancelled dialog.</summary>
     public AppSettings? EditSettings(AppSettings current) => null;
