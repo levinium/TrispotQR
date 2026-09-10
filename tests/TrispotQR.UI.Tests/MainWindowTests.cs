@@ -74,7 +74,9 @@ public class MainWindowTests
 
             Assert.NotNull(session.Model.PreviewDrawing);
 
-            var preview = session.Window.GetVisualDescendants().OfType<QrPreview>().Single();
+            var previewArea = session.Window.FindControl<Grid>("PreviewArea")
+                ?? throw new InvalidOperationException("MainWindow no longer has a PreviewArea grid.");
+            var preview = previewArea.GetVisualDescendants().OfType<QrPreview>().Single();
             Assert.NotNull(preview.Drawing);
         });
     }

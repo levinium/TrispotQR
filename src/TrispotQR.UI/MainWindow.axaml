@@ -125,7 +125,7 @@
   <Grid ColumnDefinitions="*,380" Margin="16">
 
     <!-- Preview -->
-    <Grid Grid.Column="0" RowDefinitions="*,Auto,Auto" Margin="0,0,16,0">
+    <Grid x:Name="PreviewArea" Grid.Column="0" RowDefinitions="*,Auto,Auto" Margin="0,0,16,0">
       <Border Grid.Row="0" Background="#F4F4F4" CornerRadius="6" Padding="16">
         <controls:QrPreview Drawing="{Binding PreviewDrawing}" />
       </Border>
@@ -200,6 +200,39 @@
         <StackPanel Spacing="10">
           <TextBlock Text="How it looks" Classes="heading" />
 
+          <TextBlock Text="Pick a style. Every one of these has been tested to make sure it still scans."
+                     Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+
+          <ItemsControl x:Name="PresetsStrip" ItemsSource="{Binding Presets}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:CompileBindings="False">
+                <Button Margin="0,0,8,8" Padding="6"
+                        ToolTip.Tip="{Binding Description}"
+                        Command="{Binding $parent[ItemsControl].DataContext.ApplyPresetCommand}"
+                        CommandParameter="{Binding}">
+                  <StackPanel Width="64" Spacing="4">
+                    <controls:QrPreview Drawing="{Binding ThumbnailDrawing}" Width="54" Height="54" />
+                    <TextBlock Text="{Binding Name}" TextAlignment="Center" FontSize="11"
+                               TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <Button.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="Delete this saved style"
+                                IsVisible="{Binding !IsBuiltIn}"
+                                Command="{Binding $parent[ItemsControl].DataContext.DeletePresetCommand}"
+                                CommandParameter="{Binding}" />
+                    </ContextMenu>
+                  </Button.ContextMenu>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
           <Grid ColumnDefinitions="86,*">
             <TextBlock Text="Code colour" Classes="label" VerticalAlignment="Center" />
             <controls:ColorPicker x:Name="ForegroundPicker" Grid.Column="1"
@@ -229,6 +262,9 @@
                                     IsVisible="{Binding IsCustomBackground}" />
             </StackPanel>
           </StackPanel>
+
+          <Button x:Name="SavePresetButton" Content="Save this style..."
+                  Command="{Binding SavePresetCommand}" HorizontalAlignment="Left" />
         </StackPanel>
 
         <StackPanel Spacing="10">
@@ -389,9 +425,6 @@
 
           </StackPanel>
         </Expander>
-
-        <TextBlock TextWrapping="Wrap" Opacity="0.6" FontSize="12"
-                   Text="Presets, the logo picker and settings are still in the Windows build. They arrive here next." />
 
       </StackPanel>
     </ScrollViewer>
