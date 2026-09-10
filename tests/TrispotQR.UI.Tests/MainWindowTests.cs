@@ -14,6 +14,40 @@ namespace TrispotQR.UI.Tests;
 
 public class MainWindowTests
 {
+    [AvaloniaFact]
+    public void AnAnnouncementFromTheViewModelReachesTheToast()
+    {
+        // The window never subscribed to Announcement at all. MainViewModel raised it on every
+        // copy, every save and every saved style, the WPF window turned each into a toast, and
+        // in the Avalonia build all of them went nowhere: a copy that worked and a copy that
+        // failed looked exactly alike, which is how a broken clipboard went unnoticed.
+        //
+        // Driven through the substituted model, which is the one the window is showing. The
+        // subscription follows the data context for exactly this reason: the strip already did,
+        // and a window whose cards came from one model while its confirmations came from another
+        // would be misreporting one of them.
+        UiHarness.WithWindow(session =>
+        {
+            var toast = session.Window.FindControl<Border>("Toast")
+                ?? throw new InvalidOperationException("MainWindow no longer has a Toast.");
+            var text = session.Window.FindControl<TextBlock>("ToastText")!;
+
+            Assert.Equal(0, toast.Opacity);
+
+            // A real copy, through the real command, against Avalonia.Headless's own clipboard.
+            // The content is set first because Copy renders the current drawing, and the window
+            // opens with an empty box and nothing to render.
+            ((PlainTextEditor)session.Model.ContentEditors[0]).Text = "https://www.example.org";
+            session.Model.RefreshNow();
+            session.Model.CopyCommand.Execute(null);
+            DispatcherPump.Drain();
+
+            // The message, not the animation: the fade runs on a clock this test does not own,
+            // so what is provable here is that the announcement arrived and was written out.
+            Assert.False(string.IsNullOrWhiteSpace(text.Text), "nothing reached the toast");
+        });
+    }
+
     private static Button FindButton(Window window, string content) =>
         window.GetVisualDescendants().OfType<Button>().Single(b => Equals(b.Content, content));
 

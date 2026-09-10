@@ -606,5 +606,29 @@
 
       </StackPanel>
     </ScrollViewer>
+
+    <!-- Brief confirmation that fades away on its own, spanning both columns so it is centred
+         on the window rather than on the form. Not hit testable, so it can never swallow a
+         click on whatever it happens to float over.
+
+         This is the half of "did that work?" that the status line under the preview cannot do:
+         the status line is where the app talks about the code, so a message there competes with
+         the scannability verdict and is easy to miss when you were looking at the button you
+         just pressed. -->
+    <Border x:Name="Toast"
+            Grid.Column="0" Grid.ColumnSpan="2"
+            HorizontalAlignment="Center" VerticalAlignment="Bottom"
+            Margin="0,0,0,26" Padding="18,10"
+            CornerRadius="18"
+            Opacity="0"
+            IsHitTestVisible="False"
+            Background="#E61B1F27">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Text="&#x2713;" Foreground="#7BE495" FontSize="13"
+                   FontWeight="Bold" VerticalAlignment="Center" />
+        <TextBlock x:Name="ToastText" Foreground="White" FontSize="12.5"
+                   VerticalAlignment="Center" />
+      </StackPanel>
+    </Border>
   </Grid>
 </Window>

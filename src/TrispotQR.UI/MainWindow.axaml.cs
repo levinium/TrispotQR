@@ -1,4 +1,7 @@
 using System.Collections.ObjectModel;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
+using Avalonia.Styling;
 using System.Collections.Specialized;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -40,11 +43,11 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<object> _stripItems = [];
 
     /// <summary>
-    /// The collection currently being mirrored, held so its handler can be detached when the
-    /// data context changes. Without this a substituted view model leaves the previous one's
-    /// Presets still driving the strip, and both then write to it.
+    /// The view model currently being listened to, held so its handlers can be detached when the
+    /// data context changes. Without this a substituted view model leaves the previous one still
+    /// driving the strip and still raising confirmations into this window.
     /// </summary>
-    private INotifyCollectionChanged? _watchedPresets;
+    private MainViewModel? _watchedModel;
 
     // InitializeComponent(), not AvaloniaXamlLoader.Load(this) -- see MessageWindow.axaml.cs
     // for the full explanation. Load(this) builds the visual tree and registers x:Names in
@@ -72,8 +75,8 @@ public partial class MainWindow : Window
         // the UI tests substitute a view model over temporary stores after construction, and a
         // strip wired only to the constructor's model would quietly go on showing the wrong one.
         PresetsStrip.ItemsSource = _stripItems;
-        DataContextChanged += (_, _) => WatchPresets();
-        WatchPresets();
+        DataContextChanged += (_, _) => WatchModel();
+        WatchModel();
 
         // One handler for every colour picker the window will ever hold, present or not yet
         // realised. Two of the five live inside panels that stay collapsed until a checkbox is
@@ -105,31 +108,65 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The gear menu's Settings entry.
-    ///
-    /// OpenSettings is on the view model because deciding what to persist afterwards is its
-    /// job; showing the window is the dialog service's, which it reaches through EditSettings.
-    /// Asked of DataContext rather than of the private field, because the model the window is
-    /// showing is the one whose settings the user means -- and in the tests those are
-    /// deliberately not the same object.
+    /// Shows a message briefly and fades it out again.
     /// </summary>
-    /// <summary>Points the mirror at whichever view model is current, and follows its edits.</summary>
-    private void WatchPresets()
+    /// <remarks>
+    /// A keyframe animation run from code rather than a style trigger, because the toast has no
+    /// state to be in: it is one message, shown once, and a second copy while the first is still
+    /// fading has to restart it rather than queue behind it.
+    ///
+    /// The timings match the WPF window's: a fifth of a second to appear, most of two seconds to
+    /// read, then out. Long enough to notice without being long enough to sit in front of the
+    /// save buttons while someone is still working.
+    /// </remarks>
+    private void ShowToast(string message)
     {
-        if (_watchedPresets is not null)
+        ToastText.Text = message;
+
+        var fade = new Animation
         {
-            _watchedPresets.CollectionChanged -= OnPresetsChanged;
+            Duration = TimeSpan.FromSeconds(2.5),
+            FillMode = FillMode.Forward,
+            Children =
+            {
+                new KeyFrame { Cue = new Cue(0d), Setters = { new Setter(OpacityProperty, 0d) } },
+                new KeyFrame { Cue = new Cue(0.06), Setters = { new Setter(OpacityProperty, 1d) } },
+                new KeyFrame { Cue = new Cue(0.76), Setters = { new Setter(OpacityProperty, 1d) } },
+                new KeyFrame { Cue = new Cue(1d), Setters = { new Setter(OpacityProperty, 0d) } },
+            },
+        };
+
+        // Fire and forget: the animation owns its own lifetime, and nothing waits for a toast.
+        _ = fade.RunAsync(Toast);
+    }
+
+    /// <summary>
+    /// Points everything the window listens to at whichever view model is current.
+    ///
+    /// Both the strip mirror and the toast follow the data context rather than the field this
+    /// window constructed, and they have to agree: a window whose strip showed one model while
+    /// its confirmations came from another would be telling the truth about neither.
+    /// </summary>
+    private void WatchModel()
+    {
+        if (_watchedModel is not null)
+        {
+            _watchedModel.Presets.CollectionChanged -= OnPresetsChanged;
+            _watchedModel.Announcement -= OnAnnouncement;
         }
 
-        _watchedPresets = (DataContext as MainViewModel)?.Presets;
+        _watchedModel = DataContext as MainViewModel;
 
-        if (_watchedPresets is not null)
+        if (_watchedModel is not null)
         {
-            _watchedPresets.CollectionChanged += OnPresetsChanged;
+            _watchedModel.Presets.CollectionChanged += OnPresetsChanged;
+            _watchedModel.Announcement += OnAnnouncement;
         }
 
         RefillStrip();
     }
+
+    private void OnAnnouncement(object? sender, string message) => ShowToast(message);
 
     private void OnPresetsChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefillStrip();
 
@@ -153,6 +190,15 @@ public partial class MainWindow : Window
         _stripItems.Add(AddFavoriteCard.Instance);
     }
 
+    /// <summary>
+    /// The gear menu's Settings entry.
+    ///
+    /// OpenSettings is on the view model because deciding what to persist afterwards is its
+    /// job; showing the window is the dialog service's, which it reaches through EditSettings.
+    /// Asked of DataContext rather than of the private field, because the model the window is
+    /// showing is the one whose settings the user means -- and in the tests those are
+    /// deliberately not the same object.
+    /// </summary>
     private void OnSettingsClicked(object? sender, RoutedEventArgs e) =>
         (DataContext as MainViewModel)?.OpenSettings();
 

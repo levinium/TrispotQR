@@ -1,18 +1,26 @@
+using System.IO;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Media.Imaging;
 using TrispotQR.Core.Export;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Rendering;
 
 namespace TrispotQR.UI.Services;
 
 /// <summary>
-/// Puts a rendered code on the system clipboard as PNG bytes.
+/// Puts a rendered code on the system clipboard in two formats at once.
 ///
-/// PNG rather than a raw bitmap because it keeps transparency, which is the whole reason the
-/// app offers a transparent background. Avalonia has no per-platform bitmap clipboard format
-/// the way WPF does, so unlike the WPF implementation there is no second flattened-on-white
-/// entry; whether that is needed on each platform is a question for Phase 2c, when the
-/// Avalonia build is actually pasted into Word and PowerPoint.
+/// PNG keeps the transparency that is the whole reason the app offers a transparent
+/// background, and anything that understands alpha reaches for it first. But Word, Outlook and
+/// Excel reach for the plain bitmap instead, and a PNG-only clipboard is one they will not
+/// paste at all. That was the state this shipped in: the copy looked like it worked and
+/// nothing came out the other end.
+///
+/// So the second entry is a copy flattened onto white. Flattened rather than handed over with
+/// its alpha intact because those same applications, given transparency in a bitmap, paste a
+/// black box. This mirrors what WpfImageClipboard has always done, for the same reasons its
+/// own comment gives.
 /// </summary>
 public sealed class AvaloniaImageClipboard(TopLevel topLevel) : IImageClipboard
 {
@@ -41,9 +49,7 @@ public sealed class AvaloniaImageClipboard(TopLevel topLevel) : IImageClipboard
         // actually probe for on paste. CreateBytesPlatformFormat is the one whose doc comment
         // says the identifier is passed through as-is, so "PNG" reaches the platform the same
         // way it does from WPF.
-        var format = DataFormat.CreateBytesPlatformFormat("PNG");
-        var data = new DataTransfer();
-        data.Add(DataTransferItem.Create(format, PngExporter.ToBytes(image)));
+        var data = BuildTransfer(image);
 
         // Sync over async, deliberately. IImageClipboard.Copy is synchronous because the view
         // model's copy command is, and the clipboard call must run on the UI thread. Waiting on
@@ -52,5 +58,36 @@ public sealed class AvaloniaImageClipboard(TopLevel topLevel) : IImageClipboard
         // clipboard into an exception the view model already knows how to report, rather than a
         // frozen window.
         DispatcherWait.For(clipboard.SetDataAsync(data), Timeout);
+    }
+
+    /// <summary>
+    /// The formats a copy puts on the clipboard.
+    /// </summary>
+    /// <remarks>
+    /// Separated from <see cref="Copy"/> so the set of formats can be asserted without a
+    /// clipboard at all. Avalonia.Headless's clipboard accepts a write and reports success, so a
+    /// test that only copied could not tell a two-format transfer from a one-format one, which
+    /// is precisely the difference between pasting into Word and not.
+    /// </remarks>
+    internal static DataTransfer BuildTransfer(RasterImage image)
+    {
+        var data = new DataTransfer();
+
+        data.Add(DataTransferItem.Create(
+            DataFormat.CreateBytesPlatformFormat("PNG"), PngExporter.ToBytes(image)));
+
+        // The fallback the Office applications actually take. DataFormat.Bitmap wants an
+        // Avalonia Bitmap rather than bytes, and Avalonia converts that to whatever the
+        // platform's own image format is, so there is no hand-rolled DIB here.
+        //
+        // Flattening happens in Core on the pixels rather than by re-rendering, because this
+        // class is handed a finished image and never sees the drawing behind it. Encoding to PNG
+        // only to decode it straight back is the cost of Bitmap having no constructor over raw
+        // pixels; the decode is eager, so disposing the stream here is safe.
+        var flattened = SkiaRasterizer.FlattenOnto(image, RgbColor.White);
+        using var stream = new MemoryStream(PngExporter.ToBytes(flattened));
+        data.Add(DataTransferItem.Create(DataFormat.Bitmap, new Bitmap(stream)));
+
+        return data;
     }
 }
