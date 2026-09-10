@@ -18,6 +18,14 @@
   <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
   <SolidColorBrush x:Key="BorderBrush" Color="#DDE0E5"/>
   <SolidColorBrush x:Key="SubtleBorderBrush" Color="#ECEEF1"/>
+
+  <!-- The edge drawn around a swatch of the user's own colour, in the picker button and in the
+       palette inside the popup. Its own key rather than BorderBrush because it has a harder job:
+       it has to stay visible against the swatch as well as against the card, and the swatch can
+       be any colour at all including the two this palette is built from. Translucent for that
+       reason, and darker here than the ordinary card border, which is nearly invisible against
+       white and was what a black swatch used to get. -->
+  <SolidColorBrush x:Key="SwatchBorderBrush" Color="#59000000"/>
   <SolidColorBrush x:Key="TextBrush" Color="#1B1F27"/>
   <SolidColorBrush x:Key="MutedTextBrush" Color="#666E7A"/>
   <SolidColorBrush x:Key="WarningBrush" Color="#B26100"/>

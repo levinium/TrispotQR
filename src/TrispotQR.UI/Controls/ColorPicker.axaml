@@ -24,7 +24,7 @@
     <!-- Palette swatches are the same idea: the button is the colour. -->
     <Style Selector="local|ColorPicker Button.palette">
       <Setter Property="Padding" Value="0"/>
-      <Setter Property="BorderBrush" Value="#40000000"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource SwatchBorderBrush}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="4"/>
     </Style>
@@ -39,7 +39,8 @@
     <ToggleButton x:Name="SwatchButton"
                   Width="46" Height="28"
                   ToolTip.Tip="Click to change this colour">
-      <Border CornerRadius="3" BorderBrush="#40000000" BorderThickness="1" Margin="3">
+      <Border CornerRadius="3" BorderBrush="{DynamicResource SwatchBorderBrush}"
+              BorderThickness="1.5" Margin="3">
         <Grid>
           <!-- Checkerboard shows through when the colour is partly transparent. -->
           <Rectangle Fill="{DynamicResource CheckerBrush}"/>

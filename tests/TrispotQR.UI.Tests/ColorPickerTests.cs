@@ -10,6 +10,8 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
+using TrispotQR.Core.Presets;
+using TrispotQR.UI.Services;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.VisualTree;
@@ -296,7 +298,13 @@ public class ColorPickerTests
             Assert.Equal(new Thickness(0), swatch.Padding);
             Assert.Equal(new Thickness(1), swatch.BorderThickness);
             Assert.Equal(new CornerRadius(4), swatch.CornerRadius);
-            Assert.Equal(Color.FromArgb(0x40, 0, 0, 0), ((ISolidColorBrush)swatch.BorderBrush!).Color);
+
+            // Resolved from the palette rather than pinned, because this edge is now one of the
+            // few colours that has to differ per appearance: it used to be a single translucent
+            // black, which left a black swatch on a dark card with no visible edge at all.
+            // ThemeTests owns the per-variant claim; what this asserts is that the style reaches
+            // the key rather than falling back to the theme's own button border.
+            Assert.Equal(SwatchBorderColour(), ((ISolidColorBrush)swatch.BorderBrush!).Color);
         }
     }
 
@@ -385,6 +393,51 @@ public class ColorPickerTests
             loose.Count == 0,
             "these are written into the popup's own markup, where everything but the hex error "
                 + $"line is a caption, and are not classed as one: {string.Join(", ", loose)}");
+    }
+
+    [AvaloniaFact]
+    public void TheSwatchButtonsEdgeIsVisibleInBothAppearances()
+    {
+        // The reported bug: against a dark window a black swatch had no discernible edge, so the
+        // control that opens the picker read as an empty gap rather than as a colour. The edge
+        // was a single translucent black serving both appearances, which is invisible over dark.
+        //
+        // Asserting the resolved colour per variant rather than the key name is the point: a
+        // frame that kept a hardcoded value would still have a BorderBrush, and would still be
+        // wrong in exactly one of the two appearances.
+        try
+        {
+            var (window, picker) = Open();
+
+            var frame = picker.GetVisualDescendants().OfType<Border>()
+                .First(b => b.BorderBrush is ISolidColorBrush && b.BorderThickness.Top > 0);
+
+            ThemeSwitcher.Apply(AppTheme.Light);
+            DispatcherPump.Drain();
+            var light = ((ISolidColorBrush)frame.BorderBrush!).Color;
+            Assert.Equal(SwatchBorderColour(), light);
+
+            ThemeSwitcher.Apply(AppTheme.Dark);
+            DispatcherPump.Drain();
+            var dark = ((ISolidColorBrush)frame.BorderBrush!).Color;
+            Assert.Equal(SwatchBorderColour(), dark);
+
+            Assert.NotEqual(light, dark);
+        }
+        finally
+        {
+            ThemeSwitcher.Apply(AppTheme.FollowWindows);
+        }
+    }
+
+    /// <summary>The palette's swatch edge, in the variant the app is currently showing.</summary>
+    private static Color SwatchBorderColour()
+    {
+        Assert.True(
+            Application.Current!.TryGetResource("SwatchBorderBrush", Application.Current.ActualThemeVariant, out var value),
+            "the palette has no SwatchBorderBrush");
+
+        return ((ISolidColorBrush)value!).Color;
     }
 
     /// <summary>The palette's muted text colour, in the variant the app is currently showing.</summary>

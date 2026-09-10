@@ -20,6 +20,14 @@
   <SolidColorBrush x:Key="SurfaceBrush" Color="#212429"/>
   <SolidColorBrush x:Key="BorderBrush" Color="#383D45"/>
   <SolidColorBrush x:Key="SubtleBorderBrush" Color="#2A2E35"/>
+
+  <!-- Translucent WHITE, where the light palette uses translucent black. This is the reason the
+       key exists: a single translucent black served both appearances until a black swatch on a
+       dark card became a black square with no edge at all, which is the state a user cannot
+       distinguish from an empty control. Light rather than a flat grey so it still reads against
+       a white or pale swatch, which the dark card would otherwise leave edgeless in the other
+       direction. -->
+  <SolidColorBrush x:Key="SwatchBorderBrush" Color="#8CFFFFFF"/>
   <SolidColorBrush x:Key="TextBrush" Color="#E8EAEE"/>
   <SolidColorBrush x:Key="MutedTextBrush" Color="#9AA1AC"/>
   <SolidColorBrush x:Key="WarningBrush" Color="#FFB454"/>
