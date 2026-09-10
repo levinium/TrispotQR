@@ -19,11 +19,13 @@ public sealed class PresetStore
     private static readonly JsonSerializerOptions SerializerOptions = CreateOptions();
 
     private readonly string _directory;
+    private readonly LogoStore _logos;
     private List<StylePreset> _custom = [];
 
     public PresetStore(string? directory = null)
     {
         _directory = directory ?? DefaultDirectory;
+        _logos = new LogoStore(_directory);
         Reload();
     }
 
@@ -63,6 +65,11 @@ public sealed class PresetStore
     /// Copy rather than move, so a half-finished carry-over cannot destroy the only copy of
     /// someone's saved styles. Failure is swallowed on purpose: the worst case is that the
     /// app starts with the built-in styles, which is not worth refusing to open over.
+    ///
+    /// Files only, not subfolders, which is complete for the one migration this exists for:
+    /// the Trispot folder was only ever written by versions that predate <see cref="LogoStore"/>,
+    /// so it cannot contain a logos folder to miss. Anyone renaming the folder again will need
+    /// to make this recursive.
     /// </summary>
     internal static void CarryOverFrom(string previous, string current)
     {
@@ -116,7 +123,7 @@ public sealed class PresetStore
 
             _custom = records
                 .Where(r => !string.IsNullOrWhiteSpace(r.Name) && r.Style is not null)
-                .Select(r => new StylePreset(r.Name!, r.Description ?? "Saved style.", r.Style!.Normalised()))
+                .Select(r => new StylePreset(r.Name!, r.Description ?? "Saved style.", Rehydrate(r.Style!.Normalised())))
                 .ToList();
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
@@ -142,7 +149,16 @@ public sealed class PresetStore
                 $"\"{trimmed}\" is a built-in style name. Please pick a different name.");
         }
 
-        var preset = new StylePreset(trimmed, description ?? "Saved style.", style.Normalised());
+        // Take our own copy of the logo before recording anything, so the saved style stops
+        // depending on wherever the user happened to pick the file from. An IO failure here
+        // propagates to the caller rather than quietly saving a style without its logo.
+        var stored = _logos.Store(style.Logo.Path);
+        var withOwnLogo = style with
+        {
+            Logo = stored is null ? LogoStyle.None : style.Logo with { Path = _logos.Resolve(stored) },
+        };
+
+        var preset = new StylePreset(trimmed, description ?? "Saved style.", withOwnLogo.Normalised());
         var existing = _custom.FindIndex(p => p.Name.Equals(trimmed, StringComparison.OrdinalIgnoreCase));
 
         if (existing >= 0)
@@ -170,12 +186,40 @@ public sealed class PresetStore
         return removed;
     }
 
+    /// <summary>
+    /// Deletes logo copies that no saved style refers to any more.
+    /// </summary>
+    /// <param name="alsoInUse">
+    /// Logos held by something other than a saved style, which in practice is the restored
+    /// session: a user who applied a saved style, then deleted it, is still looking at its
+    /// logo, and sweeping it would blank the code in front of them.
+    /// </param>
+    public void SweepLogos(params string?[] alsoInUse) =>
+        _logos.Sweep([.. _custom.Select(p => p.Style.Logo.Path), .. alsoInUse ?? []]);
+
+    /// <summary>
+    /// The file holds the bare name of our own copy; everything above the store works in real
+    /// paths. Turning one into the other on the way in and out is what keeps the storage
+    /// layout out of <see cref="QrStyle"/>, which otherwise has no business knowing that some
+    /// paths are special.
+    ///
+    /// A name that no longer resolves becomes no logo at all, so a style whose image has been
+    /// deleted still applies.
+    /// </summary>
+    private QrStyle Rehydrate(QrStyle style) => style.Logo.HasImage
+        ? style with { Logo = style.Logo with { Path = _logos.Resolve(style.Logo.Path) } }
+        : style;
+
+    private QrStyle Dehydrate(QrStyle style) => style.Logo.HasImage
+        ? style with { Logo = style.Logo with { Path = _logos.NameOf(style.Logo.Path) } }
+        : style;
+
     private void Persist()
     {
         Directory.CreateDirectory(_directory);
 
         var records = _custom
-            .Select(p => new PresetRecord { Name = p.Name, Description = p.Description, Style = p.Style })
+            .Select(p => new PresetRecord { Name = p.Name, Description = p.Description, Style = Dehydrate(p.Style) })
             .ToList();
 
         // Written to a temporary file first so a crash mid-write cannot destroy the

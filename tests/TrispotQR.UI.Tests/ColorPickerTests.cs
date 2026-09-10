@@ -10,6 +10,8 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
+using TrispotQR.Core.Presets;
+using TrispotQR.UI.Services;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.VisualTree;
@@ -296,7 +298,13 @@ public class ColorPickerTests
             Assert.Equal(new Thickness(0), swatch.Padding);
             Assert.Equal(new Thickness(1), swatch.BorderThickness);
             Assert.Equal(new CornerRadius(4), swatch.CornerRadius);
-            Assert.Equal(Color.FromArgb(0x40, 0, 0, 0), ((ISolidColorBrush)swatch.BorderBrush!).Color);
+
+            // Resolved from the palette rather than pinned, because this edge is now one of the
+            // few colours that has to differ per appearance: it used to be a single translucent
+            // black, which left a black swatch on a dark card with no visible edge at all.
+            // ThemeTests owns the per-variant claim; what this asserts is that the style reaches
+            // the key rather than falling back to the theme's own button border.
+            Assert.Equal(SwatchBorderColour(), ((ISolidColorBrush)swatch.BorderBrush!).Color);
         }
     }
 
@@ -307,7 +315,7 @@ public class ColorPickerTests
     /// </summary>
     private static readonly string[] Captions =
     [
-        "Pick a colour", "Or start from a preset", "Or type a colour code",
+        "Pick a color", "Or start from a preset", "Or type a color code",
         "Red", "Green", "Blue",
     ];
 
@@ -385,6 +393,51 @@ public class ColorPickerTests
             loose.Count == 0,
             "these are written into the popup's own markup, where everything but the hex error "
                 + $"line is a caption, and are not classed as one: {string.Join(", ", loose)}");
+    }
+
+    [AvaloniaFact]
+    public void TheSwatchButtonsEdgeIsVisibleInBothAppearances()
+    {
+        // The reported bug: against a dark window a black swatch had no discernible edge, so the
+        // control that opens the picker read as an empty gap rather than as a colour. The edge
+        // was a single translucent black serving both appearances, which is invisible over dark.
+        //
+        // Asserting the resolved colour per variant rather than the key name is the point: a
+        // frame that kept a hardcoded value would still have a BorderBrush, and would still be
+        // wrong in exactly one of the two appearances.
+        try
+        {
+            var (window, picker) = Open();
+
+            var frame = picker.GetVisualDescendants().OfType<Border>()
+                .First(b => b.BorderBrush is ISolidColorBrush && b.BorderThickness.Top > 0);
+
+            ThemeSwitcher.Apply(AppTheme.Light);
+            DispatcherPump.Drain();
+            var light = ((ISolidColorBrush)frame.BorderBrush!).Color;
+            Assert.Equal(SwatchBorderColour(), light);
+
+            ThemeSwitcher.Apply(AppTheme.Dark);
+            DispatcherPump.Drain();
+            var dark = ((ISolidColorBrush)frame.BorderBrush!).Color;
+            Assert.Equal(SwatchBorderColour(), dark);
+
+            Assert.NotEqual(light, dark);
+        }
+        finally
+        {
+            ThemeSwitcher.Apply(AppTheme.FollowWindows);
+        }
+    }
+
+    /// <summary>The palette's swatch edge, in the variant the app is currently showing.</summary>
+    private static Color SwatchBorderColour()
+    {
+        Assert.True(
+            Application.Current!.TryGetResource("SwatchBorderBrush", Application.Current.ActualThemeVariant, out var value),
+            "the palette has no SwatchBorderBrush");
+
+        return ((ISolidColorBrush)value!).Color;
     }
 
     /// <summary>The palette's muted text colour, in the variant the app is currently showing.</summary>
@@ -467,6 +520,129 @@ public class ColorPickerTests
     /// The window is deliberately roomy: the popup is laid out inside it, so a cramped one would
     /// push parts of the picker off the bottom and give them nothing to hit-test against.
     /// </summary>
+    [AvaloniaFact]
+    public void ThePopupOffersTheColoursAlreadyOnTheCodeAndTheOnesChosenBefore()
+    {
+        var inUse = RgbColor.FromRgb(0x8A, 0x6D, 0x3B);
+        var recent = RgbColor.FromRgb(0x3D, 0x8B, 0x71);
+
+        var (window, picker) = Open();
+        picker.ColorsInUse = [inUse];
+        picker.RecentColors = [recent];
+
+        OpenPopup(window, picker);
+
+        Assert.Equal([inUse], OfferedColours(picker, "InUseItems"));
+        Assert.Equal([recent], OfferedColours(picker, "RecentItems"));
+    }
+
+    [AvaloniaFact]
+    public void AnOfferedRowStaysOutOfTheWayWhenItHasNothingToOffer()
+    {
+        // A caption with no swatches under it is worse than no caption: it reads as a row that
+        // failed to load rather than one that has nothing in it yet, which is the state every
+        // picker is in on a fresh install.
+        var (window, picker) = Open();
+        OpenPopup(window, picker);
+
+        Assert.False(Part<Control>(picker, "InUseGroup").IsVisible);
+        Assert.False(Part<Control>(picker, "RecentGroup").IsVisible);
+    }
+
+    [AvaloniaFact]
+    public void APickerNeverOffersTheColourItIsAlreadyShowing()
+    {
+        // Choosing it would change nothing, and it would take a slot from a colour that would.
+        var other = RgbColor.FromRgb(0x8A, 0x6D, 0x3B);
+
+        var (window, picker) = Open();
+        picker.SelectedColor = Navy;
+        picker.ColorsInUse = [Navy, other];
+
+        OpenPopup(window, picker);
+
+        Assert.Equal([other], OfferedColours(picker, "InUseItems"));
+    }
+
+    [AvaloniaFact]
+    public void ClickingAnOfferedColourSelectsIt()
+    {
+        var offered = RgbColor.FromRgb(0x3D, 0x8B, 0x71);
+
+        var holder = new ColourHolder { Colour = RgbColor.White };
+        var (window, picker) = Open(holder);
+        picker.RecentColors = [offered];
+
+        OpenPopup(window, picker);
+        Click(window, At(Part<ItemsControl>(picker, "RecentItems").GetVisualDescendants().OfType<Button>().Single(), 0.5, 0.5));
+
+        // Out through the two-way binding, the same route the built-in palette takes.
+        Assert.Equal(offered, holder.Colour);
+    }
+
+    [AvaloniaFact]
+    public void ClosingOnANewColourReportsItAsChosen()
+    {
+        var (window, picker) = Open();
+        var committed = 0;
+        picker.ColorCommitted += (_, _) => committed++;
+
+        OpenPopup(window, picker);
+        picker.SelectedColor = Navy;
+        ClosePopup(picker);
+
+        Assert.Equal(1, committed);
+    }
+
+    [AvaloniaFact]
+    public void OpeningAPickerAndChangingNothingDoesNotCountAsChoosing()
+    {
+        // The difference between a choice and a look. Without it, opening a picker to read a
+        // colour off it would file that colour as freshly chosen and push it to the front of
+        // the recent list, which is where the least recently chosen colour would then be.
+        var (window, picker) = Open();
+        picker.SelectedColor = Navy;
+
+        var committed = 0;
+        picker.ColorCommitted += (_, _) => committed++;
+
+        OpenPopup(window, picker);
+        ClosePopup(picker);
+
+        Assert.Equal(0, committed);
+    }
+
+    /// <summary>
+    /// Closes the popup through the swatch button's own state, which is the path both real
+    /// closing gestures take: unchecking the button and light dismiss both end at
+    /// <c>IsOpen = false</c>, and the control's Closed handler is what these tests are about.
+    ///
+    /// Not a click on the swatch, and that is a headless constraint rather than a preference.
+    /// A Popup here has no platform window, so its content is hosted in this window's own
+    /// overlay layer directly over the swatch: a click aimed at the button lands on whatever
+    /// popup content is above it instead. Measured, not assumed -- an earlier version of this
+    /// test clicked there and came back with the popup still open and the colour set to black,
+    /// which is the first swatch of the built-in palette.
+    /// </summary>
+    private static void ClosePopup(ColorPicker picker)
+    {
+        Part<ToggleButton>(picker, "SwatchButton").IsChecked = false;
+        DispatcherPump.Drain();
+
+        Assert.False(
+            Part<Popup>(picker, "PickerPopup").IsOpen,
+            "the popup did not close, so nothing below is testing what it says it is");
+    }
+
+    /// <summary>The colours an offered row is actually showing, read back off the realised swatches.</summary>
+    private static IReadOnlyList<RgbColor> OfferedColours(ColorPicker picker, string itemsName) =>
+    [
+        .. Part<ItemsControl>(picker, itemsName)
+            .GetVisualDescendants()
+            .OfType<Button>()
+            .Select(b => ((PaletteColor)b.DataContext!).Color),
+    ];
+
     private static (Window Window, ColorPicker Picker) Open(ColourHolder? source = null)
     {
         var picker = new ColorPicker { HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };

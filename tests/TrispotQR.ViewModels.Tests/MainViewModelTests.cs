@@ -31,6 +31,122 @@ public class MainViewModelTests : IDisposable
         new MainViewModel(
             _dialogs, timer ?? new FakeUiTimer(), new FakeImageClipboard(), new PresetStore(_directory), new AppSettingsStore(_directory));
 
+    [Fact]
+    public void RecentColors_KeepTheNewestFirstAndNeverRepeat()
+    {
+        var vm = Create();
+        var red = RgbColor.FromRgb(0xFF, 0, 0);
+        var green = RgbColor.FromRgb(0, 0xFF, 0);
+
+        vm.RecordRecentColor(red);
+        vm.RecordRecentColor(green);
+        vm.RecordRecentColor(red);
+
+        // Re-picking a colour moves it to the front rather than adding a second copy: a list
+        // that repeated would spend its twelve slots on three colours.
+        Assert.Equal([red, green], vm.RecentColors);
+    }
+
+    [Fact]
+    public void RecentColors_StopAtTwelve()
+    {
+        var vm = Create();
+
+        for (var i = 0; i < 20; i++)
+        {
+            vm.RecordRecentColor(RgbColor.FromRgb((byte)i, 0, 0));
+        }
+
+        Assert.Equal(12, vm.RecentColors.Count);
+
+        // The twelve kept are the twelve most recent, newest first.
+        Assert.Equal(RgbColor.FromRgb(19, 0, 0), vm.RecentColors[0]);
+        Assert.Equal(RgbColor.FromRgb(8, 0, 0), vm.RecentColors[11]);
+    }
+
+    [Fact]
+    public void RecentColors_SurviveARestart()
+    {
+        // The reason the feature exists: a shade arrived at by dragging is unfindable a second
+        // time, so it has to outlive the process. Written on record rather than at shutdown, so
+        // it also survives the app being closed in a way that skips the normal save.
+        var chosen = RgbColor.FromRgb(0x3D, 0x8B, 0x71);
+
+        var first = Create();
+        first.RecordRecentColor(chosen);
+
+        var second = Create();
+
+        Assert.Contains(chosen, second.RecentColors);
+    }
+
+    [Fact]
+    public void RecentColors_IgnoreAnUnreadableEntryRatherThanFailingToStart()
+    {
+        // settings.json is hand editable, and this list is the part of it most likely to be
+        // typed into by a person. One bad entry must cost one swatch.
+        var store = new AppSettingsStore(_directory);
+        store.Save(AppSettings.Default with { RecentColors = ["#112233", "kumquat", "#445566"] });
+
+        var vm = Create();
+
+        Assert.Equal(
+            [RgbColor.FromRgb(0x11, 0x22, 0x33), RgbColor.FromRgb(0x44, 0x55, 0x66)],
+            vm.RecentColors);
+    }
+
+    [Fact]
+    public void ColorsInUse_OffersOnlyTheColoursTheCodeIsActuallyWearing()
+    {
+        var vm = Create();
+
+        // Everything off: the code is one colour on white, and White is a background choice
+        // rather than a custom colour, so only the foreground is in use.
+        vm.BackgroundChoice = BackgroundChoice.White;
+        vm.UseCustomMarkerColors = false;
+        vm.OutlineEnabled = false;
+
+        Assert.Equal([vm.Foreground], vm.ColorsInUse);
+    }
+
+    [Fact]
+    public void ColorsInUse_PicksUpEachPartAsItIsSwitchedOn()
+    {
+        var vm = Create();
+        vm.BackgroundChoice = BackgroundChoice.White;
+        vm.UseCustomMarkerColors = false;
+        vm.OutlineEnabled = false;
+
+        vm.BackgroundChoice = BackgroundChoice.Custom;
+        vm.CustomBackground = RgbColor.FromRgb(0xEE, 0xEE, 0xEE);
+        Assert.Contains(RgbColor.FromRgb(0xEE, 0xEE, 0xEE), vm.ColorsInUse);
+
+        vm.UseCustomMarkerColors = true;
+        vm.MarkerFrameColor = RgbColor.FromRgb(0x8A, 0x6D, 0x3B);
+        Assert.Contains(RgbColor.FromRgb(0x8A, 0x6D, 0x3B), vm.ColorsInUse);
+
+        vm.OutlineEnabled = true;
+        vm.OutlineColor = RgbColor.FromRgb(0x12, 0x34, 0x56);
+        Assert.Contains(RgbColor.FromRgb(0x12, 0x34, 0x56), vm.ColorsInUse);
+    }
+
+    [Fact]
+    public void ColorsInUse_DropsAPartAgainWhenItIsSwitchedBackOff()
+    {
+        // The half that a "collect every colour on the style" implementation gets wrong: an
+        // outline colour is still stored when the outline is off, but the code is not wearing
+        // it, so offering it would offer a colour that appears nowhere on screen.
+        var vm = Create();
+        var outline = RgbColor.FromRgb(0x12, 0x34, 0x56);
+
+        vm.OutlineEnabled = true;
+        vm.OutlineColor = outline;
+        Assert.Contains(outline, vm.ColorsInUse);
+
+        vm.OutlineEnabled = false;
+        Assert.DoesNotContain(outline, vm.ColorsInUse);
+    }
+
     /// <summary>A view model with something encodable already typed in.</summary>
     private MainViewModel CreateWithContent(string text = "https://www.example.org")
     {
@@ -272,6 +388,98 @@ public class MainViewModelTests : IDisposable
         second.ApplyPresetCommand.Execute(second.Presets.Single(p => p.Name == "See through"));
 
         Assert.Equal(BackgroundChoice.Transparent, second.BackgroundChoice);
+    }
+
+    /// <summary>
+    /// A real image on disk, for the tests that involve a logo. The picker will not accept a
+    /// file it cannot open, and saving a style now copies the bytes, so a made-up path would
+    /// exercise neither.
+    /// </summary>
+    private string WriteLogo()
+    {
+        var path = Path.Combine(_directory, "logo.png");
+        File.WriteAllBytes(path, PngExporter.ToBytes(new RasterImage(2, 2, new byte[2 * 2 * 4])));
+        return path;
+    }
+
+    [Fact]
+    public void ASavedStyle_CarriesItsLogoIntoALaterSession()
+    {
+        // What the user asked for, end to end. Saving used to strip the logo outright, so a
+        // style with a logo came back without one and there was no way to keep the pairing.
+        var first = Create();
+        _dialogs.NextImage = WriteLogo();
+        first.ChooseLogoCommand.Execute(null);
+        _dialogs.NextText = "With a logo";
+        first.SavePresetCommand.Execute(null);
+
+        var second = Create();
+        second.ClearLogoCommand.Execute(null);
+        second.ApplyPresetCommand.Execute(second.Presets.Single(p => p.Name == "With a logo"));
+
+        Assert.True(second.HasLogo);
+    }
+
+    [Fact]
+    public void ASavedLogo_StillWorksAfterTheOriginalFileIsGone()
+    {
+        // The reason the app keeps its own copy rather than recording where the user got the
+        // file. This is the case the old code gave up on and stripped logos over.
+        var first = Create();
+        var original = WriteLogo();
+        _dialogs.NextImage = original;
+        first.ChooseLogoCommand.Execute(null);
+        _dialogs.NextText = "Portable";
+        first.SavePresetCommand.Execute(null);
+
+        File.Delete(original);
+
+        var second = Create();
+        second.ApplyPresetCommand.Execute(second.Presets.Single(p => p.Name == "Portable"));
+
+        Assert.True(second.HasLogo);
+    }
+
+    [Fact]
+    public void ApplyingAStyleWithNoLogo_ClearsTheOneInUse()
+    {
+        // The other half of "the style owns the look". A style that could only ever add a logo
+        // would leave no way back to a code without one, and would make two saved styles
+        // behave differently for a reason the user cannot see.
+        var vm = Create();
+        _dialogs.NextImage = WriteLogo();
+        vm.ChooseLogoCommand.Execute(null);
+        Assert.True(vm.HasLogo, "the logo was never picked up, so the rest of this proves nothing");
+
+        vm.ApplyPresetCommand.Execute(vm.Presets.Single(p => p.Name == "Classic"));
+
+        Assert.False(vm.HasLogo);
+    }
+
+    [Fact]
+    public void StartingUp_ClearsAwayALogoNoSavedStyleUsesAnyMore()
+    {
+        // The sweep needs somebody to call it. A collector with no call site is the shape of
+        // defect this project has shipped before -- a whole theme system that worked in every
+        // test and never ran at startup -- so the call is asserted here rather than assumed
+        // from the fact that PresetStore has the method.
+        var first = Create();
+        _dialogs.NextImage = WriteLogo();
+        first.ChooseLogoCommand.Execute(null);
+        _dialogs.NextText = "Temporary";
+        first.SavePresetCommand.Execute(null);
+
+        var copy = Directory.EnumerateFiles(Path.Combine(_directory, "logos")).Single();
+
+        first.DeletePresetCommand.Execute(first.Presets.Single(p => p.Name == "Temporary"));
+
+        // Deliberately still there: collecting it the moment the style went would have pulled
+        // the image out from under the code this session is still showing.
+        Assert.True(File.Exists(copy), "the copy was collected while a live session still had it on screen");
+
+        Create();
+
+        Assert.False(File.Exists(copy), "nothing swept the orphaned logo at startup");
     }
 
     [Fact]

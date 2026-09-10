@@ -69,6 +69,39 @@ public static class SkiaRasterizer
         return new RasterImage(pixelSize, pixelSize, pixels);
     }
 
+    /// <summary>
+    /// Composites an image onto an opaque colour, so nothing downstream has to decide what to
+    /// do with an alpha channel.
+    /// </summary>
+    /// <remarks>
+    /// Works on the pixels rather than re-rendering, because the one caller that needs it, the
+    /// clipboard, is handed a finished image and never sees the drawing it came from.
+    ///
+    /// The maths is the short form because <see cref="Render"/> produces premultiplied BGRA: the
+    /// source contribution is already scaled by its own alpha, so compositing is an add rather
+    /// than a lerp. Getting this wrong on a premultiplied buffer double-darkens every partly
+    /// transparent pixel, which on a QR code shows up as grey fringing along every edge.
+    /// </remarks>
+    public static RasterImage FlattenOnto(RasterImage image, RgbColor background)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+
+        var pixels = new byte[image.Pixels.Length];
+
+        for (var i = 0; i < image.Pixels.Length; i += 4)
+        {
+            var alpha = image.Pixels[i + 3];
+            var remaining = 255 - alpha;
+
+            pixels[i + 0] = (byte)(image.Pixels[i + 0] + (background.B * remaining / 255));
+            pixels[i + 1] = (byte)(image.Pixels[i + 1] + (background.G * remaining / 255));
+            pixels[i + 2] = (byte)(image.Pixels[i + 2] + (background.R * remaining / 255));
+            pixels[i + 3] = 255;
+        }
+
+        return new RasterImage(image.Width, image.Height, pixels);
+    }
+
     public static byte[] EncodePng(RasterImage image)
     {
         ArgumentNullException.ThrowIfNull(image);

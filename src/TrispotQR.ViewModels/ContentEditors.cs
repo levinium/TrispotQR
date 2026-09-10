@@ -517,7 +517,7 @@ public sealed class ContactEditor : ContentEditor
         if (!HasIdentity)
         {
             issues.Add(FieldIssue.Error(
-                FieldIssue.Form, "Enter a first name, last name or organisation so the contact has a name."));
+                FieldIssue.Form, "Enter a first name, last name or organization so the contact has a name."));
         }
 
         issues.AddRange(ErrorIf(nameof(Email), FieldRules.Email(_email)));

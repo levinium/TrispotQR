@@ -1,7 +1,10 @@
 using System.IO;
+using System.Text.Json;
+using TrispotQR.Core.Export;
 using TrispotQR.Core.Presets;
 using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
+using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
 
 namespace TrispotQR.Tests;
@@ -9,11 +12,19 @@ namespace TrispotQR.Tests;
 public class PresetStoreTests : IDisposable
 {
     private readonly string _directory;
+    private readonly string _logoPath;
 
     public PresetStoreTests()
     {
         _directory = Path.Combine(Path.GetTempPath(), $"TrispotQR-presets-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_directory);
+
+        // A real file, because saving a style now takes its own copy of the image. A path that
+        // points at nothing is not a state the app can reach either: the picker only accepts a
+        // file it could open, and a style that carried a dead path is the very thing this
+        // storage exists to stop.
+        _logoPath = Path.Combine(_directory, "house.png");
+        File.WriteAllBytes(_logoPath, PngExporter.ToBytes(new RasterImage(2, 2, new byte[2 * 2 * 4])));
     }
 
     public void Dispose()
@@ -73,7 +84,7 @@ public class PresetStoreTests : IDisposable
         Assert.False(Directory.Exists(current));
     }
 
-    private static QrStyle Elaborate() => QrStyle.Default with
+    private QrStyle Elaborate() => QrStyle.Default with
     {
         ModuleShape = ModuleShape.Fluid,
         ModuleScale = 0.88,
@@ -94,7 +105,7 @@ public class PresetStoreTests : IDisposable
         Ecc = EccLevel.Quartile,
         Logo = new LogoStyle
         {
-            Path = @"C:\logos\house.png",
+            Path = _logoPath,
             SizeRatio = 0.24,
             PunchShape = LogoPunchShape.Circle,
             PunchPadding = 0.8,
@@ -109,7 +120,101 @@ public class PresetStoreTests : IDisposable
 
         var reloaded = new PresetStore(_directory).Custom.Single(p => p.Name == "House").Style;
 
-        Assert.Equal(Elaborate(), reloaded);
+        // Every field but the logo's path, which is deliberately no longer the one that went
+        // in: the store keeps its own copy and hands back a path to that. The tests below are
+        // what cover the logo.
+        Assert.Equal(Elaborate() with { Logo = LogoStyle.None }, reloaded with { Logo = LogoStyle.None });
+    }
+
+    [Fact]
+    public void ASavedStyleKeepsItsOwnCopyOfTheLogo()
+    {
+        new PresetStore(_directory).Save("House", Elaborate());
+
+        var logo = new PresetStore(_directory).Custom.Single(p => p.Name == "House").Style.Logo;
+
+        Assert.True(logo.HasImage);
+        Assert.NotEqual(_logoPath, logo.Path);
+        Assert.Equal(Path.Combine(_directory, "logos"), Path.GetDirectoryName(logo.Path));
+        Assert.Equal(File.ReadAllBytes(_logoPath), File.ReadAllBytes(logo.Path!));
+
+        // The rest of the logo settings, which always did survive and must keep doing so.
+        Assert.Equal(0.24, logo.SizeRatio);
+        Assert.Equal(LogoPunchShape.Circle, logo.PunchShape);
+        Assert.Equal(0.8, logo.PunchPadding);
+    }
+
+    [Fact]
+    public void ASavedLogoSurvivesTheOriginalImageBeingDeleted()
+    {
+        // The whole reason for keeping a copy, run deliberately: this is what used to take the
+        // logo away, and the old code stripped logos from saved styles rather than face it.
+        new PresetStore(_directory).Save("House", Elaborate());
+        File.Delete(_logoPath);
+
+        var logo = new PresetStore(_directory).Custom.Single(p => p.Name == "House").Style.Logo;
+
+        Assert.True(logo.HasImage);
+        Assert.True(File.Exists(logo.Path), "the saved style's own copy of the logo is gone");
+    }
+
+    [Fact]
+    public void TheFileRecordsTheNameOfOurCopyRatherThanAPathOnThisMachine()
+    {
+        // Two reasons a bare name is the right thing on disk. A path from this machine means
+        // nothing on another one, which is half of what made the old behaviour fragile; and it
+        // is the one field that would carry the shape of someone's folders into a file they
+        // might reasonably send to somebody else.
+        new PresetStore(_directory).Save("House", Elaborate());
+
+        using var file = JsonDocument.Parse(File.ReadAllText(Path.Combine(_directory, "presets.json")));
+        var recorded = file.RootElement[0].GetProperty("Style").GetProperty("Logo")
+            .GetProperty("Path").GetString();
+
+        Assert.NotNull(recorded);
+        Assert.Equal(Path.GetFileName(recorded), recorded);
+    }
+
+    [Fact]
+    public void TwoStylesSharingALogoKeepOneCopyBetweenThem()
+    {
+        // Named by a hash of the bytes, so this falls out for free rather than needing a
+        // reference count. Without it, a user who saves six variations of one look ends up
+        // with six copies of the same image.
+        var store = new PresetStore(_directory);
+        store.Save("One", Elaborate());
+        store.Save("Two", Elaborate() with { QuietZoneModules = 5 });
+
+        Assert.Single(Directory.EnumerateFiles(Path.Combine(_directory, "logos")));
+    }
+
+    [Fact]
+    public void SweepingRemovesACopyNoStyleUsesAnyMore()
+    {
+        var store = new PresetStore(_directory);
+        store.Save("House", Elaborate());
+        var copy = store.Custom.Single().Style.Logo.Path!;
+
+        store.Delete("House");
+        store.SweepLogos();
+
+        Assert.False(File.Exists(copy), "a logo nothing refers to was left behind");
+    }
+
+    [Fact]
+    public void SweepingKeepsACopyTheSessionIsStillShowing()
+    {
+        // Why the sweep takes an argument at all. Someone who applied a saved style and then
+        // deleted it is still looking at its logo, and collecting the file underneath them
+        // would blank the code on screen.
+        var store = new PresetStore(_directory);
+        store.Save("House", Elaborate());
+        var copy = store.Custom.Single().Style.Logo.Path!;
+
+        store.Delete("House");
+        store.SweepLogos(copy);
+
+        Assert.True(File.Exists(copy), "the logo in use by the current session was swept");
     }
 
     [Fact]
@@ -248,12 +353,32 @@ public class PresetStoreTests : IDisposable
             LastSaveDirectory = @"C:\Users\Someone\Pictures",
             WindowWidth = 1400,
             WindowHeight = 900,
+            RecentColors = ["#112233", "#445566"],
         };
 
         store.Save(settings);
         var reloaded = new AppSettingsStore(_directory).Load();
 
-        Assert.Equal(settings, reloaded);
+        // Member by member rather than Assert.Equal on the whole record, and the reason is worth
+        // writing down: AppSettings is a record, so its generated equality compares RecentColors
+        // by reference. Two lists holding the same strings are not equal, which makes a
+        // whole-record comparison fail on a round trip that in fact worked perfectly.
+        //
+        // The old whole-record assertion passed only because every instance's default was
+        // Array.Empty<string>(), which is interned, so both sides held the *same* list. It would
+        // have started failing the moment anything put a colour in it -- which is to say it was
+        // never really comparing this member at all.
+        Assert.Equal(settings.Style, reloaded.Style);
+        Assert.Equal(settings.ContentTypeIndex, reloaded.ContentTypeIndex);
+        Assert.Equal(settings.LastSaveDirectory, reloaded.LastSaveDirectory);
+        Assert.Equal(settings.WindowWidth, reloaded.WindowWidth);
+        Assert.Equal(settings.WindowHeight, reloaded.WindowHeight);
+        Assert.Equal(settings.Theme, reloaded.Theme);
+        Assert.Equal(settings.WarnOnRiskyCodes, reloaded.WarnOnRiskyCodes);
+        Assert.Equal(settings.DefaultSaveDirectory, reloaded.DefaultSaveDirectory);
+        Assert.Equal(settings.DefaultPixelSize, reloaded.DefaultPixelSize);
+        Assert.Equal(settings.RememberLastStyle, reloaded.RememberLastStyle);
+        Assert.Equal(settings.RecentColors, reloaded.RecentColors);
     }
 
     [Fact]

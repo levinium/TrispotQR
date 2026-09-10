@@ -72,11 +72,26 @@ public sealed class MainViewModel : ObservableObject
         var settings = _settingsStore.Load();
         _settings = settings;
 
+        // Anything unparseable is dropped rather than throwing. The file is hand editable and a
+        // single bad entry must cost one swatch, not the whole list -- and not the launch.
+        foreach (var text in settings.RecentColors)
+        {
+            if (RgbColor.TryParse(text, out var recent) && !_recentColors.Contains(recent))
+            {
+                _recentColors.Add(recent);
+            }
+        }
+
         // The remembered look is optional; the export size is not. Size is a decision about
         // one export rather than part of a style, so every launch starts at the configured
         // default whichever way the remember-my-style preference is set.
         _style = (settings.RememberLastStyle ? settings.Style : QrStyle.Default)
             with { PixelSize = settings.DefaultPixelSize };
+
+        // Now, while the only things holding a logo are the saved styles and the session just
+        // restored above. Doing it when a style is deleted instead would risk deleting the
+        // image out from under a code already on screen.
+        _presets.SweepLogos(_style.Logo.Path);
 
         _lastSaveDirectory = settings.LastSaveDirectory;
 
@@ -169,6 +184,81 @@ public sealed class MainViewModel : ObservableObject
     {
         get => _style.Foreground;
         set => UpdateStyle(s => s with { Foreground = value });
+    }
+
+    /// <summary>How many recent colors are kept. Two rows of swatches in the picker.</summary>
+    private const int RecentColorLimit = 12;
+
+    private readonly List<RgbColor> _recentColors = [];
+
+    /// <summary>
+    /// Colors the user has chosen before, most recent first.
+    ///
+    /// Exists because picking an unusual color is work: a shade arrived at by dragging around
+    /// the square is effectively unfindable a second time, so without this the only repeatable
+    /// colors are the sixteen built-in presets.
+    /// </summary>
+    public IReadOnlyList<RgbColor> RecentColors => _recentColors;
+
+    /// <summary>
+    /// The other colors this code is already using, so one part can be matched to another
+    /// without going and reading a hex code off a different picker.
+    ///
+    /// Deliberately reflects what is *in effect* rather than what is stored: a custom
+    /// background that is not selected, corner colors that are inheriting, and an outline that
+    /// is switched off are all colors the code is not actually wearing, and offering them would
+    /// be offering a value the user cannot see anywhere on screen.
+    /// </summary>
+    public IReadOnlyList<RgbColor> ColorsInUse
+    {
+        get
+        {
+            var colors = new List<RgbColor> { Foreground };
+
+            // Read through this view model's own properties rather than the style's, because
+            // three of these are nullable there with null meaning "inherit" or "transparent",
+            // and the resolved value is the one a user can actually see on the code.
+            if (BackgroundChoice == BackgroundChoice.Custom && _style.Background is { } background)
+            {
+                colors.Add(background);
+            }
+
+            if (UseCustomMarkerColors)
+            {
+                colors.Add(MarkerFrameColor);
+                colors.Add(MarkerCenterColor);
+            }
+
+            if (OutlineEnabled)
+            {
+                colors.Add(OutlineColor);
+            }
+
+            return [.. colors.Distinct()];
+        }
+    }
+
+    /// <summary>
+    /// Records a color the user settled on, newest first, without duplicates.
+    ///
+    /// Called when a picker closes rather than while one is being dragged: a drag walks through
+    /// dozens of intermediate colors, none of which anyone chose, and recording those would
+    /// bury the twelve that were actually picked.
+    /// </summary>
+    public void RecordRecentColor(RgbColor color)
+    {
+        _recentColors.RemoveAll(c => c == color);
+        _recentColors.Insert(0, color);
+
+        if (_recentColors.Count > RecentColorLimit)
+        {
+            _recentColors.RemoveRange(RecentColorLimit, _recentColors.Count - RecentColorLimit);
+        }
+
+        _settings = _settings with { RecentColors = [.. _recentColors.Select(c => c.ToHex())] };
+        _settingsStore.Save(_settings with { Style = _style });
+
+        OnPropertyChanged(nameof(RecentColors));
     }
 
     /// <summary>
@@ -533,6 +623,13 @@ public sealed class MainViewModel : ObservableObject
     {
         _style = change(_style).Normalised();
         OnPropertyChanged(propertyName);
+
+        // Any style change can alter which colors the code is wearing, and the picker showing
+        // them has no other way to know. Raised unconditionally rather than only for the colour
+        // properties, because the set also changes when a toggle flips: switching the outline
+        // off removes a colour without any colour itself having changed.
+        OnPropertyChanged(nameof(ColorsInUse));
+
         ScheduleRender();
     }
 
@@ -851,13 +948,12 @@ public sealed class MainViewModel : ObservableObject
 
     private void ApplyPreset(PresetItem item)
     {
-        // The preset owns the look. Size, content and logo belong to the session, so they
-        // are carried across rather than being reset by picking a different style.
-        _style = item.Preset.Style with
-        {
-            PixelSize = _style.PixelSize,
-            Logo = _style.Logo,
-        };
+        // The preset owns the look, and the logo is part of it now that saving one keeps its
+        // own copy of the image. So a style with a logo brings it, and a style without one
+        // clears whatever is there: the alternative, only ever adding a logo, leaves no way
+        // back to a code without one and makes two styles behave differently for no reason
+        // the user can see. Size and content still belong to the session.
+        _style = item.Preset.Style with { PixelSize = _style.PixelSize };
 
         RaiseAllStyleProperties();
         ScheduleRender();
@@ -865,13 +961,15 @@ public sealed class MainViewModel : ObservableObject
 
     /// <summary>
     /// A style carries no content of its own, so it is judged against whatever is in the
-    /// box, or a representative sample when the box is empty. The logo is excluded because
-    /// a preset never stores one.
+    /// box, or a representative sample when the box is empty. The logo is now part of what
+    /// gets judged: a preset stores one, and punching a hole in the middle of a code is the
+    /// likeliest reason a style stops scanning, so excluding it would have hidden exactly the
+    /// problem this check exists to catch.
     /// </summary>
     private bool ConfirmPresetScannable()
     {
         var payload = string.IsNullOrWhiteSpace(Payload) ? "https://www.example.org/sample" : Payload;
-        var result = ScannabilityChecker.Check(payload, _style with { Logo = LogoStyle.None });
+        var result = ScannabilityChecker.Check(payload, _style);
 
         if (result.Verdict == ScanVerdict.Good)
         {
@@ -904,9 +1002,10 @@ public sealed class MainViewModel : ObservableObject
 
         try
         {
-            // A preset stores the look only. Baking in the current logo path would leave a
-            // preset that breaks as soon as that file moves.
-            _presets.Save(name, _style with { Logo = LogoStyle.None });
+            // The logo goes with it. The store takes its own copy of the image, which is what
+            // makes that safe: recording the path the user picked from would leave a style
+            // that breaks the moment that file is renamed, tidied away or on another machine.
+            _presets.Save(name, _style);
             RefreshPresets();
             StatusDetail = $"Saved the style \"{name.Trim()}\".";
         }

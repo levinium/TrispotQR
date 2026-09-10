@@ -130,6 +130,102 @@ public class PresetsStripTests
     }
 
     [AvaloniaFact]
+    public void TheFavoriteCardIsTheLastCardInTheStrip()
+    {
+        // It began as a button below the whole section, then as a sibling panel that dropped to
+        // its own row whenever the strip wrapped. It is now a real item in the strip, which is
+        // the only arrangement where it is genuinely the next slot after the last style.
+        //
+        // Asserting its position among the cards rather than a coordinate: the claim is the
+        // ordering, and a coordinate would also fail for a hundred reasons that are not this.
+        UiHarness.WithWindow(session =>
+        {
+            var cards = UiHarness.StripCards(session.Window);
+
+            Assert.True(cards.Count > 1, "the strip realised no style cards, so order proves nothing");
+            Assert.Same(UiHarness.AddFavoriteCard(session.Window), cards[^1]);
+
+            // And every card before it is a style, so it is last rather than merely late.
+            Assert.All(cards.Take(cards.Count - 1), c => Assert.Contains("presetCard", c.Classes));
+        });
+    }
+
+    [AvaloniaFact]
+    public void TheFavoriteCardKeepsItsPlaceAtTheEndWhenAStyleIsAdded()
+    {
+        // The strip mirrors the view model's list and appends the add card, so an edit to that
+        // list rebuilds the mirror. If the append were done once at construction rather than on
+        // every change, saving a style would leave the add card stranded in the middle.
+        UiHarness.WithWindow(session =>
+        {
+            session.Model.Presets.Add(new PresetItem(
+                new StylePreset("Mine", "A saved style", QrStyle.Default, IsBuiltIn: false),
+                thumbnailDrawing: null));
+            DispatcherPump.Drain();
+
+            var cards = UiHarness.StripCards(session.Window);
+
+            Assert.Same(UiHarness.AddFavoriteCard(session.Window), cards[^1]);
+            Assert.Equal(session.Model.Presets.Count + 1, cards.Count);
+        });
+    }
+
+    [AvaloniaFact]
+    public void OnlyASavedStyleOffersTheRemoveButton()
+    {
+        // The affordance the feature exists for: right click was the only route and nothing on a
+        // card said so. A built-in must not offer it, because the command refuses built-ins and
+        // an X that does nothing is worse than no X.
+        UiHarness.WithWindow(session =>
+        {
+            var saved = new PresetItem(
+                new StylePreset("Mine", "A saved style", QrStyle.Default, IsBuiltIn: false),
+                thumbnailDrawing: null);
+            session.Model.Presets.Add(saved);
+            DispatcherPump.Drain();
+
+            var builtIn = session.Model.Presets.First(p => p.IsBuiltIn);
+
+            Assert.False(RemoveButton(UiHarness.PresetCard(session.Window, builtIn)).IsVisible);
+
+            var remove = RemoveButton(UiHarness.PresetCard(session.Window, saved));
+            Assert.True(remove.IsVisible);
+
+            // Visible at rest, with nothing hovered. It was hover only, which meant a card said
+            // nothing about being removable until the pointer happened to be over it; IsVisible
+            // was true the whole time, so a test that stopped at the line above passed while the
+            // button was drawn at zero opacity and no one could find it.
+            Assert.Equal(1.0, remove.Opacity);
+            Assert.True(remove.IsEffectivelyVisible);
+        });
+    }
+
+    [AvaloniaFact]
+    public void TheRemoveButtonDeletesThatStyleAndNoOther()
+    {
+        // Driven through the button rather than the command, so a wrong CommandParameter is
+        // caught: every card is bound to the same command and only the parameter says which
+        // style is meant.
+        UiHarness.WithWindow(session =>
+        {
+            var saved = new PresetItem(
+                new StylePreset("Mine", "A saved style", QrStyle.Default, IsBuiltIn: false),
+                thumbnailDrawing: null);
+            session.Model.Presets.Add(saved);
+            DispatcherPump.Drain();
+
+            var remove = RemoveButton(UiHarness.PresetCard(session.Window, saved));
+
+            Assert.Same(session.Model.DeletePresetCommand, remove.Command);
+            Assert.Same(saved, remove.CommandParameter);
+        });
+    }
+
+    /// <summary>The remove button on one card, by the name the template gives it.</summary>
+    private static Button RemoveButton(Button card) =>
+        card.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "RemoveFavoriteButton");
+
+    [AvaloniaFact]
     public void ACardWithNoThumbnailRendersInsteadOfThrowing()
     {
         // A preset saved from a style that failed to encode has no thumbnail. It must still
@@ -152,7 +248,7 @@ public class PresetsStripTests
 
             Assert.Null(preview.Drawing);
             Assert.True(preview.IsVisible);
-            Assert.Equal("Broken", card.GetVisualDescendants().OfType<TextBlock>().Single().Text);
+            Assert.Equal("Broken", UiHarness.PresetCardLabel(card).Text);
         });
     }
 
@@ -196,7 +292,7 @@ public class PresetsStripTests
             // CommandParameter both read back null. The literal header is the one thing the
             // XAML sets outright. What the bindings do once the menu is opened has its own
             // test, TheDeleteItemIsOnASavedStylesMenuAndOffABuiltInsAltogether.
-            Assert.Equal("Delete this saved style", delete.Header);
+            Assert.Equal("Remove this style", delete.Header);
 
             // Not executed either: DeletePreset asks the dialog service to confirm, which opens
             // a modal nothing can dismiss in a headless run. That the deletion goes through is
@@ -250,7 +346,7 @@ public class PresetsStripTests
         {
             var delete = Assert.Single(
                 window.GetVisualDescendants().OfType<MenuItem>(),
-                m => (m.Header as string) == "Delete this saved style");
+                m => (m.Header as string) == "Remove this style");
 
             return delete.IsVisible;
         }
@@ -269,10 +365,9 @@ public class PresetsStripTests
         // reaches the command at all, the part that was missing before Task 1.
         UiHarness.WithWindow(session =>
         {
-            var button = session.Window.FindControl<Button>("SavePresetButton");
+            var button = UiHarness.AddFavoriteCard(session.Window);
 
-            Assert.NotNull(button);
-            Assert.Same(session.Model.SavePresetCommand, button!.Command);
+            Assert.Same(session.Model.SavePresetCommand, button.Command);
             Assert.True(button.IsEffectivelyEnabled);
         });
     }

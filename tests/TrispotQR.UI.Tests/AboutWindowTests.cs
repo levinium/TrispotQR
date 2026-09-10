@@ -199,4 +199,39 @@ public class AboutWindowTests
         public void ShowInformation(string title, string message) =>
             throw new InvalidOperationException($"the gear menu said something it should not have: {message}");
     }
+
+    [AvaloniaFact]
+    public void TheAboutWindowShowsTheAppIcon()
+    {
+        // The icon went missing entirely in the port. TrispotQR.App wired it through
+        // ApplicationIcon and nothing in either Avalonia project referenced it, so the app
+        // shipped with the generic default in the title bar, the taskbar and here.
+        //
+        // Asserting the Source has a real size rather than merely being non null is the point:
+        // an Avalonia resource path that does not resolve fails at load, but a path that
+        // resolves to the wrong thing would still hand back an object.
+        var window = new AboutWindow();
+        window.Show();
+        DispatcherPump.Drain();
+
+        var icon = window.GetVisualDescendants().OfType<Image>().Single(i => i.Name == "AppIcon");
+
+        Assert.NotNull(icon.Source);
+        Assert.True(
+            icon.Source!.Size.Width > 0 && icon.Source.Size.Height > 0,
+            "the icon resolved to an empty image, so the asset did not load");
+    }
+
+    [AvaloniaFact]
+    public void TheMainWindowCarriesTheAppIcon()
+    {
+        // What the taskbar and the title bar show. Separate from the About window's copy
+        // because they are wired independently: Window.Icon here, an Image Source there, and
+        // ApplicationIcon in TrispotQR.Desktop for the executable itself. All three point at
+        // the one asset, but each is its own line that can be dropped on its own.
+        UiHarness.WithWindow(session =>
+        {
+            Assert.NotNull(session.Window.Icon);
+        });
+    }
 }

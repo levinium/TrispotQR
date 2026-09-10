@@ -1,6 +1,11 @@
 using System.Reflection;
+using System.Runtime.InteropServices;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using TrispotQR.Core.Rendering;
 using TrispotQR.UI.Services;
@@ -101,6 +106,54 @@ public class AvaloniaImageClipboardTests
         // true the first time the while loop checks it, and neither Dispatcher.UIThread.RunJobs()
         // nor the timeout branch ever run. That path is genuinely uncovered here.
         new AvaloniaImageClipboard(window).Copy(image);
+    }
+
+    [AvaloniaFact]
+    public void OffersBothAPngAndAPlainBitmap()
+    {
+        // The reported bug. A copy put only PNG bytes on the clipboard, and Word, Outlook and
+        // Excel reach for the plain bitmap instead, so a paste there produced nothing at all
+        // while the copy itself reported success.
+        //
+        // Asserted on the transfer rather than after a round trip through the clipboard, because
+        // Avalonia.Headless's clipboard accepts anything and would report success either way.
+        var image = new RasterImage(2, 2, new byte[2 * 2 * 4]);
+
+        var formats = AvaloniaImageClipboard.BuildTransfer(image).Formats.ToList();
+
+        Assert.Contains(DataFormat.CreateBytesPlatformFormat("PNG"), formats);
+        Assert.Contains(DataFormat.Bitmap, formats);
+    }
+
+    [AvaloniaFact]
+    public void TheBitmapItOffersHasNoTransparencyLeftInIt()
+    {
+        // The second half of the same bug, and the reason the bitmap is flattened rather than
+        // handed over as it is: those same applications, given a bitmap with an alpha channel,
+        // paste a black box. A transparent image is the case that shows it, so this builds one.
+        var transparent = new RasterImage(2, 2, new byte[2 * 2 * 4]);
+
+        // Formats is read off the item explicitly: Contains is declared as an extension on both
+        // IDataTransferItem and IAsyncDataTransferItem, and DataTransferItem implements both, so
+        // calling it here is ambiguous rather than convenient.
+        var item = AvaloniaImageClipboard.BuildTransfer(transparent).Items
+            .Single(i => i.Formats.Contains(DataFormat.Bitmap));
+
+        var bitmap = Assert.IsAssignableFrom<Bitmap>(item.TryGetRaw(DataFormat.Bitmap));
+
+        using var rendered = new RenderTargetBitmap(new PixelSize(2, 2));
+        using (var context = rendered.CreateDrawingContext())
+        {
+            context.DrawImage(bitmap, new Rect(0, 0, 2, 2));
+        }
+
+        var pixels = new byte[2 * 2 * 4];
+        rendered.CopyPixels(new PixelRect(0, 0, 2, 2), Marshal.UnsafeAddrOfPinnedArrayElement(pixels, 0), pixels.Length, 2 * 4);
+
+        for (var i = 3; i < pixels.Length; i += 4)
+        {
+            Assert.Equal(255, pixels[i]);
+        }
     }
 
     [AvaloniaFact]

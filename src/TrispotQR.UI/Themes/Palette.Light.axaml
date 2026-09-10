@@ -18,6 +18,14 @@
   <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
   <SolidColorBrush x:Key="BorderBrush" Color="#DDE0E5"/>
   <SolidColorBrush x:Key="SubtleBorderBrush" Color="#ECEEF1"/>
+
+  <!-- The edge drawn around a swatch of the user's own colour, in the picker button and in the
+       palette inside the popup. Its own key rather than BorderBrush because it has a harder job:
+       it has to stay visible against the swatch as well as against the card, and the swatch can
+       be any colour at all including the two this palette is built from. Translucent for that
+       reason, and darker here than the ordinary card border, which is nearly invisible against
+       white and was what a black swatch used to get. -->
+  <SolidColorBrush x:Key="SwatchBorderBrush" Color="#59000000"/>
   <SolidColorBrush x:Key="TextBrush" Color="#1B1F27"/>
   <SolidColorBrush x:Key="MutedTextBrush" Color="#666E7A"/>
   <SolidColorBrush x:Key="WarningBrush" Color="#B26100"/>
@@ -29,6 +37,22 @@
   <SolidColorBrush x:Key="HoverBrush" Color="#F0F2F5"/>
   <SolidColorBrush x:Key="DisabledBrush" Color="#C8CDD6"/>
   <SolidColorBrush x:Key="DisabledTextBrush" Color="#A9B0BA"/>
+
+  <!-- The pill that says a copy or a save worked. It is the one piece of chrome that has to
+       stand out FROM the page rather than sit on it, so it inverts: dark here, light in the
+       dark palette. A single dark pill served both until a dark window made it a dark shape on
+       a dark ground, which is the state the user could not see. Slightly translucent so it
+       reads as floating above the page rather than cut into it. -->
+  <SolidColorBrush x:Key="ToastBackgroundBrush" Color="#E61B1F27"/>
+  <SolidColorBrush x:Key="ToastTextBrush" Color="#FFFFFF"/>
+
+  <!-- A hairline for the edge the fill alone does not guarantee: the toast floats over whatever
+       happens to be beneath it, and the preview panel is not the same tone as the page. -->
+  <SolidColorBrush x:Key="ToastBorderBrush" Color="#33FFFFFF"/>
+
+  <!-- The tick. Its own key rather than a shared accent because it has to clear the contrast
+       floor against the toast, which is the one surface in the app that inverts. -->
+  <SolidColorBrush x:Key="ToastCheckBrush" Color="#7BE495"/>
 
   <!-- Checkerboard behind anything that can be part transparent, so a see-through colour is
        visibly see-through rather than looking like a white one.

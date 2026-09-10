@@ -90,7 +90,7 @@ public static class StylePresets
 
         new StylePreset(
             "Two-tone",
-            "Navy code with gold corner rings. A starting point for your own colours.",
+            "Navy code with gold corner rings. A starting point for your own colors.",
             QrStyle.Default with
             {
                 ModuleShape = ModuleShape.Fluid,

@@ -63,6 +63,25 @@ public sealed record AppSettings
     /// </summary>
     public bool RememberLastStyle { get; init; } = true;
 
+    /// <summary>
+    /// Colors the user has actually chosen, most recent first, as hex.
+    ///
+    /// Session state rather than a preference: nobody sets this deliberately, it is a record of
+    /// what they did. Stored as hex strings rather than <see cref="RgbColor"/> so a hand edited
+    /// or half written settings.json degrades to "one fewer swatch" instead of a parse failure
+    /// that costs the whole file, and so the list stays readable to a person who opens it.
+    ///
+    /// Capped where it is written rather than here, because a cap is a rule about recording and
+    /// this record only has to carry what was recorded.
+    ///
+    /// One caveat, because it is the kind that bites silently: this is the only member of this
+    /// record that is not compared by value. A record's generated Equals compares a collection
+    /// by reference, so two AppSettings holding the same colours in different lists are not
+    /// equal. Nothing in the app compares whole AppSettings, and the one test that did now
+    /// compares member by member; anything that starts to should know this first.
+    /// </summary>
+    public IReadOnlyList<string> RecentColors { get; init; } = [];
+
     public static AppSettings Default { get; } = new();
 }
 
