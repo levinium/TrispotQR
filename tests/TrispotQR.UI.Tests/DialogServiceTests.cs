@@ -133,15 +133,14 @@ public class DialogServiceTests
     }
 
     [AvaloniaFact]
-    public void TheThreePhase2cMembersReportCancellationRatherThanCrashing()
+    public void TheTwoRemainingPhase2cMembersReportCancellationRatherThanCrashing()
     {
         var (_, dialogs) = Create();
 
-        // The logo picker, the save-preset prompt and the settings window arrive in Phase 2c.
-        // Until then these must behave like a cancelled dialog, because that is the one answer
-        // every caller in MainViewModel already handles.
+        // The logo picker and the settings window arrive in Phase 2c. Until then these must
+        // behave like a cancelled dialog, because that is the one answer every caller in
+        // MainViewModel already handles. The save-preset prompt is implemented.
         Assert.Null(dialogs.AskForImage(null));
-        Assert.Null(dialogs.AskForText("Save preset", "Name", "My style"));
         Assert.Null(dialogs.EditSettings(new AppSettings()));
     }
 

@@ -79,6 +79,7 @@ public class TextPromptWindowTests
             Input(window).Text = "  Poster  ";
             Confirm(window);
             Assert.Equal("Poster", window.Value);
+            Assert.False(window.IsVisible, "confirm must close the window");
         });
     }
 
@@ -88,12 +89,33 @@ public class TextPromptWindowTests
         WithPrompt(string.Empty, window => Assert.Equal(60, Input(window).MaxLength));
     }
 
+    [AvaloniaFact]
+    public void CancelClosesTheWindowWithoutConfirmation()
+    {
+        WithPrompt(string.Empty, window =>
+        {
+            Input(window).Text = "Valid name";
+            Cancel(window);
+            Assert.False(window.IsVisible, "cancel must close the window");
+        });
+    }
+
     private static TextBox Input(TextPromptWindow window) =>
         window.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "Input");
 
     private static void Confirm(TextPromptWindow window)
     {
         var button = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "ConfirmButton");
+        var point = UiHarness.At(button, 0.5, 0.5);
+        Assert.True(
+            point.X >= 0 && point.Y >= 0 && point.X < window.Width && point.Y < window.Height,
+            "a click outside the window is discarded silently");
+        UiHarness.Click(window, point);
+    }
+
+    private static void Cancel(TextPromptWindow window)
+    {
+        var button = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "CancelButton");
         var point = UiHarness.At(button, 0.5, 0.5);
         Assert.True(
             point.X >= 0 && point.Y >= 0 && point.X < window.Width && point.Y < window.Height,
