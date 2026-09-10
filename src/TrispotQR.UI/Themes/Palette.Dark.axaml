@@ -40,6 +40,19 @@
   <SolidColorBrush x:Key="DisabledBrush" Color="#3A3F47"/>
   <SolidColorBrush x:Key="DisabledTextBrush" Color="#6B717A"/>
 
+  <!-- Inverted against the light palette, and that inversion is the point: a confirmation has
+       to be the brightest thing on the page for the second it is up. The light theme's dark
+       pill was hard coded for both appearances, which on this ground was a near black shape on
+       a near black page. Text follows it down to near black for the same reason OnAccentBrush
+       does. -->
+  <SolidColorBrush x:Key="ToastBackgroundBrush" Color="#E6F2F4F7"/>
+  <SolidColorBrush x:Key="ToastTextBrush" Color="#11151C"/>
+  <SolidColorBrush x:Key="ToastBorderBrush" Color="#33000000"/>
+
+  <!-- Dropped from the light theme's #7BE495, which is a pale green chosen to sit on a dark
+       pill and is close to unreadable on a pale one. -->
+  <SolidColorBrush x:Key="ToastCheckBrush" Color="#12793B"/>
+
   <!-- Muted so the checkerboard reads as "nothing here" rather than competing with the code
        drawn on top of it. -->
   <DrawingBrush x:Key="CheckerBrush"

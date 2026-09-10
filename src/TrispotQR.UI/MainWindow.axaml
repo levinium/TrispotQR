@@ -622,11 +622,13 @@
             CornerRadius="18"
             Opacity="0"
             IsHitTestVisible="False"
-            Background="#E61B1F27">
+            BorderThickness="1"
+            Background="{DynamicResource ToastBackgroundBrush}"
+            BorderBrush="{DynamicResource ToastBorderBrush}">
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <TextBlock Text="&#x2713;" Foreground="#7BE495" FontSize="13"
+        <TextBlock Text="&#x2713;" Foreground="{DynamicResource ToastCheckBrush}" FontSize="13"
                    FontWeight="Bold" VerticalAlignment="Center" />
-        <TextBlock x:Name="ToastText" Foreground="White" FontSize="12.5"
+        <TextBlock x:Name="ToastText" Foreground="{DynamicResource ToastTextBrush}" FontSize="12.5"
                    VerticalAlignment="Center" />
       </StackPanel>
     </Border>

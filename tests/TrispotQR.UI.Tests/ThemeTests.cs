@@ -11,6 +11,8 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using TrispotQR.Core.Presets;
+using TrispotQR.Core.Primitives;
+using TrispotQR.Core.Validation;
 using TrispotQR.UI.Controls;
 using TrispotQR.UI.Services;
 
@@ -56,6 +58,24 @@ public class ThemeTests
         ISolidColorBrush brush => brush.Color,
         _ => null,
     };
+
+    /// <summary>The same colour, in the framework-free type Core measures contrast in.</summary>
+    private static RgbColor Rgb(Color colour) => RgbColor.FromArgb(colour.A, colour.R, colour.G, colour.B);
+
+    /// <summary>
+    /// What a translucent palette colour actually paints once it lands on what is beneath it.
+    ///
+    /// Measuring the declared colour instead would flatter a translucent one: a 10% white pill
+    /// scores as white on paper and as very nearly the page on screen.
+    /// </summary>
+    private static RgbColor Over(Color colour, Color under)
+    {
+        var alpha = colour.A / 255.0;
+        byte Blend(byte top, byte bottom) => (byte)Math.Round((alpha * top) + ((1 - alpha) * bottom));
+
+        return RgbColor.FromRgb(
+            Blend(colour.R, under.R), Blend(colour.G, under.G), Blend(colour.B, under.B));
+    }
 
     [AvaloniaFact]
     public void EveryChromeKeyIsDefinedInBothVariants()
@@ -333,6 +353,84 @@ public class ThemeTests
                 Directory.Delete(directory, recursive: true);
             }
         }
+    }
+
+    [AvaloniaFact]
+    public void TheToastIsPaintedFromThePaletteRatherThanFromLiteralColours()
+    {
+        // The confirmation pill carried four literal colours: a near black ground, white text, a
+        // pale green tick and no edge at all. In a dark window that is a near black shape on a
+        // near black page, so the one message whose entire job is to be noticed was the hardest
+        // thing on screen to see.
+        try
+        {
+            UiHarness.WithWindow(session =>
+            {
+                var window = session.Window;
+                var toast = window.GetVisualDescendants().OfType<Border>()
+                    .Single(b => b.Name == "Toast");
+                var text = window.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(t => t.Name == "ToastText");
+
+                // The tick, found by the glyph it draws: it needs no name of its own, and giving
+                // it one to be found by would be the test shaping the markup.
+                var tick = Assert.Single(
+                    toast.GetVisualDescendants().OfType<TextBlock>(),
+                    t => t.Text == "✓");
+
+                foreach (var (theme, variant) in new[]
+                {
+                    (AppTheme.Light, ThemeVariant.Light),
+                    (AppTheme.Dark, ThemeVariant.Dark),
+                })
+                {
+                    ThemeSwitcher.Apply(theme);
+                    DispatcherPump.Drain();
+
+                    Assert.Equal(ColourOf("ToastBackgroundBrush", variant), (toast.Background as ISolidColorBrush)?.Color);
+                    Assert.Equal(ColourOf("ToastBorderBrush", variant), (toast.BorderBrush as ISolidColorBrush)?.Color);
+                    Assert.Equal(ColourOf("ToastTextBrush", variant), (text.Foreground as ISolidColorBrush)?.Color);
+                    Assert.Equal(ColourOf("ToastCheckBrush", variant), (tick.Foreground as ISolidColorBrush)?.Color);
+                }
+            });
+        }
+        finally
+        {
+            ThemeSwitcher.Apply(AppTheme.FollowWindows);
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheToastStandsOutFromThePageInBothAppearances()
+    {
+        // The requirement behind the test above, rather than its wiring. Four palette keys that
+        // all resolve correctly still leave the toast invisible if the dark palette's pill is
+        // the same tone as the dark palette's page, and nothing in the key-parity test would
+        // notice: it asks that both variants define a key, never that either value is usable.
+        //
+        // Measured with Core's own WCAG maths, the same ScannabilityChecker.ContrastRatio the
+        // app applies to a generated code. The app refuses to call a code scannable at contrast
+        // it would fail here.
+        foreach (var variant in new[] { ThemeVariant.Light, ThemeVariant.Dark })
+        {
+            var page = ColourOf("PageBrush", variant);
+            var pill = Over(ColourOf("ToastBackgroundBrush", variant), page);
+
+            // 4.5 rather than the 3.0 that WCAG asks of a plain interface surface. A toast is
+            // not a panel that merely has to be distinguishable from its neighbour; it appears
+            // unbidden for two seconds and has to be caught by someone looking somewhere else.
+            AssertContrast(4.5, pill, Rgb(page), $"{variant} toast against the page");
+            AssertContrast(4.5, Rgb(ColourOf("ToastTextBrush", variant)), pill, $"{variant} toast text");
+
+            // The tick is a bold glyph, not prose, so it takes the large-text floor.
+            AssertContrast(3.0, Rgb(ColourOf("ToastCheckBrush", variant)), pill, $"{variant} toast tick");
+        }
+    }
+
+    private static void AssertContrast(double floor, RgbColor a, RgbColor b, string what)
+    {
+        var ratio = ScannabilityChecker.ContrastRatio(a, b);
+        Assert.True(ratio >= floor, $"{what}: contrast {ratio:0.00} is below {floor:0.0}");
     }
 
     [AvaloniaFact]

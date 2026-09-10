@@ -38,6 +38,22 @@
   <SolidColorBrush x:Key="DisabledBrush" Color="#C8CDD6"/>
   <SolidColorBrush x:Key="DisabledTextBrush" Color="#A9B0BA"/>
 
+  <!-- The pill that says a copy or a save worked. It is the one piece of chrome that has to
+       stand out FROM the page rather than sit on it, so it inverts: dark here, light in the
+       dark palette. A single dark pill served both until a dark window made it a dark shape on
+       a dark ground, which is the state the user could not see. Slightly translucent so it
+       reads as floating above the page rather than cut into it. -->
+  <SolidColorBrush x:Key="ToastBackgroundBrush" Color="#E61B1F27"/>
+  <SolidColorBrush x:Key="ToastTextBrush" Color="#FFFFFF"/>
+
+  <!-- A hairline for the edge the fill alone does not guarantee: the toast floats over whatever
+       happens to be beneath it, and the preview panel is not the same tone as the page. -->
+  <SolidColorBrush x:Key="ToastBorderBrush" Color="#33FFFFFF"/>
+
+  <!-- The tick. Its own key rather than a shared accent because it has to clear the contrast
+       floor against the toast, which is the one surface in the app that inverts. -->
+  <SolidColorBrush x:Key="ToastCheckBrush" Color="#7BE495"/>
+
   <!-- Checkerboard behind anything that can be part transparent, so a see-through colour is
        visibly see-through rather than looking like a white one.
 
