@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -165,6 +166,47 @@ public class ThemeTests
         finally
         {
             ThemeSwitcher.Apply(AppTheme.FollowWindows);
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheRememberedAppearanceIsInEffectBeforeTheFirstWindowIsBuilt()
+    {
+        // Choosing Dark and restarting has to give a dark app. Nothing else in the product reads
+        // Theme back out of settings.json: the settings window writes it and applies it live, so
+        // without this step the choice lasted only as long as the session that made it, and the
+        // settings window's own "put the theme back on cancel" restored the saved choice rather
+        // than undoing a preview, turning Cancel into an apply.
+        //
+        // Handed its own settings folder rather than the real one. Reading whichever appearance
+        // the developer last chose would assert nothing on the machine where it already matches.
+        var directory = Path.Combine(Path.GetTempPath(), $"trispotqr-theme-{Guid.NewGuid():N}");
+
+        try
+        {
+            // Both, so a step that ignored the file and applied one appearance outright would
+            // still be caught by the other half.
+            foreach (var theme in new[] { AppTheme.Dark, AppTheme.Light })
+            {
+                new AppSettingsStore(directory).Save(AppSettings.Default with { Theme = theme });
+
+                ThemeSwitcher.Apply(AppTheme.FollowWindows);
+                App.ApplyStartupTheme(new AppSettingsStore(directory));
+
+                Assert.Equal(theme, ThemeSwitcher.Requested);
+                Assert.Equal(
+                    theme == AppTheme.Dark ? ThemeVariant.Dark : ThemeVariant.Light,
+                    Application.Current!.RequestedThemeVariant);
+            }
+        }
+        finally
+        {
+            ThemeSwitcher.Apply(AppTheme.FollowWindows);
+
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
         }
     }
 
