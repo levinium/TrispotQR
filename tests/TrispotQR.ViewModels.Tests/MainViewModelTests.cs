@@ -338,6 +338,28 @@ public class MainViewModelTests : IDisposable
         Assert.Empty(new PresetStore(_directory).Custom);
     }
 
+    /// <summary>
+    /// Deleting lives here rather than in the UI suite because it asks the dialog service to
+    /// confirm, and a headless window has nobody to answer a real modal. The card that starts
+    /// this off is covered in PresetsStripTests; what happens once the user says yes is only
+    /// checkable where the dialog is a fake.
+    /// </summary>
+    [Fact]
+    public void DeletingASavedPreset_TakesItOutOfTheListAndOffDisk()
+    {
+        var vm = Create();
+        _dialogs.NextText = "Doomed";
+        vm.SavePresetCommand.Execute(null);
+
+        var saved = vm.Presets.Single(p => p.Name == "Doomed");
+        _dialogs.ConfirmAnswer = true;
+
+        vm.DeletePresetCommand.Execute(saved);
+
+        Assert.DoesNotContain(vm.Presets, p => p.Name == "Doomed");
+        Assert.Empty(new PresetStore(_directory).Custom);
+    }
+
     [Fact]
     public void ResetEverything_ReturnsTheLookToTheDefaults()
     {

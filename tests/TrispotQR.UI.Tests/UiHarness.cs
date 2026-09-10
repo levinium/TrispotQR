@@ -128,21 +128,19 @@ internal static class UiHarness
     /// Every preset card in the strip, scoped to the ItemsControl so a window-wide Button
     /// search cannot pick up Save, Copy, Reset or a ComboBox template's internals.
     /// </summary>
-    public static IEnumerable<Button> PresetCards(Window window)
-    {
-        var strip = window.FindControl<ItemsControl>("PresetsStrip")
-            ?? throw new InvalidOperationException("MainWindow no longer has a PresetsStrip.");
+    /// <remarks>
+    /// A full descendant walk rather than the ItemsControl's direct visual children: those are
+    /// the control template's own Border and ItemsPresenter, so the WrapPanel holding the cards
+    /// is two levels down and a shallow search silently returns nothing at all.
+    /// </remarks>
+    public static IEnumerable<Button> PresetCards(Window window) =>
+        (window.FindControl<ItemsControl>("PresetsStrip")
+            ?? throw new InvalidOperationException("MainWindow no longer has a PresetsStrip."))
+        .GetVisualDescendants().OfType<Button>();
 
-        // Use the ItemsControl's Items collection to find preset cards, which is more efficient
-        // than traversing the visual tree. WrapPanel layouts the items as visual children.
-        var itemsPanel = strip.GetVisualChildren().FirstOrDefault() as Panel;
-        if (itemsPanel == null)
-        {
-            return Enumerable.Empty<Button>();
-        }
-
-        return itemsPanel.GetVisualChildren().OfType<Button>();
-    }
+    /// <summary>The card standing for one preset, by identity rather than by position.</summary>
+    public static Button PresetCard(Window window, PresetItem item) =>
+        PresetCards(window).Single(c => ReferenceEquals(c.DataContext, item));
 
     /// <summary>
     /// Reaches past FieldBox's own public surface to the real inner TextBox, the same way a
@@ -181,15 +179,6 @@ internal static class UiHarness
         window.MouseMove(point);
         window.MouseDown(point, MouseButton.Left);
         window.MouseUp(point, MouseButton.Left);
-        DispatcherPump.Drain();
-    }
-
-    /// <summary>A right-click at the given point.</summary>
-    public static void RightClick(Window window, Point point)
-    {
-        window.MouseMove(point);
-        window.MouseDown(point, MouseButton.Right);
-        window.MouseUp(point, MouseButton.Right);
         DispatcherPump.Drain();
     }
 
