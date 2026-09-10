@@ -8,6 +8,13 @@
     <AssemblyName>TrispotQR</AssemblyName>
     <!-- WinExe suppresses the console window on Windows and means nothing on Linux and macOS,
          where it is simply ignored. -->
+
+    <!-- The single source of truth for what the app calls itself and which build it is. This
+         is the entry assembly, so it is the one AppInfo reads; the title bar, the About window
+         and the published file all follow from these two lines. Matches TrispotQR.App, which
+         is the same product until WPF is retired. -->
+    <Version>1.0.0</Version>
+    <Product>Trispot QR</Product>
   </PropertyGroup>
 
   <ItemGroup>

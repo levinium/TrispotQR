@@ -150,6 +150,38 @@
     <ScrollViewer Grid.Column="1" x:Name="FormScroll" Padding="0,0,20,0">
       <StackPanel Spacing="16">
 
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+          <!-- Set from AppInfo in the code behind, so the number here is the one the running
+               build carries rather than a second copy of it. -->
+          <TextBlock x:Name="VersionLabel" Classes="label" VerticalAlignment="Center"
+                     Opacity="0.7"
+                     ToolTip.Tip="The version of Trispot QR you are running" />
+
+          <!--
+            A MenuFlyout, where the WPF window used a ContextMenu it hand opened from a Click
+            handler. Button opens an attached Flyout on a plain left press by itself, which is
+            the behaviour that handler existed to fake, so the port needs no handler at all.
+            It is also the honestly testable choice: a flyout's items realise into the window
+            with real bounds once it is open, so a test can click the gear and then click the
+            item, rather than reading markup back and calling that a menu.
+          -->
+          <Button x:Name="GearButton" Width="32" Height="32" Padding="0"
+                  VerticalAlignment="Center"
+                  ToolTip.Tip="Settings and about">
+            <!-- A gear drawn as a path, so there is no icon font to ship. -->
+            <Path Width="17" Height="17" Stretch="Uniform"
+                  Fill="{DynamicResource MutedTextBrush}"
+                  Data="M19.14,12.94a7.07,7.07,0,0,0,0-1.88l2-1.58a0.5,0.5,0,0,0,.12-0.61l-1.9-3.29a0.5,0.5,0,0,0-.6-0.22l-2.39,1a7,7,0,0,0-1.62-.94l-0.36-2.54A0.5,0.5,0,0,0,13.9,2H10.1a0.5,0.5,0,0,0-.49.42L9.25,4.96a7,7,0,0,0-1.62.94l-2.39-1a0.5,0.5,0,0,0-.6.22L2.74,8.41a0.5,0.5,0,0,0,.12.61l2,1.58a7.07,7.07,0,0,0,0,1.88l-2,1.58a0.5,0.5,0,0,0-.12.61l1.9,3.29a0.5,0.5,0,0,0,.6.22l2.39-1a7,7,0,0,0,1.62.94l0.36,2.54a0.5,0.5,0,0,0,.49.42h3.8a0.5,0.5,0,0,0,.49-0.42l0.36-2.54a7,7,0,0,0,1.62-.94l2.39,1a0.5,0.5,0,0,0,.6-0.22l1.9-3.29a0.5,0.5,0,0,0-.12-0.61ZM12,15.6A3.6,3.6,0,1,1,15.6,12,3.6,3.6,0,0,1,12,15.6Z" />
+            <Button.Flyout>
+              <MenuFlyout Placement="Bottom">
+                <MenuItem Header="Settings..." Click="OnSettingsClicked" />
+                <Separator />
+                <MenuItem Header="About Trispot QR" Click="OnAboutClicked" />
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
+        </StackPanel>
+
         <StackPanel Spacing="6">
           <TextBlock Text="What goes in the code" Classes="heading" />
           <ComboBox ItemsSource="{Binding ContentEditors}"

@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TrispotQR.UI.Views.AboutWindow"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        SizeToContent="Height"
+        Width="440"
+        Background="{DynamicResource PageBrush}"
+        Title="About Trispot QR">
+
+  <Window.Styles>
+    <!-- The same card and caption treatments SettingsWindow names. Window scoped, so each
+         window carries its own copy; that is what a Window.Styles block is. -->
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="18"/>
+    </Style>
+    <Style Selector="TextBlock.caption">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="14"/>
+    </Style>
+  </Window.Styles>
+
+  <StackPanel Margin="18" Spacing="12">
+
+    <Border Classes="card">
+      <StackPanel Spacing="10">
+        <!-- Both set from AppInfo in the code behind rather than written here, so the name and
+             the version this window shows are the ones the running build actually carries. -->
+        <TextBlock x:Name="ProductText" Classes="heading"/>
+        <TextBlock x:Name="VersionText" Classes="caption"/>
+
+        <TextBlock Classes="caption" LineHeight="18"
+                   Text="Makes QR codes from anything you type, styles them, and checks that they actually scan before you print them. Everything happens on this machine; nothing is sent anywhere."/>
+      </StackPanel>
+    </Border>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button x:Name="CloseButton" Content="Close" MinWidth="92"
+              IsDefault="True" IsCancel="True" Click="OnClose"/>
+    </StackPanel>
+  </StackPanel>
+</Window>
