@@ -197,6 +197,22 @@ public class SettingsWindowTests
     }
 
     [AvaloniaFact]
+    public void ChoosingSmallCarriesFiveHundredAndTwelveBackOut()
+    {
+        // The other Done test presses Print, and the two sizes share no code, so 512 is the one
+        // export size whose value could have been anything at all without a test noticing.
+        WithSettings(AppSettings.Default with { DefaultPixelSize = 2048 }, window =>
+        {
+            Press(window, "SizeSmall");
+            DispatcherPump.Drain();
+
+            Press(window, "DoneButton");
+
+            Assert.Equal(512, window.Result.DefaultPixelSize);
+        });
+    }
+
+    [AvaloniaFact]
     public void AnEmptyFolderBoxMeansNullRatherThanAnEmptyString()
     {
         // Not pedantry about a string: MainViewModel reads DefaultSaveDirectory ?? LastSaveDirectory,
@@ -231,6 +247,11 @@ public class SettingsWindowTests
 
             WithSettings(settings, window =>
             {
+                // Before the reset, or the size assertion below proves only that the button the
+                // reset presses is the medium one: 512 is the only size whose leg nothing else
+                // in this file checks on the way in.
+                Assert.True(Toggle(window, "SizeSmall").IsChecked, "512 has to show as Small");
+
                 Press(window, "ResetDefaultsButton");
 
                 Assert.Equal(0, Theme(window).SelectedIndex);
