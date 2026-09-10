@@ -19,10 +19,10 @@ namespace TrispotQR.UI.Tests;
 /// nested frame is then released only by the ten-minute dialog timeout. That deletion actually
 /// removes the preset is proved in MainViewModelTests, which has a fake dialog service.
 ///
-/// Nothing reads a MenuItem's IsVisible. The MenuItems declared inside a ContextMenu are not
-/// realised until the menu is opened, so the value read back is not the value a user would see.
-/// What is provable from here is that the card carries the menu and that the command behind it
-/// refuses built-ins, which is the load-bearing guard.
+/// Nothing clicks a MenuItem. Reading one is fine: a MenuItem declared inside a ContextMenu has
+/// had none of its bindings evaluated while the menu is shut, but ContextMenu.Open realises it
+/// into the window tree with its bindings live, which is how the delete item's IsVisible is
+/// asserted below. Pressing it is what cannot be done, for the reason above.
 /// </summary>
 public class PresetsStripTests
 {
@@ -166,8 +166,8 @@ public class PresetsStripTests
 
             // The card carries the menu -- deleting is not something the strip forgot to
             // offer -- but the command behind it refuses this preset, which is what actually
-            // stops a built-in style from being removed. The menu item's own IsVisible is not
-            // readable until the menu is opened, so it cannot be asserted on here.
+            // stops a built-in style from being removed. That the item is also hidden on a
+            // built-in's menu is asserted separately, with the menu open.
             Assert.NotNull(card.ContextMenu);
             Assert.False(
                 session.Model.DeletePresetCommand.CanExecute(builtIn),
@@ -191,10 +191,11 @@ public class PresetsStripTests
             Assert.NotNull(card.ContextMenu);
             var delete = Assert.Single(card.ContextMenu!.Items.OfType<MenuItem>());
 
-            // Header, not Command: a MenuItem inside an unopened ContextMenu has had none of
-            // its bindings evaluated, so Command and CommandParameter both read back null and
-            // asserting on them would be asserting on the menu never having been opened. The
-            // literal header is the one thing the XAML sets outright.
+            // Header, not Command: this menu is shut, and a MenuItem inside an unopened
+            // ContextMenu has had none of its bindings evaluated, so Command and
+            // CommandParameter both read back null. The literal header is the one thing the
+            // XAML sets outright. What the bindings do once the menu is opened has its own
+            // test, TheDeleteItemIsOnASavedStylesMenuAndOffABuiltInsAltogether.
             Assert.Equal("Delete this saved style", delete.Header);
 
             // Not executed either: DeletePreset asks the dialog service to confirm, which opens
@@ -204,6 +205,60 @@ public class PresetsStripTests
                 session.Model.DeletePresetCommand.CanExecute(saved),
                 "a style the user saved must be removable");
         });
+    }
+
+    [AvaloniaFact]
+    public void TheDeleteItemIsOnASavedStylesMenuAndOffABuiltInsAltogether()
+    {
+        // The command refusing a built-in stops the deletion; this stops the offer. A menu whose
+        // only item is greyed out or, worse, present and dead is a menu that says the app is
+        // broken rather than that the style is not yours to remove.
+        UiHarness.WithWindow(session =>
+        {
+            var saved = new PresetItem(
+                new StylePreset("Mine", "A saved style", QrStyle.Default, IsBuiltIn: false),
+                thumbnailDrawing: null);
+            session.Model.Presets.Add(saved);
+            DispatcherPump.Drain();
+
+            Assert.False(
+                DeleteItemIsShowing(session.Window, session.Model.Presets.First(p => p.IsBuiltIn)),
+                "a built-in style must not offer deletion");
+            Assert.True(
+                DeleteItemIsShowing(session.Window, saved),
+                "a style the user saved must offer deletion");
+        });
+    }
+
+    /// <summary>
+    /// Whether one card's context menu actually shows its delete item, with the menu open.
+    ///
+    /// Opened rather than read off the unopened ContextMenu, because the MenuItem declared in
+    /// the XAML has had none of its bindings evaluated until then: IsVisible reads back true
+    /// on every card, built-in or not. Opening realises it into the window tree, which is where
+    /// this looks for it.
+    /// </summary>
+    private static bool DeleteItemIsShowing(Window window, PresetItem item)
+    {
+        var card = UiHarness.PresetCard(window, item);
+        var menu = card.ContextMenu ?? throw new InvalidOperationException("the card carries no menu");
+
+        menu.Open(card);
+        DispatcherPump.Drain();
+
+        try
+        {
+            var delete = Assert.Single(
+                window.GetVisualDescendants().OfType<MenuItem>(),
+                m => (m.Header as string) == "Delete this saved style");
+
+            return delete.IsVisible;
+        }
+        finally
+        {
+            menu.Close();
+            DispatcherPump.Drain();
+        }
     }
 
     [AvaloniaFact]
