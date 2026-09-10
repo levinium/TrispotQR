@@ -100,6 +100,38 @@ public class TextPromptWindowTests
         });
     }
 
+    [AvaloniaFact]
+    public void AWindowBuiltWithoutArgumentsStillClearsItsComplaint()
+    {
+        // The parameterless constructor is what the XAML loader and the designer use, and it
+        // used to leave the box unwatched: such a window refused an empty name and then left
+        // the complaint up however the name was corrected, which is the behaviour this whole
+        // window exists for.
+        var window = new TextPromptWindow();
+        window.Show();
+        DispatcherPump.Drain();
+
+        try
+        {
+            Confirm(window);
+            Assert.True(window.FindControl<TextBlock>("ErrorText")!.IsVisible);
+
+            Input(window).Text = "Poster";
+            DispatcherPump.Drain();
+
+            Assert.False(
+                window.FindControl<TextBlock>("ErrorText")!.IsVisible,
+                "the complaint must go away when it stops being true, however the window was built");
+        }
+        finally
+        {
+            if (window.IsVisible)
+            {
+                window.Close();
+            }
+        }
+    }
+
     private static TextBox Input(TextPromptWindow window) =>
         window.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "Input");
 

@@ -13,17 +13,25 @@ public partial class TextPromptWindow : Window
 {
     private bool _confirmed;
 
-    // InitializeComponent(), never AvaloniaXamlLoader.Load(this) -- see the comment in
-    // MessageWindow.axaml.cs. Load(this) populates the NameScope but leaves the generated
-    // fields null, so PromptText.Text on the next line would throw.
-    public TextPromptWindow() => InitializeComponent();
-
-    public TextPromptWindow(string title, string prompt, string initialValue)
-        : this()
+    /// <summary>
+    /// Opens on an empty prompt, and exists so the compiled XAML stays reachable from the
+    /// runtime loader: without a public parameterless constructor the Avalonia compiler reports
+    /// AVLN3001 and the resource cannot be loaded that way at all.
+    ///
+    /// Carries the wiring rather than leaving it to the overload, for the same reason
+    /// SettingsWindow's parameterless constructor delegates to its real one: what a window does
+    /// belongs to the window, not to the arguments it happened to be given. Without this a
+    /// designer- or loader-built prompt would refuse an empty name and then never take the
+    /// complaint back down, which is the one behaviour this window exists for.
+    ///
+    /// InitializeComponent(), never AvaloniaXamlLoader.Load(this) -- see the comment in
+    /// MessageWindow.axaml.cs. Load(this) populates the NameScope but leaves the generated
+    /// fields null, so Input on the next line would be null.
+    /// </summary>
+    public TextPromptWindow()
     {
-        Title = title;
-        PromptText.Text = prompt;
-        Input.Text = initialValue;
+        InitializeComponent();
+
         Input.TextChanged += OnTextChanged;
 
         Opened += (_, _) =>
@@ -33,7 +41,20 @@ public partial class TextPromptWindow : Window
         };
     }
 
-    /// <summary>The trimmed name. Meaningful only once the window has closed with Save.</summary>
+    public TextPromptWindow(string title, string prompt, string initialValue)
+        : this()
+    {
+        Title = title;
+        PromptText.Text = prompt;
+        Input.Text = initialValue;
+    }
+
+    /// <summary>
+    /// The trimmed contents of the box, read live. This is what Save is judged on and what the
+    /// error clearing watches, both while the window is open; ShowAsync is the one caller that
+    /// waits for the close, and it is also the one that decides whether to hand the value back
+    /// at all.
+    /// </summary>
     public string Value => (Input.Text ?? string.Empty).Trim();
 
     public static async Task<string?> ShowAsync(Window owner, string title, string prompt, string initialValue)

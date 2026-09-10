@@ -11,8 +11,11 @@
 
   <Window.Styles>
     <!-- The same two treatments MainWindow names, plus the caption and card the WPF window
-         carried as CaptionStyle and CardStyle. Window scoped, so they have to be repeated
-         rather than shared; that is what a Window.Styles block is. -->
+         carried as CaptionStyle and CardStyle. Window scoped by choice, not by necessity:
+         Application.Styles in App.axaml would reach every window, and does for FluentTheme.
+         Kept here because the same class name is not the same treatment everywhere. About
+         gives .heading an 18 point size that would look absurd on this window's four section
+         titles, so a shared rule would immediately need a local one overriding it. -->
     <Style Selector="TextBlock.heading">
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>

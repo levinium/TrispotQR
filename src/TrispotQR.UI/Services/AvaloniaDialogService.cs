@@ -198,11 +198,14 @@ public sealed class AvaloniaDialogService : IDialogService
     public bool Confirm(string title, string message) => Ask(title, message, "OK", "Cancel", defaultToProceed: true);
 
     /// <summary>
-    /// severe is deliberately unused. It tells a WPF ConfirmWindow to paint a red rather than
-    /// an amber heading, and MessageWindow has no styling of any kind yet -- that arrives with
-    /// the rest of the visual work in Phase 2c. The distinction is not lost meanwhile: the
-    /// heading text and the default button that MainViewModel derives from the same verdict
-    /// already differ between a code that did not scan and one that merely might not.
+    /// severe is unimplemented, not merely unused. It tells a WPF ConfirmWindow to paint its
+    /// heading badge red rather than amber, and MessageWindow has no heading element at all to
+    /// paint: it is a title, a body and two buttons. Adding one is Phase 2f's, which is where
+    /// the WPF window this behaviour is specified by gets retired.
+    ///
+    /// The distinction is not lost meanwhile: the heading text and the default button that
+    /// MainViewModel derives from the same verdict already differ between a code that did not
+    /// scan and one that merely might not.
     /// </summary>
     public bool ConfirmRisk(string heading, string message, string proceedLabel, bool defaultToProceed, bool severe) =>
         Ask(heading, message, proceedLabel, "Cancel", defaultToProceed);
