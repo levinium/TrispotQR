@@ -390,6 +390,98 @@ public class MainViewModelTests : IDisposable
         Assert.Equal(BackgroundChoice.Transparent, second.BackgroundChoice);
     }
 
+    /// <summary>
+    /// A real image on disk, for the tests that involve a logo. The picker will not accept a
+    /// file it cannot open, and saving a style now copies the bytes, so a made-up path would
+    /// exercise neither.
+    /// </summary>
+    private string WriteLogo()
+    {
+        var path = Path.Combine(_directory, "logo.png");
+        File.WriteAllBytes(path, PngExporter.ToBytes(new RasterImage(2, 2, new byte[2 * 2 * 4])));
+        return path;
+    }
+
+    [Fact]
+    public void ASavedStyle_CarriesItsLogoIntoALaterSession()
+    {
+        // What the user asked for, end to end. Saving used to strip the logo outright, so a
+        // style with a logo came back without one and there was no way to keep the pairing.
+        var first = Create();
+        _dialogs.NextImage = WriteLogo();
+        first.ChooseLogoCommand.Execute(null);
+        _dialogs.NextText = "With a logo";
+        first.SavePresetCommand.Execute(null);
+
+        var second = Create();
+        second.ClearLogoCommand.Execute(null);
+        second.ApplyPresetCommand.Execute(second.Presets.Single(p => p.Name == "With a logo"));
+
+        Assert.True(second.HasLogo);
+    }
+
+    [Fact]
+    public void ASavedLogo_StillWorksAfterTheOriginalFileIsGone()
+    {
+        // The reason the app keeps its own copy rather than recording where the user got the
+        // file. This is the case the old code gave up on and stripped logos over.
+        var first = Create();
+        var original = WriteLogo();
+        _dialogs.NextImage = original;
+        first.ChooseLogoCommand.Execute(null);
+        _dialogs.NextText = "Portable";
+        first.SavePresetCommand.Execute(null);
+
+        File.Delete(original);
+
+        var second = Create();
+        second.ApplyPresetCommand.Execute(second.Presets.Single(p => p.Name == "Portable"));
+
+        Assert.True(second.HasLogo);
+    }
+
+    [Fact]
+    public void ApplyingAStyleWithNoLogo_ClearsTheOneInUse()
+    {
+        // The other half of "the style owns the look". A style that could only ever add a logo
+        // would leave no way back to a code without one, and would make two saved styles
+        // behave differently for a reason the user cannot see.
+        var vm = Create();
+        _dialogs.NextImage = WriteLogo();
+        vm.ChooseLogoCommand.Execute(null);
+        Assert.True(vm.HasLogo, "the logo was never picked up, so the rest of this proves nothing");
+
+        vm.ApplyPresetCommand.Execute(vm.Presets.Single(p => p.Name == "Classic"));
+
+        Assert.False(vm.HasLogo);
+    }
+
+    [Fact]
+    public void StartingUp_ClearsAwayALogoNoSavedStyleUsesAnyMore()
+    {
+        // The sweep needs somebody to call it. A collector with no call site is the shape of
+        // defect this project has shipped before -- a whole theme system that worked in every
+        // test and never ran at startup -- so the call is asserted here rather than assumed
+        // from the fact that PresetStore has the method.
+        var first = Create();
+        _dialogs.NextImage = WriteLogo();
+        first.ChooseLogoCommand.Execute(null);
+        _dialogs.NextText = "Temporary";
+        first.SavePresetCommand.Execute(null);
+
+        var copy = Directory.EnumerateFiles(Path.Combine(_directory, "logos")).Single();
+
+        first.DeletePresetCommand.Execute(first.Presets.Single(p => p.Name == "Temporary"));
+
+        // Deliberately still there: collecting it the moment the style went would have pulled
+        // the image out from under the code this session is still showing.
+        Assert.True(File.Exists(copy), "the copy was collected while a live session still had it on screen");
+
+        Create();
+
+        Assert.False(File.Exists(copy), "nothing swept the orphaned logo at startup");
+    }
+
     [Fact]
     public void ApplyingAPreset_ChangesTheLookButKeepsTheChosenExportSize()
     {

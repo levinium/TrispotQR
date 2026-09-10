@@ -425,6 +425,55 @@
             </StackPanel>
           </StackPanel>
 
+          <!-- The logo sits here rather than in Advanced options, where it started. Putting a
+               picture in the middle of a code is something people come to this app wanting to
+               do, and it needs no explaining; the controls in Advanced are the ones that need
+               a paragraph before they mean anything.
+
+               The whole group moved, not just the picker. Size and spacing only appear once a
+               logo exists, so they cost an empty panel nothing, and splitting them off would
+               mean choosing an image in one section and sizing it in another. -->
+          <StackPanel Spacing="10">
+            <TextBlock Text="Logo" Classes="label" />
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button x:Name="ChooseLogoButton" Content="Choose image..."
+                      Command="{Binding ChooseLogoCommand}" />
+              <Button x:Name="ClearLogoButton" Content="Remove"
+                      Command="{Binding ClearLogoCommand}" />
+              <TextBlock Text="{Binding LogoName}" VerticalAlignment="Center"
+                         Opacity="0.7" FontSize="12" MaxWidth="150"
+                         TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+
+            <!-- Size, shape and the error correction prompt mean nothing with no logo in the
+                 code, so the whole group is collapsed until there is one. -->
+            <StackPanel x:Name="LogoDetail" Spacing="10" IsVisible="{Binding HasLogo}">
+              <StackPanel Spacing="4">
+                <TextBlock Text="Logo size" Classes="label" />
+                <Slider x:Name="LogoSizeSlider" Minimum="0.05" Maximum="0.40"
+                        Value="{Binding LogoSize}" />
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Text="Space around it" Classes="label" />
+                <ComboBox x:Name="LogoPunchShapeBox" ItemsSource="{Binding LogoPunchShapes}"
+                          SelectedItem="{Binding LogoPunchShape}"
+                          ItemTemplate="{StaticResource FriendlyEnumTemplate}"
+                          HorizontalAlignment="Stretch" />
+              </StackPanel>
+
+              <!-- "Highest", not "High". FriendlyNameConverter calls EccLevel.High "Highest
+                   (needed for logos)" and gives the name "High" to the lower Quartile, so a
+                   button saying "High" sends the user to the wrong entry in the dropdown in
+                   Advanced options and this prompt stays up afterwards. -->
+              <Button x:Name="RaiseEccButton" Content="Raise error correction to Highest"
+                      Command="{Binding RaiseEccCommand}"
+                      IsVisible="{Binding ShowRaiseEcc}"
+                      HorizontalAlignment="Left" />
+            </StackPanel>
+          </StackPanel>
+
         </StackPanel>
 
         <StackPanel Spacing="10">
@@ -555,46 +604,6 @@
                    something the renderer can draw, so the slider snaps. -->
               <Slider x:Name="QuietZoneSlider" Minimum="0" Maximum="8"
                       TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding QuietZone}" />
-            </StackPanel>
-
-            <Separator />
-            <TextBlock Text="Logo" Classes="heading" />
-
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <Button x:Name="ChooseLogoButton" Content="Choose image..."
-                      Command="{Binding ChooseLogoCommand}" />
-              <Button x:Name="ClearLogoButton" Content="Remove"
-                      Command="{Binding ClearLogoCommand}" />
-              <TextBlock Text="{Binding LogoName}" VerticalAlignment="Center"
-                         Opacity="0.7" FontSize="12" MaxWidth="150"
-                         TextTrimming="CharacterEllipsis" />
-            </StackPanel>
-
-            <!-- Size, shape and the error correction prompt mean nothing with no logo in the
-                 code, so the whole group is collapsed until there is one. -->
-            <StackPanel x:Name="LogoDetail" Spacing="10" IsVisible="{Binding HasLogo}">
-              <StackPanel Spacing="4">
-                <TextBlock Text="Logo size" Classes="label" />
-                <Slider x:Name="LogoSizeSlider" Minimum="0.05" Maximum="0.40"
-                        Value="{Binding LogoSize}" />
-              </StackPanel>
-
-              <StackPanel Spacing="4">
-                <TextBlock Text="Space around it" Classes="label" />
-                <ComboBox x:Name="LogoPunchShapeBox" ItemsSource="{Binding LogoPunchShapes}"
-                          SelectedItem="{Binding LogoPunchShape}"
-                          ItemTemplate="{StaticResource FriendlyEnumTemplate}"
-                          HorizontalAlignment="Stretch" />
-              </StackPanel>
-
-              <!-- "Highest", not "High". FriendlyNameConverter calls EccLevel.High "Highest
-                   (needed for logos)" and gives the name "High" to the lower Quartile, so a
-                   button saying "High" sends the user to the wrong entry in the dropdown a few
-                   controls above and this prompt stays up afterwards. -->
-              <Button x:Name="RaiseEccButton" Content="Raise error correction to Highest"
-                      Command="{Binding RaiseEccCommand}"
-                      IsVisible="{Binding ShowRaiseEcc}"
-                      HorizontalAlignment="Left" />
             </StackPanel>
 
             <Separator />

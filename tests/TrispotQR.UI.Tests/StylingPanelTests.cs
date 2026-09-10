@@ -673,8 +673,38 @@ public class StylingPanelTests
     private static readonly string[] Headings =
     [
         "What goes in the code", "How it looks", "Save",
-        "Shapes", "Outline", "Reliability", "Logo",
+        "Shapes", "Outline", "Reliability",
     ];
+
+    [AvaloniaFact]
+    public void TheLogoControlsAreReachableWithoutOpeningAdvancedOptions()
+    {
+        // Putting a picture in the middle of a code is something people come to this app
+        // wanting to do, so it should not be behind a panel headed "Advanced options".
+        //
+        // This is an exact question rather than an approximate one, because Avalonia does not
+        // build an Expander's content at all until it is opened: a control still inside
+        // Advanced is not merely hidden while that panel is shut, it is absent from the tree.
+        // So finding these with the panel closed can only mean they are somewhere else.
+        UiHarness.WithWindow(session =>
+        {
+            Assert.False(
+                Named<Expander>(session.Window, "AdvancedOptions").IsExpanded,
+                "the advanced panel starts open, so this test proves nothing");
+
+            // Size and spacing as well as the picker: the group moved whole, and choosing an
+            // image in one section only to resize it in another is the split this avoided.
+            foreach (var name in new[]
+            {
+                "ChooseLogoButton", "ClearLogoButton", "LogoSizeSlider", "LogoPunchShapeBox",
+            })
+            {
+                Assert.True(
+                    session.Window.GetVisualDescendants().OfType<Control>().Any(c => c.Name == name),
+                    $"{name} is not reachable with the advanced options closed");
+            }
+        });
+    }
 
     /// <summary>
     /// Every field label, by the words it shows.
@@ -690,6 +720,11 @@ public class StylingPanelTests
     /// the code colour, because splitting one code's three colours across two panels made two of
     /// them look like a different kind of setting. Their SHAPES stayed behind, which is why
     /// "Corner ring shape" and "Corner ring" are both here and are in different places.
+    ///
+    /// "Logo" is a label rather than a heading, which it was while it lived in the advanced
+    /// panel. It moved up whole, and in its new home its peers are the other named groups of
+    /// "How it looks" -- Code color, Background -- rather than the panel-sized headings it used
+    /// to sit among. Only the treatment changed; the words are the same.
     /// </summary>
     private static readonly string[] Labels =
     [
@@ -697,7 +732,7 @@ public class StylingPanelTests
         "Dot shape", "Gap between dots", "Corner ring shape", "Corner center shape",
         "Error correction", "Margin around the code",
         "Color", "Thickness", "Applies to",
-        "Logo size", "Space around it",
+        "Logo", "Logo size", "Space around it",
     ];
 
     [AvaloniaFact]
