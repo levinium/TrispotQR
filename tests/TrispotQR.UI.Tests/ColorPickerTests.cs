@@ -363,10 +363,16 @@ public class ColorPickerTests
             captions.Add(readout);
         }
 
+        // The colour is the palette's muted text rather than a literal, because the caption
+        // treatment was themed in the final fix wave. Read back for whichever variant the app is
+        // currently in, so this stays a guard on the setter being applied at all; that it moves
+        // with the theme is ThemeTests's job.
+        var muted = MutedTextColour();
+
         foreach (var caption in captions)
         {
             Assert.Equal(12d, caption.FontSize);
-            Assert.Equal(Color.FromRgb(0x5A, 0x5F, 0x66), ((ISolidColorBrush)caption.Foreground!).Color);
+            Assert.Equal(muted, ((ISolidColorBrush)caption.Foreground!).Color);
         }
 
         var loose = PopupTextBlocks(picker)
@@ -379,6 +385,16 @@ public class ColorPickerTests
             loose.Count == 0,
             "these are written into the popup's own markup, where everything but the hex error "
                 + $"line is a caption, and are not classed as one: {string.Join(", ", loose)}");
+    }
+
+    /// <summary>The palette's muted text colour, in the variant the app is currently showing.</summary>
+    private static Color MutedTextColour()
+    {
+        Assert.True(
+            Application.Current!.TryGetResource("MutedTextBrush", Application.Current.ActualThemeVariant, out var value),
+            "the palette has no MutedTextBrush");
+
+        return ((ISolidColorBrush)value!).Color;
     }
 
     /// <summary>Every TextBlock the open popup is showing, template-generated ones included.</summary>

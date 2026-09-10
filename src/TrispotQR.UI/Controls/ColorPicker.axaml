@@ -31,7 +31,7 @@
 
     <Style Selector="local|ColorPicker TextBlock.caption">
       <Setter Property="FontSize" Value="12"/>
-      <Setter Property="Foreground" Value="#5A5F66"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
     </Style>
   </UserControl.Styles>
 
@@ -59,8 +59,8 @@
            PlacementTarget="{Binding #SwatchButton}"
            Placement="Bottom"
            VerticalOffset="4">
-      <Border Background="#FFFFFF"
-              BorderBrush="#D6D6D6"
+      <Border Background="{DynamicResource SurfaceBrush}"
+              BorderBrush="{DynamicResource BorderBrush}"
               BorderThickness="1"
               CornerRadius="8"
               Padding="12">

@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.Markup.Xaml;
 using Avalonia.Markup.Xaml.MarkupExtensions;
@@ -225,6 +226,71 @@ public class ThemeTests
         finally
         {
             ThemeSwitcher.Apply(AppTheme.FollowWindows);
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheColourPickerPopupIsPaintedFromThePaletteRatherThanFromLiteralColours()
+    {
+        // The last white card in a dark window. The popup carried a literal white ground, a
+        // literal pale grey edge and a literal grey caption, and the wave that themed
+        // MainWindow and the Views missed all three because they live in a control rather than
+        // in a window, so no finding named the file.
+        //
+        // The card is reached through the Popup's own Child, not by walking down from the
+        // picker: an open popup hosts its content in the window's overlay layer, so it is not a
+        // visual descendant of the control that owns it. ColorPickerTests established that.
+        //
+        // What is deliberately not asserted here is the rest of the popup. The saturation
+        // square, the hue strip and the translucent hairlines around them are colour space and
+        // overlays, not chrome, and they are supposed to stay exactly where they are.
+        var picker = new ColorPicker { HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };
+        var window = new Window { Width = 400, Height = 520, Content = picker };
+
+        try
+        {
+            window.Show();
+            DispatcherPump.Drain();
+
+            var swatch = picker.FindControl<ToggleButton>("SwatchButton")
+                ?? throw new InvalidOperationException("ColorPicker has no SwatchButton.");
+            UiHarness.Click(window, UiHarness.At(swatch, 0.5, 0.5));
+
+            var square = picker.FindControl<Control>("SvSquare")
+                ?? throw new InvalidOperationException("ColorPicker has no SvSquare.");
+            Assert.True(
+                DispatcherPump.DrainUntil(() => square.Bounds.Width > 0 && square.Bounds.Height > 0),
+                "clicking the swatch did not open a laid-out popup");
+
+            var popup = picker.FindControl<Popup>("PickerPopup")
+                ?? throw new InvalidOperationException("ColorPicker has no PickerPopup.");
+            var card = Assert.IsType<Border>(popup.Child);
+
+            // One caption, found by the words it shows, standing for the shared style: the
+            // Foreground setter lives in this control's own Styles block, so a DynamicResource
+            // there has to keep following the theme like any other.
+            var caption = Assert.Single(
+                card.GetSelfAndVisualDescendants().OfType<TextBlock>(),
+                t => t.Text == "Pick a colour");
+
+            foreach (var (theme, variant) in new[]
+            {
+                (AppTheme.Light, ThemeVariant.Light),
+                (AppTheme.Dark, ThemeVariant.Dark),
+            })
+            {
+                ThemeSwitcher.Apply(theme);
+                DispatcherPump.Drain();
+
+                Assert.Equal(ColourOf("SurfaceBrush", variant), (card.Background as ISolidColorBrush)?.Color);
+                Assert.Equal(ColourOf("BorderBrush", variant), (card.BorderBrush as ISolidColorBrush)?.Color);
+                Assert.Equal(ColourOf("MutedTextBrush", variant), (caption.Foreground as ISolidColorBrush)?.Color);
+            }
+        }
+        finally
+        {
+            ThemeSwitcher.Apply(AppTheme.FollowWindows);
+            window.Close();
         }
     }
 

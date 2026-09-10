@@ -32,6 +32,16 @@ the one thing here that cannot be checked on a machine set to light.
       panel, set the code's background to Transparent first. It has its own muted dark
       variant, so it should read as "nothing here" against the dark window rather than as
       a lit panel.
+
+      **Still in Dark, open a colour picker** — click the swatch beside "Code colour", or
+      any other swatch on the page — and confirm the popup card is dark too: a dark
+      ground, an edge you can see against it, and readable captions above the square, the
+      presets and the hex box.
+      This step is called out because the whole window can change while the popup stays a
+      white card floating over it; that is exactly the defect the last fix wave shipped,
+      and nothing in step 5 as originally written would have caught it. The saturation
+      square and the hue rainbow inside the popup are colour space, not chrome, and are
+      supposed to look identical in both appearances.
 - [ ] 6. Open Settings, switch to Dark, close with the title-bar X; confirm the theme goes
       back.
 - [ ] 7. Set a default save folder; confirm the next Save opens there.
