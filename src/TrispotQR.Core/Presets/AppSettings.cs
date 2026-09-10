@@ -63,6 +63,19 @@ public sealed record AppSettings
     /// </summary>
     public bool RememberLastStyle { get; init; } = true;
 
+    /// <summary>
+    /// Colors the user has actually chosen, most recent first, as hex.
+    ///
+    /// Session state rather than a preference: nobody sets this deliberately, it is a record of
+    /// what they did. Stored as hex strings rather than <see cref="RgbColor"/> so a hand edited
+    /// or half written settings.json degrades to "one fewer swatch" instead of a parse failure
+    /// that costs the whole file, and so the list stays readable to a person who opens it.
+    ///
+    /// Capped where it is written rather than here, because a cap is a rule about recording and
+    /// this record only has to carry what was recorded.
+    /// </summary>
+    public IReadOnlyList<string> RecentColors { get; init; } = [];
+
     public static AppSettings Default { get; } = new();
 }
 
