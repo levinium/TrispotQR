@@ -115,9 +115,11 @@ public class LogoPanelTests : IDisposable
             {
                 OpenAdvanced(session);
                 var detail = Named<StackPanel>(session.Window, "LogoDetail");
+                var remove = Named<Button>(session.Window, "ClearLogoButton");
 
                 Assert.False(session.Model.HasLogo);
                 Assert.False(detail.IsVisible, "the logo settings are on screen before there is a logo");
+                Assert.False(remove.IsEffectivelyEnabled, "there is nothing to remove and Remove is live");
 
                 dialogs.NextImage = WriteTestLogo();
                 session.Model.ChooseLogoCommand.Execute(null);
@@ -125,10 +127,13 @@ public class LogoPanelTests : IDisposable
 
                 Assert.True(session.Model.HasLogo);
                 Assert.True(detail.IsVisible, "a logo was chosen and its settings never appeared");
+                Assert.True(remove.IsEffectivelyEnabled, "there is a logo and no way to take it off");
 
-                // The other direction too: removing the image has to put them away again, or
-                // a one-way binding evaluated once at startup would satisfy the assertion above.
-                session.Model.ClearLogoCommand.Execute(null);
+                // The other direction too, driven through the button rather than the model: a
+                // one-way binding evaluated once at startup would satisfy the assertion above,
+                // and a Remove button wired to nothing would never be noticed at all.
+                Assert.Same(session.Model.ClearLogoCommand, remove.Command);
+                remove.Command!.Execute(null);
                 DispatcherPump.Drain();
 
                 Assert.False(detail.IsVisible, "the logo was removed and its settings stayed on screen");
