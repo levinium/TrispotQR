@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.RegularExpressions;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -46,27 +47,44 @@ public class AboutWindowTests
     [AvaloniaFact]
     public void TheAboutWindowShowsTheProductNameAndTheVersion()
     {
-        // Shown non-modally and driven directly. ShowDialog would block on a dispatcher frame
-        // with nothing in the suite able to dismiss it, and hang the whole run.
-        var window = new AboutWindow();
-        window.Show();
-        DispatcherPump.Drain();
+        var shown = AllText();
 
-        try
-        {
-            var texts = window.GetVisualDescendants()
-                .OfType<TextBlock>()
-                .Select(t => t.Text)
-                .ToList();
+        Assert.Contains(AppInfo.ProductName, shown);
+        Assert.Contains(AppInfo.DisplayVersion, shown);
+    }
 
-            Assert.Contains(AppInfo.ProductName, texts);
-            Assert.Contains(AppInfo.DisplayVersion, texts);
-        }
-        finally
-        {
-            window.Close();
-            DispatcherPump.Drain();
-        }
+    [AvaloniaFact]
+    public void TheAboutWindowCreditsTheLibrariesWhoseLicencesRequireIt()
+    {
+        // Not a courtesy. MIT and Apache 2.0 both require the notice to travel with the
+        // distribution, and this window is the only place in the product where either
+        // appears -- more so once the WPF build, which carries the same card today, is
+        // retired. A refactor that tidied these two lines away would be a licence breach
+        // nobody would notice, so it is worth a test that says so.
+        var shown = AllText();
+
+        Assert.Contains(shown, t => t.Contains("Net.Codecrete.QrCodeGenerator (MIT)", StringComparison.Ordinal));
+        Assert.Contains(shown, t => t.Contains("ZXing.Net (Apache 2.0)", StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
+    public void TheAboutWindowShowsTheFolderTheAppReallyKeepsItsFilesIn()
+    {
+        // PresetStore.DefaultDirectory is what both stores fall back to when constructed
+        // without a directory, which is how the app constructs them, so this is the folder
+        // whose settings.json someone hand editing it needs to find.
+        //
+        // This compares against the same property the window asks, which proves the window
+        // asks the one place that knows rather than resolving a path of its own -- the way
+        // this drifts in practice. It cannot prove the resolution itself is right; that would
+        // mean writing to the developer's real %APPDATA%, which this suite deliberately never
+        // does. The rooted check below is the part that is independent of the window.
+        var shown = AllText();
+
+        Assert.Contains(PresetStore.DefaultDirectory, shown);
+        Assert.True(
+            Path.IsPathRooted(PresetStore.DefaultDirectory),
+            "a folder shown for someone to go and open has to be an absolute path");
     }
 
     [AvaloniaFact]
@@ -101,6 +119,33 @@ public class AboutWindowTests
                 Assert.Equal(1, dialogs.EditSettingsCalls);
             },
             dialogs);
+    }
+
+    /// <summary>
+    /// Every piece of text the About window actually put on screen.
+    ///
+    /// Opened non-modally and closed again in a finally. ShowDialog would block on a dispatcher
+    /// frame with nothing in the suite able to dismiss it, and hang the whole run.
+    /// </summary>
+    private static IReadOnlyList<string> AllText()
+    {
+        var window = new AboutWindow();
+        window.Show();
+        DispatcherPump.Drain();
+
+        try
+        {
+            return window.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Select(t => t.Text)
+                .OfType<string>()
+                .ToList();
+        }
+        finally
+        {
+            window.Close();
+            DispatcherPump.Drain();
+        }
     }
 
     /// <summary>

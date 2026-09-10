@@ -20,6 +20,24 @@ public partial class SettingsWindow : Window
     private bool _loaded;
     private bool _confirmed;
 
+    /// <summary>
+    /// Opens on the defaults, and exists so the compiled XAML stays reachable from the runtime
+    /// loader: without a public parameterless constructor the Avalonia compiler reports
+    /// AVLN3001 and the resource cannot be loaded that way at all. MessageWindow,
+    /// TextPromptWindow and AboutWindow all have one already.
+    ///
+    /// Delegates to the real constructor rather than standing alone the way TextPromptWindow's
+    /// does, because this window has state that a bare InitializeComponent() would leave
+    /// wrong in two ways: Result is not nullable and would be unassigned, and every control
+    /// would sit blank while Result claimed the defaults. Handing the defaults to the one
+    /// constructor that knows how to show them keeps the window honest whichever way it is
+    /// built. The app itself always uses the overload.
+    /// </summary>
+    public SettingsWindow()
+        : this(AppSettings.Default)
+    {
+    }
+
     // InitializeComponent(), never AvaloniaXamlLoader.Load(this) -- see the comment in
     // MessageWindow.axaml.cs. Load(this) populates the NameScope but leaves the generated
     // fields null, so ThemeChoice.SelectedIndex below would throw.

@@ -44,6 +44,31 @@
       </StackPanel>
     </Border>
 
+    <Border Classes="card">
+      <StackPanel Spacing="6">
+        <TextBlock Text="Where your settings live" Classes="heading" FontSize="14"/>
+        <!-- Set from the store's own answer in the code behind. A path written here would be a
+             second copy of a resolution that already has one home, and would go on being shown
+             after that home changed. -->
+        <TextBlock x:Name="SettingsPath" Classes="caption"/>
+      </StackPanel>
+    </Border>
+
+    <!--
+      Attribution, not decoration. MIT and Apache 2.0 both require the notice to travel with
+      the distribution, and this card is the only place in the product where either appears.
+      AboutWindowTests guards both lines for that reason.
+    -->
+    <Border Classes="card">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Built with" Classes="heading" FontSize="14" Margin="0,0,0,2"/>
+        <TextBlock Classes="caption"
+                   Text="Net.Codecrete.QrCodeGenerator (MIT) generates the codes."/>
+        <TextBlock Classes="caption"
+                   Text="ZXing.Net (Apache 2.0) reads them back, which is how the scannability check works."/>
+      </StackPanel>
+    </Border>
+
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
       <Button x:Name="CloseButton" Content="Close" MinWidth="92"
               IsDefault="True" IsCancel="True" Click="OnClose"/>
