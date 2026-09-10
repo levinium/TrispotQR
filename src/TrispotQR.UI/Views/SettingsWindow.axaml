@@ -1,0 +1,110 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TrispotQR.UI.Views.SettingsWindow"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        SizeToContent="Height"
+        Width="470"
+        Background="{DynamicResource PageBrush}"
+        Title="Settings">
+
+  <Window.Styles>
+    <!-- The same two treatments MainWindow names, plus the caption and card the WPF window
+         carried as CaptionStyle and CardStyle. Window scoped, so they have to be repeated
+         rather than shared; that is what a Window.Styles block is. -->
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+    <Style Selector="TextBlock.caption">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="14"/>
+    </Style>
+  </Window.Styles>
+
+  <StackPanel Margin="18" Spacing="12">
+
+    <Border Classes="card">
+      <StackPanel Spacing="8">
+        <TextBlock Text="Appearance" Classes="heading"/>
+        <TextBlock Text="Light or dark theming, applied as soon as you choose it."
+                   Classes="caption"/>
+
+        <!-- Index order matches the AppTheme enum, which the code behind relies on both ways. -->
+        <ComboBox x:Name="ThemeChoice" HorizontalAlignment="Stretch"
+                  SelectionChanged="OnThemeChanged">
+          <ComboBoxItem Content="Follow Windows"/>
+          <ComboBoxItem Content="Light"/>
+          <ComboBoxItem Content="Dark"/>
+        </ComboBox>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel Spacing="8">
+        <TextBlock Text="Warnings" Classes="heading"/>
+        <CheckBox x:Name="WarnRisky" Content="Warn me about codes that may not scan"/>
+        <TextBlock Text="Codes that do not scan at all always warn, and that cannot be turned off."
+                   Classes="caption" Margin="24,0,0,0"/>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel Spacing="10">
+        <TextBlock Text="Saving" Classes="heading"/>
+
+        <StackPanel Spacing="4">
+          <TextBlock Text="Size for new codes" Classes="label"/>
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <RadioButton x:Name="SizeSmall" GroupName="Size" Content="Small"/>
+            <RadioButton x:Name="SizeMedium" GroupName="Size" Content="Medium"/>
+            <RadioButton x:Name="SizePrint" GroupName="Size" Content="Print"/>
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+          <TextBlock Text="Always save to this folder" Classes="label"/>
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <!-- Read only rather than disabled: the path is there to be seen and copied, and
+                 a typed one that does not exist is a save dialog that fails much later. -->
+            <TextBox x:Name="SaveFolder" Grid.Column="0" IsReadOnly="True"/>
+            <Button x:Name="BrowseButton" Grid.Column="1" Content="Browse..." Margin="8,0,0,0"
+                    Click="OnBrowseFolder"/>
+            <Button x:Name="ClearFolderButton" Grid.Column="2" Content="Clear" Margin="8,0,0,0"
+                    Click="OnClearFolder"/>
+          </Grid>
+          <TextBlock Text="Leave this empty to keep using whichever folder you saved to last."
+                     Classes="caption"/>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel Spacing="8">
+        <TextBlock Text="Starting up" Classes="heading"/>
+        <CheckBox x:Name="RememberStyle" Content="Remember my last style when I reopen"/>
+        <TextBlock Text="Off means every launch starts from the Classic style. The size above is applied either way."
+                   Classes="caption" Margin="24,0,0,0"/>
+      </StackPanel>
+    </Border>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button x:Name="ResetDefaultsButton" Content="Reset to defaults" Click="OnResetDefaults"/>
+      <Button x:Name="CancelButton" Content="Cancel" MinWidth="92" IsCancel="True"
+              Click="OnCancel"/>
+      <Button x:Name="DoneButton" Content="Done" MinWidth="92" IsDefault="True"
+              Click="OnDone"/>
+    </StackPanel>
+  </StackPanel>
+</Window>

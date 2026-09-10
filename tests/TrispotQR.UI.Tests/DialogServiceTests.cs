@@ -171,14 +171,16 @@ public class DialogServiceTests
     }
 
     [AvaloniaFact]
-    public void TheSettingsWindowReportsCancellationRatherThanCrashing()
+    public void EditingSettingsReturnsNullBeforeTheOwnerIsOnScreen()
     {
-        var (_, dialogs) = Create();
+        // The same guard, and the same reason, as AskForText below: Avalonia refuses a modal on
+        // a non-visible owner outright, so without the CanShowDialog check this throws rather
+        // than returning. Null is a cancelled dialog, which MainViewModel reads as "change
+        // nothing" -- the right answer when there is no window to ask through.
+        var owner = new Window();
+        var service = new AvaloniaDialogService(owner);
 
-        // The settings window is the last member still to be built. Until it is, it has to
-        // behave like a cancelled dialog, because that is the one answer MainViewModel already
-        // handles. Everything else on IDialogService is implemented.
-        Assert.Null(dialogs.EditSettings(new AppSettings()));
+        Assert.Null(service.EditSettings(AppSettings.Default));
     }
 
     [AvaloniaFact]

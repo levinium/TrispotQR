@@ -7,13 +7,7 @@ using TrispotQR.ViewModels;
 
 namespace TrispotQR.UI.Services;
 
-/// <summary>
-/// Everything the view model needs from the world outside it, in Avalonia terms.
-///
-/// One member is still not implemented and returns null, which every caller in MainViewModel
-/// already reads as "the user cancelled": the settings window arrives with the UI that reaches
-/// it. Everything else on the interface is real.
-/// </summary>
+/// <summary>Everything the view model needs from the world outside it, in Avalonia terms.</summary>
 public sealed class AvaloniaDialogService : IDialogService
 {
     /// <summary>Generous, because the wait is on a person rather than on code.</summary>
@@ -185,8 +179,21 @@ public sealed class AvaloniaDialogService : IDialogService
             TextPromptWindow.ShowAsync(_owner, title, prompt, initialValue), DialogTimeout);
     }
 
-    /// <summary>Arrives with the settings window. Null reads as a cancelled dialog.</summary>
-    public AppSettings? EditSettings(AppSettings current) => null;
+    /// <summary>
+    /// Null is a cancelled dialog, which MainViewModel reads as "change nothing". The theme is
+    /// not applied here the way WPF's DialogService applies it: the settings window has already
+    /// applied it live, and puts it back itself if the window is abandoned.
+    /// </summary>
+    public AppSettings? EditSettings(AppSettings current)
+    {
+        // A question needs an answer now, so like Ask it cannot be queued.
+        if (!CanShowDialog)
+        {
+            return null;
+        }
+
+        return DispatcherWait.For(SettingsWindow.ShowAsync(_owner, current), DialogTimeout);
+    }
 
     public bool Confirm(string title, string message) => Ask(title, message, "OK", "Cancel", defaultToProceed: true);
 
