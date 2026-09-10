@@ -1,9 +1,12 @@
+using System.IO;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
+using TrispotQR.Core.Export;
+using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
@@ -11,12 +14,55 @@ using TrispotQR.UI.Controls;
 
 namespace TrispotQR.UI.Tests;
 
-public class QrPreviewTests
+public class QrPreviewTests : IDisposable
 {
+    /// <summary>
+    /// Neither black nor white, so a pixel wearing it in a rendered preview can only have come
+    /// from the logo image and not from the code drawn under it.
+    /// </summary>
+    private static readonly RgbColor Magenta = RgbColor.FromRgb(0xFF, 0x00, 0xFF);
+
+    private readonly string _directory;
+
+    public QrPreviewTests()
+    {
+        _directory = Path.Combine(Path.GetTempPath(), $"TrispotQR-preview-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_directory);
+    }
+
+    public void Dispose() => Directory.Delete(_directory, recursive: true);
+
     private static QrDrawing BuildDrawing()
     {
         var encoded = QrEncoder.Encode("https://www.emanuelnyc.org", EccLevel.Medium);
         return QrGeometryBuilder.Build(encoded.Matrix!, StylePresets.BuiltIn[0].Style);
+    }
+
+    /// <summary>The same code, with <paramref name="logo"/> placed in the middle of it.</summary>
+    private static QrDrawing BuildDrawingWithLogo(string logo)
+    {
+        var encoded = QrEncoder.Encode("https://www.emanuelnyc.org", EccLevel.High);
+        var style = StylePresets.BuiltIn[0].Style with
+        {
+            Ecc = EccLevel.High,
+            Logo = LogoStyle.None with { Path = logo, SizeRatio = 0.25 },
+        };
+
+        return QrGeometryBuilder.Build(encoded.Matrix!, style);
+    }
+
+    /// <summary>A solid block of <see cref="Magenta"/> on disk, as a real PNG file.</summary>
+    private string WriteMagentaImage()
+    {
+        var path = Path.Combine(_directory, "logo.png");
+
+        // A code drawn in one colour on the same colour is a flat rectangle of it, which saves
+        // reaching for a second image library just to fill some pixels.
+        var encoded = QrEncoder.Encode("logo", EccLevel.Low);
+        var flat = QrStyle.Default with { Foreground = Magenta, Background = Magenta };
+        PngExporter.Save(SkiaRasterizer.Render(QrGeometryBuilder.Build(encoded.Matrix!, flat), 96), path);
+
+        return path;
     }
 
     private static WriteableBitmap Render(QrDrawing? drawing) => Render(drawing, 200, 200);
@@ -104,6 +150,59 @@ public class QrPreviewTests
         Assert.True(
             ColumnRangeHasInk(pixels, stride, size.Height, margin + inset, margin + side - inset, background),
             "no ink in the centred square, so the drawing was not drawn where the margins say it should be");
+    }
+
+    [AvaloniaFact]
+    public void DrawsTheLogoOverTheCodeWhenThereIsOne()
+    {
+        // What the user sees while choosing a logo has to be what they will get when they save
+        // it. Until this, the exporters composited the image and the preview did not, so a logo
+        // could be sized and shaped against a picture of a code with a blank hole in the middle.
+        var logo = WriteMagentaImage();
+
+        Assert.True(
+            MagentaPixels(Render(BuildDrawingWithLogo(logo))) > 0,
+            "no logo-coloured pixel anywhere in the preview, so the image was never drawn");
+
+        // The control: the same code with no logo has none of that colour in it, so the
+        // assertion above cannot be satisfied by anything the code itself is painted with.
+        Assert.Equal(0, MagentaPixels(Render(BuildDrawing())));
+    }
+
+    [AvaloniaFact]
+    public void DrawsTheCodeAnywayWhenTheLogoFileHasGone()
+    {
+        // A path is remembered in the style and the file behind it can be moved, renamed or
+        // deleted while the app is open. Core's exporters degrade to a plain code in that case;
+        // the preview must do the same rather than throwing on every frame from then on.
+        var logo = WriteMagentaImage();
+        var drawing = BuildDrawingWithLogo(logo);
+        File.Delete(logo);
+
+        Assert.True(
+            HasMoreThanOneColour(Render(drawing)),
+            "the preview came out blank, so a missing logo file took the whole code with it");
+    }
+
+    /// <summary>
+    /// How many pixels are the logo's colour. Compares the outer two channels loosely and the
+    /// middle one strictly, which is what magenta looks like whether the buffer is laid out
+    /// BGRA or RGBA -- red and blue swap places, green does not move.
+    /// </summary>
+    private static int MagentaPixels(WriteableBitmap bitmap)
+    {
+        var pixels = ReadPixels(bitmap, out _);
+        var found = 0;
+
+        for (var i = 0; i + 4 <= pixels.Length; i += 4)
+        {
+            if (pixels[i] > 200 && pixels[i + 2] > 200 && pixels[i + 1] < 80)
+            {
+                found++;
+            }
+        }
+
+        return found;
     }
 
     private static bool ColumnRangeIsBackgroundOnly(
