@@ -15,6 +15,12 @@
          is the same product until WPF is retired. -->
     <Version>1.0.0</Version>
     <Product>Trispot QR</Product>
+
+    <!-- What Explorer, the taskbar and a pinned shortcut show. Points at the copy in
+         TrispotQR.UI rather than carrying its own, so the executable's icon and the window's
+         icon cannot drift apart. Conditioned so a missing file is a warning at worst rather
+         than a build break. -->
+    <ApplicationIcon Condition="Exists('..\TrispotQR.UI\Assets\app.ico')">..\TrispotQR.UI\Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

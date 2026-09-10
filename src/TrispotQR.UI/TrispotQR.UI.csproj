@@ -14,6 +14,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The app icon lives here rather than in TrispotQR.App/Resources, because Phase 2f
+         deletes that project and the icon has to outlive it. TrispotQR.Desktop points its
+         ApplicationIcon at this same file, so the window icon and the executable's icon are
+         one asset rather than two copies that can drift. -->
+    <AvaloniaResource Include="Assets/**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\TrispotQR.ViewModels\TrispotQR.ViewModels.csproj" />
   </ItemGroup>
 

@@ -6,6 +6,7 @@
         x:Class="TrispotQR.UI.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="TrispotQR"
+        Icon="/Assets/app.ico"
         Width="1000" Height="700"
         MinWidth="760" MinHeight="560"
         Background="{DynamicResource PageBrush}">
