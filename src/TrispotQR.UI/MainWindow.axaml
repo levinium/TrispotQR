@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:TrispotQR.UI.Controls"
         xmlns:converters="clr-namespace:TrispotQR.UI.Converters"
@@ -449,7 +449,11 @@
                           HorizontalAlignment="Stretch" />
               </StackPanel>
 
-              <Button x:Name="RaiseEccButton" Content="Raise error correction to High"
+              <!-- "Highest", not "High". FriendlyNameConverter calls EccLevel.High "Highest
+                   (needed for logos)" and gives the name "High" to the lower Quartile, so a
+                   button saying "High" sends the user to the wrong entry in the dropdown a few
+                   controls above and this prompt stays up afterwards. -->
+              <Button x:Name="RaiseEccButton" Content="Raise error correction to Highest"
                       Command="{Binding RaiseEccCommand}"
                       IsVisible="{Binding ShowRaiseEcc}"
                       HorizontalAlignment="Left" />

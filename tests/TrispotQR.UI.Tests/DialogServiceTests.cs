@@ -151,17 +151,19 @@ public class DialogServiceTests
     }
 
     [AvaloniaFact]
-    public void AskingForALogoReturnsNullBeforeTheOwnerIsOnScreen()
+    public void AskingForALogoOnAWindowThatWasNeverShownComesBackNull()
     {
-        // Same guard as AskForText, for the same reason: a picker parented on a window that is
-        // not on screen has no owner to sit over, and null is the cancelled dialog every caller
-        // already handles.
+        // Named for what a headless run can actually show, which is only that the call returns
+        // and returns nothing. It is deliberately NOT named after the CanShowDialog guard,
+        // because it cannot demonstrate that guard: deleting the guard was tried and this stayed
+        // green. The headless storage provider hands back an empty file list for a window that
+        // was never shown exactly as it does for one that was, so the answer is null either way,
+        // and a name promising a guard would make a green run read as evidence it is not.
         //
-        // Stated plainly because it matters to anyone reading this as evidence: on the headless
-        // platform this test cannot fail. Deleting the CanShowDialog guard was tried, and the
-        // headless storage provider returns an empty file list for a window that was never
-        // shown just as it does for one that was, so the answer is null either way. What the
-        // test pins is the contract on a real platform, where the picker is a real window.
+        // Kept because the contract still matters where the picker is a real window over a real
+        // owner: null is the cancelled dialog every caller in MainViewModel already handles.
+        // AskForText's equivalent does bite, because Avalonia refuses a modal on a non-visible
+        // owner outright.
         var owner = new Window();
         var service = new AvaloniaDialogService(owner);
 

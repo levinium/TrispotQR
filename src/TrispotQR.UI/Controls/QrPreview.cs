@@ -40,10 +40,20 @@ public class QrPreview : Control
     /// Prepare runs on every style change, and decoding a large PNG on each tick of the logo
     /// size slider would be a full image decode per frame of a drag.
     ///
-    /// Keyed on the path alone, so replacing the file on disk under an unchanged name leaves a
-    /// stale picture in the preview until the logo is chosen again. That is the cheap side of
-    /// the trade: the alternative is decoding the file on every render to notice a change
-    /// almost nobody makes mid-session, and an export always reads the file afresh regardless.
+    /// Keyed on the path alone, which leaves two windows where the preview can disagree with
+    /// what an export would produce. Both are stated rather than left to be found:
+    ///
+    /// Replacing the file on disk under an unchanged name shows the old picture until the logo
+    /// is chosen again. Adding the file's write time to the key would close this one, at a stat
+    /// per style change, for a thing almost nobody does mid-session.
+    ///
+    /// Deleting the file shows it until the code is next redrawn. No cache key can close this
+    /// one: this runs only when the drawing changes, and a drawing rebuilt after the file went
+    /// missing has no logo placement on it at all (LogoCompositor.Place reads the file to get an
+    /// aspect ratio and gives up when it cannot), so the picture is dropped on that same pass.
+    /// The gap is therefore exactly "deleted, and nothing redrawn since" -- during which
+    /// SkiaRasterizer.DrawLogo, which tests File.Exists on every export, would leave it out.
+    /// Closing it would mean touching the disk on every frame.
     /// </summary>
     private Bitmap? _logo;
     private string? _logoPath;

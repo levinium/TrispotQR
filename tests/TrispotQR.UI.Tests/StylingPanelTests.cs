@@ -677,8 +677,14 @@ public class StylingPanelTests
     ];
 
     /// <summary>
-    /// Every field label, by the words it shows. The last five need the corner colours and the
-    /// outline switched on before they exist at all.
+    /// Every field label, by the words it shows.
+    ///
+    /// Five of these belong to the corner colours and the outline, which the test below switches
+    /// on, and the last two to the logo group, which stays collapsed because no image is chosen.
+    /// All of them are found either way: a group hidden with IsVisible is still realised, so its
+    /// labels are in the visual tree whether or not anyone can see them. Checked directly --
+    /// dropping the two toggles leaves the test green -- so this says "switched on" rather than
+    /// the "they do not exist until it is" the comment here used to claim.
     /// </summary>
     private static readonly string[] Labels =
     [

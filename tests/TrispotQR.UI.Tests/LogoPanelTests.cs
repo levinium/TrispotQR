@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -6,6 +7,7 @@ using TrispotQR.Core.Presets;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
+using TrispotQR.UI.Converters;
 using TrispotQR.ViewModels;
 
 namespace TrispotQR.UI.Tests;
@@ -207,9 +209,10 @@ public class LogoPanelTests : IDisposable
     [AvaloniaFact]
     public void TheRaiseErrorCorrectionButtonOffersItselfOnlyWhileTheCodeCouldBeStronger()
     {
-        // Choosing a logo already raises error correction to High, so the prompt starts hidden
-        // and only comes back if the user lowers it again -- which is exactly when a code with a
-        // hole punched in the middle of it needs saying something about.
+        // Choosing a logo already raises error correction to EccLevel.High, the strongest level
+        // there is, so the prompt starts hidden and only comes back if the user lowers it again
+        // -- which is exactly when a code with a hole punched in the middle of it needs
+        // something said about it.
         var dialogs = new StubDialogs();
 
         UiHarness.WithWindow(
@@ -225,7 +228,7 @@ public class LogoPanelTests : IDisposable
                 var button = Named<Button>(session.Window, "RaiseEccButton");
 
                 Assert.False(session.Model.ShowRaiseEcc);
-                Assert.False(button.IsVisible, "the code is already at High and the prompt is still up");
+                Assert.False(button.IsVisible, "the code is already at the top level and the prompt is still up");
 
                 session.Model.Ecc = EccLevel.Medium;
                 session.Model.RefreshNow();
@@ -236,6 +239,31 @@ public class LogoPanelTests : IDisposable
                 Assert.Same(session.Model.RaiseEccCommand, button.Command);
             },
             dialogs);
+    }
+
+    [AvaloniaFact]
+    public void TheRaiseErrorCorrectionButtonNamesTheLevelTheDropdownCallsIt()
+    {
+        // These diverged once and it made the button read as broken. RaiseEccCommand sets
+        // EccLevel.High, which the "Error correction" dropdown a few controls above labels
+        // "Highest (needed for logos)" -- while giving the name "High" to the *lower* Quartile.
+        // A button saying "raise it to High" therefore sent anyone who followed its wording to
+        // Quartile, after which ShowRaiseEcc was still true and the prompt was still on screen.
+        //
+        // Asserted against the converter rather than a literal, so the button follows the app's
+        // vocabulary if the wording is ever revised rather than pinning today's words twice.
+        UiHarness.WithWindow(session =>
+        {
+            OpenAdvanced(session);
+
+            var label = new FriendlyNameConverter()
+                .Convert(EccLevel.High, typeof(string), null, CultureInfo.InvariantCulture);
+            var word = Assert.IsType<string>(label).Split(' ')[0];
+
+            var content = Assert.IsType<string>(Named<Button>(session.Window, "RaiseEccButton").Content);
+
+            Assert.EndsWith(word, content, StringComparison.Ordinal);
+        });
     }
 
     /// <summary>
