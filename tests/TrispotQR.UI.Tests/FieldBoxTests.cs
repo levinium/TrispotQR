@@ -92,6 +92,13 @@ public class FieldBoxTests
         var borderBrush = UiHarness.Input(box).BorderBrush as ISolidColorBrush;
         Assert.NotNull(borderBrush);
         Assert.Equal(SeverityColor("WarningBrush"), borderBrush!.Color);
+
+        // The message is coloured by a style of its own, so it can be missing while the border
+        // beside it is right, which would leave a warning written in ordinary body text.
+        var message = box.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "ErrorText");
+        Assert.Equal(
+            VariantColor("WarningBrush", Application.Current!.ActualThemeVariant),
+            (message.Foreground as ISolidColorBrush)?.Color);
     }
 
     [AvaloniaFact]
