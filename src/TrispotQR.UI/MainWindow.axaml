@@ -7,7 +7,8 @@
         x:DataType="vm:MainViewModel"
         Title="TrispotQR"
         Width="1000" Height="700"
-        MinWidth="760" MinHeight="560">
+        MinWidth="760" MinHeight="560"
+        Background="{DynamicResource PageBrush}">
 
   <Window.Styles>
     <!-- Two treatments, named once. The styling panel alone carries seven section headings and
@@ -126,8 +127,19 @@
 
     <!-- Preview -->
     <Grid x:Name="PreviewArea" Grid.Column="0" RowDefinitions="*,Auto,Auto" Margin="0,0,16,0">
-      <Border Grid.Row="0" Background="#F4F4F4" CornerRadius="6" Padding="16">
-        <controls:QrPreview Drawing="{Binding PreviewDrawing}" />
+      <Border Grid.Row="0" CornerRadius="6" Padding="16"
+              Background="{DynamicResource SurfaceBrush}"
+              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+        <!-- The checkerboard, so a code with a transparent background looks transparent rather
+             than white. Its own Border behind the preview rather than a background on the card,
+             because QrPreview paints the code's own background over whatever is under it and a
+             see through one has to show something that is visibly not paper.
+
+             ClipToBounds because a tiled DrawingBrush does not stop at a rounded corner. -->
+        <Border CornerRadius="4" ClipToBounds="True"
+                Background="{DynamicResource CheckerBrush}">
+          <controls:QrPreview Drawing="{Binding PreviewDrawing}" Margin="8" />
+        </Border>
       </Border>
 
       <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,12,0,0">
@@ -321,8 +333,9 @@
           </StackPanel>
 
           <TextBlock Text="{Binding SizeSummary}" Opacity="0.7" FontSize="12" />
-          <TextBlock Text="{Binding ExportBlockedReason}" TextWrapping="Wrap" FontSize="12"
-                     Foreground="#B3261E" IsVisible="{Binding !CanExport}" />
+          <TextBlock x:Name="ExportBlockedText"
+                     Text="{Binding ExportBlockedReason}" TextWrapping="Wrap" FontSize="12"
+                     Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding !CanExport}" />
           <StackPanel Orientation="Horizontal" Spacing="8">
             <Button Content="Save PNG" Command="{Binding SavePngCommand}" />
             <Button Content="Save SVG" Command="{Binding SaveSvgCommand}" />

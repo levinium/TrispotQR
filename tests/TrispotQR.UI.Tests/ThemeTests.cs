@@ -8,7 +8,9 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using TrispotQR.Core.Presets;
+using TrispotQR.UI.Controls;
 using TrispotQR.UI.Services;
 
 namespace TrispotQR.UI.Tests;
@@ -36,12 +38,15 @@ public class ThemeTests
     private static Color[] CheckerColoursOf(ThemeVariant variant)
     {
         Assert.True(Application.Current!.TryGetResource("CheckerBrush", variant, out var value));
-        var group = (DrawingGroup)((DrawingBrush)value!).Drawing!;
-        return group.Children
+        return SquaresOf((DrawingBrush)value!);
+    }
+
+    /// <summary>The same, for a checkerboard already resolved onto something on screen.</summary>
+    private static Color[] SquaresOf(DrawingBrush brush) =>
+        ((DrawingGroup)brush.Drawing!).Children
             .Cast<GeometryDrawing>()
             .Select(d => ((ISolidColorBrush)d.Brush!).Color)
             .ToArray();
-    }
 
     /// <summary>The colour a palette entry stands for, or null for one that is not a colour.</summary>
     private static Color? ColourIn(object? value) => value switch
@@ -162,6 +167,60 @@ public class ThemeTests
 
             ThemeSwitcher.Apply(AppTheme.FollowWindows);
             Assert.Equal(AppTheme.FollowWindows, ThemeSwitcher.Requested);
+        }
+        finally
+        {
+            ThemeSwitcher.Apply(AppTheme.FollowWindows);
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheMainWindowIsPaintedFromThePaletteRatherThanFromLiteralColours()
+    {
+        // The window that the whole appearance setting exists for. It carried three colours that
+        // no palette knows about: a page with no background at all, so FluentTheme painted the
+        // chrome dark while the panel behind the preview stayed a light grey slab, a hard coded
+        // #F4F4F4 on that panel, and a hard coded red on the message that says why an export is
+        // blocked, which is the one piece of text on the page that has to stay readable.
+        try
+        {
+            UiHarness.WithWindow(session =>
+            {
+                var window = session.Window;
+                var previewArea = window.GetVisualDescendants().OfType<Grid>()
+                    .Single(g => g.Name == "PreviewArea");
+
+                // The checkerboard, found by what it is rather than by a name: the one brush on
+                // the page that is not a flat colour.
+                var checkers = previewArea.GetVisualDescendants().OfType<Border>()
+                    .Where(b => b.Background is DrawingBrush)
+                    .ToList();
+
+                var checker = Assert.Single(
+                    checkers,
+                    b => b.GetVisualDescendants().OfType<QrPreview>().Any());
+
+                var blocked = window.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(t => t.Name == "ExportBlockedText");
+
+                foreach (var (theme, variant) in new[]
+                {
+                    (AppTheme.Light, ThemeVariant.Light),
+                    (AppTheme.Dark, ThemeVariant.Dark),
+                })
+                {
+                    ThemeSwitcher.Apply(theme);
+                    DispatcherPump.Drain();
+
+                    Assert.Equal(ColourOf("PageBrush", variant), (window.Background as ISolidColorBrush)?.Color);
+                    Assert.Equal(ColourOf("SurfaceBrush", variant), ((checker.Parent as Border)?.Background as ISolidColorBrush)?.Color);
+                    Assert.Equal(ColourOf("DangerBrush", variant), (blocked.Foreground as ISolidColorBrush)?.Color);
+
+                    // Every square of the checkerboard, not only its ground: a dark ground under
+                    // pale squares is no less wrong than a pale one on a dark window.
+                    Assert.Equal(CheckerColoursOf(variant), SquaresOf((DrawingBrush)checker.Background!));
+                }
+            });
         }
         finally
         {
