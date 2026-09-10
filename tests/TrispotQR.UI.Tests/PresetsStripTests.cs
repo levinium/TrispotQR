@@ -130,19 +130,43 @@ public class PresetsStripTests
     }
 
     [AvaloniaFact]
-    public void TheFavoriteCardSitsInTheStripWithTheStyles()
+    public void TheFavoriteCardIsTheLastCardInTheStrip()
     {
-        // It used to be a button below the whole section, which put the action to add a style a
-        // long way from the row of styles it adds to. Asserting the shared parent rather than a
-        // coordinate: the point is that they are arranged together, not where that lands.
+        // It began as a button below the whole section, then as a sibling panel that dropped to
+        // its own row whenever the strip wrapped. It is now a real item in the strip, which is
+        // the only arrangement where it is genuinely the next slot after the last style.
+        //
+        // Asserting its position among the cards rather than a coordinate: the claim is the
+        // ordering, and a coordinate would also fail for a hundred reasons that are not this.
         UiHarness.WithWindow(session =>
         {
-            var add = session.Window.FindControl<Button>("SavePresetButton")
-                ?? throw new InvalidOperationException("MainWindow no longer has a SavePresetButton.");
-            var strip = session.Window.FindControl<ItemsControl>("PresetsStrip")!;
+            var cards = UiHarness.StripCards(session.Window);
 
-            Assert.Same(strip.GetVisualParent(), add.GetVisualParent());
-            Assert.Same(session.Model.SavePresetCommand, add.Command);
+            Assert.True(cards.Count > 1, "the strip realised no style cards, so order proves nothing");
+            Assert.Same(UiHarness.AddFavoriteCard(session.Window), cards[^1]);
+
+            // And every card before it is a style, so it is last rather than merely late.
+            Assert.All(cards.Take(cards.Count - 1), c => Assert.Contains("presetCard", c.Classes));
+        });
+    }
+
+    [AvaloniaFact]
+    public void TheFavoriteCardKeepsItsPlaceAtTheEndWhenAStyleIsAdded()
+    {
+        // The strip mirrors the view model's list and appends the add card, so an edit to that
+        // list rebuilds the mirror. If the append were done once at construction rather than on
+        // every change, saving a style would leave the add card stranded in the middle.
+        UiHarness.WithWindow(session =>
+        {
+            session.Model.Presets.Add(new PresetItem(
+                new StylePreset("Mine", "A saved style", QrStyle.Default, IsBuiltIn: false),
+                thumbnailDrawing: null));
+            DispatcherPump.Drain();
+
+            var cards = UiHarness.StripCards(session.Window);
+
+            Assert.Same(UiHarness.AddFavoriteCard(session.Window), cards[^1]);
+            Assert.Equal(session.Model.Presets.Count + 1, cards.Count);
         });
     }
 
@@ -163,7 +187,16 @@ public class PresetsStripTests
             var builtIn = session.Model.Presets.First(p => p.IsBuiltIn);
 
             Assert.False(RemoveButton(UiHarness.PresetCard(session.Window, builtIn)).IsVisible);
-            Assert.True(RemoveButton(UiHarness.PresetCard(session.Window, saved)).IsVisible);
+
+            var remove = RemoveButton(UiHarness.PresetCard(session.Window, saved));
+            Assert.True(remove.IsVisible);
+
+            // Visible at rest, with nothing hovered. It was hover only, which meant a card said
+            // nothing about being removable until the pointer happened to be over it; IsVisible
+            // was true the whole time, so a test that stopped at the line above passed while the
+            // button was drawn at zero opacity and no one could find it.
+            Assert.Equal(1.0, remove.Opacity);
+            Assert.True(remove.IsEffectivelyVisible);
         });
     }
 
@@ -332,10 +365,9 @@ public class PresetsStripTests
         // reaches the command at all, the part that was missing before Task 1.
         UiHarness.WithWindow(session =>
         {
-            var button = session.Window.FindControl<Button>("SavePresetButton");
+            var button = UiHarness.AddFavoriteCard(session.Window);
 
-            Assert.NotNull(button);
-            Assert.Same(session.Model.SavePresetCommand, button!.Command);
+            Assert.Same(session.Model.SavePresetCommand, button.Command);
             Assert.True(button.IsEffectivelyEnabled);
         });
     }

@@ -155,6 +155,28 @@ internal static class UiHarness
         .GetVisualDescendants().OfType<Button>()
         .Where(b => b.Classes.Contains("presetCard"));
 
+    /// <summary>
+    /// Every card in the strip in the order shown, the trailing add card included.
+    /// </summary>
+    public static IReadOnlyList<Button> StripCards(Window window) =>
+    [
+        .. (window.FindControl<ItemsControl>("PresetsStrip")
+                ?? throw new InvalidOperationException("MainWindow no longer has a PresetsStrip."))
+            .GetVisualDescendants().OfType<Button>()
+            .Where(b => b.Classes.Contains("presetCard") || b.Classes.Contains("addFavorite")),
+    ];
+
+    /// <summary>
+    /// The add card at the end of the strip.
+    /// </summary>
+    /// <remarks>
+    /// Found by class rather than by name, and that is forced rather than chosen: the add card
+    /// is now an item template, and x:Name inside a template is registered in the template's own
+    /// scope, not the window's. FindControl on the window returns null for it.
+    /// </remarks>
+    public static Button AddFavoriteCard(Window window) =>
+        StripCards(window).Single(b => b.Classes.Contains("addFavorite"));
+
     /// <summary>The card standing for one preset, by identity rather than by position.</summary>
     public static Button PresetCard(Window window, PresetItem item) =>
         PresetCards(window).Single(c => ReferenceEquals(c.DataContext, item));

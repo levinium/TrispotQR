@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using TrispotQR.UI.Services;
@@ -5,6 +7,22 @@ using TrispotQR.UI.Views;
 using TrispotQR.ViewModels;
 
 namespace TrispotQR.UI;
+
+/// <summary>
+/// Stands for the "add a favorite" card at the end of the styles strip.
+///
+/// An empty marker, and deliberately not a <see cref="PresetItem"/> with a special name: the
+/// strip picks its template by type, so a real type is what keeps the add card and a style
+/// that happens to be called "Favorite" from ever being confused for one another.
+///
+/// It lives in the view rather than the view model. Nothing about the list of styles changes
+/// because the UI offers a way to add one, and a view model carrying a fake style would have to
+/// be filtered back out by every consumer that counts styles.
+/// </summary>
+public sealed class AddFavoriteCard
+{
+    public static AddFavoriteCard Instance { get; } = new();
+}
 
 /// <summary>
 /// The shell, and the composition root.
@@ -17,6 +35,16 @@ namespace TrispotQR.UI;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _model;
+
+    /// <summary>The styles strip's real source: every preset, then the add card.</summary>
+    private readonly ObservableCollection<object> _stripItems = [];
+
+    /// <summary>
+    /// The collection currently being mirrored, held so its handler can be detached when the
+    /// data context changes. Without this a substituted view model leaves the previous one's
+    /// Presets still driving the strip, and both then write to it.
+    /// </summary>
+    private INotifyCollectionChanged? _watchedPresets;
 
     // InitializeComponent(), not AvaloniaXamlLoader.Load(this) -- see MessageWindow.axaml.cs
     // for the full explanation. Load(this) builds the visual tree and registers x:Names in
@@ -35,6 +63,17 @@ public partial class MainWindow : Window
             new AvaloniaImageClipboard(this));
 
         DataContext = _model;
+
+        // The strip shows the styles plus one trailing add card, so its source is mirrored here
+        // rather than bound straight to Presets: an ItemsControl has no footer, and the add card
+        // has to be the last item rather than a button sitting under the section.
+        //
+        // Rebuilt on DataContextChanged, not just once. The window is the composition root, but
+        // the UI tests substitute a view model over temporary stores after construction, and a
+        // strip wired only to the constructor's model would quietly go on showing the wrong one.
+        PresetsStrip.ItemsSource = _stripItems;
+        DataContextChanged += (_, _) => WatchPresets();
+        WatchPresets();
 
         // One handler for every colour picker the window will ever hold, present or not yet
         // realised. Two of the five live inside panels that stay collapsed until a checkbox is
@@ -74,6 +113,46 @@ public partial class MainWindow : Window
     /// showing is the one whose settings the user means -- and in the tests those are
     /// deliberately not the same object.
     /// </summary>
+    /// <summary>Points the mirror at whichever view model is current, and follows its edits.</summary>
+    private void WatchPresets()
+    {
+        if (_watchedPresets is not null)
+        {
+            _watchedPresets.CollectionChanged -= OnPresetsChanged;
+        }
+
+        _watchedPresets = (DataContext as MainViewModel)?.Presets;
+
+        if (_watchedPresets is not null)
+        {
+            _watchedPresets.CollectionChanged += OnPresetsChanged;
+        }
+
+        RefillStrip();
+    }
+
+    private void OnPresetsChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefillStrip();
+
+    /// <summary>
+    /// Rebuilds the mirror wholesale rather than replaying the change.
+    ///
+    /// The strip holds a dozen items and is rebuilt only when a style is saved or removed, so
+    /// the cost is nothing and the alternative -- translating each add, remove and move into an
+    /// index that accounts for the trailing card -- is arithmetic with an off-by-one waiting in
+    /// it every time.
+    /// </summary>
+    private void RefillStrip()
+    {
+        _stripItems.Clear();
+
+        foreach (var preset in (DataContext as MainViewModel)?.Presets ?? [])
+        {
+            _stripItems.Add(preset);
+        }
+
+        _stripItems.Add(AddFavoriteCard.Instance);
+    }
+
     private void OnSettingsClicked(object? sender, RoutedEventArgs e) =>
         (DataContext as MainViewModel)?.OpenSettings();
 
