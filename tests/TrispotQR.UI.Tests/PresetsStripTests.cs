@@ -48,7 +48,13 @@ public class PresetsStripTests
         // something other than the item it stands for still gets the first card right.
         UiHarness.WithWindow(session =>
         {
-            foreach (var card in UiHarness.PresetCards(session.Window))
+            var cards = UiHarness.PresetCards(session.Window).ToList();
+
+            // A loop over nothing asserts nothing. Without this the whole test passes on a
+            // window that renders no strip at all.
+            Assert.NotEmpty(cards);
+
+            foreach (var card in cards)
             {
                 var item = Assert.IsType<PresetItem>(card.DataContext);
 
@@ -97,15 +103,19 @@ public class PresetsStripTests
     [AvaloniaFact]
     public void ClickingACardCarriesTheWholeLookAcrossNotJustTheShape()
     {
-        // Two-tone is the preset that changes the most at once: shape, code colour and both
-        // corner colours. If the card reached the command with the wrong preset, or with none,
-        // some of these would keep their old values.
+        // Two-tone is the preset that changes the most at once: the code colour, the corner
+        // ring colour and the corner centre shape. If the card reached the command with the
+        // wrong preset, or with none, some of these would keep their old values.
         UiHarness.WithWindow(session =>
         {
             var target = session.Model.Presets.Single(p => p.Name == "Two-tone");
             var style = target.Preset.Style;
 
+            // One pre-check per assertion below. An assertion on a value that already matched
+            // before the click cannot fail, so each of the three has to be shown to move.
             Assert.NotEqual(style.Foreground, session.Model.Foreground);
+            Assert.NotEqual(style.EffectiveMarkerFrameColor, session.Model.MarkerFrameColor);
+            Assert.NotEqual(style.MarkerCenterShape, session.Model.MarkerCenterShape);
 
             var card = UiHarness.PresetCard(session.Window, target);
             card.BringIntoView();

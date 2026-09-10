@@ -341,23 +341,65 @@ public class MainViewModelTests : IDisposable
     /// <summary>
     /// Deleting lives here rather than in the UI suite because it asks the dialog service to
     /// confirm, and a headless window has nobody to answer a real modal. The card that starts
-    /// this off is covered in PresetsStripTests; what happens once the user says yes is only
+    /// this off is covered in PresetsStripTests; what happens after the user answers is only
     /// checkable where the dialog is a fake.
+    ///
+    /// Both answers, in that order, because deleting is not undoable: saying no has to leave
+    /// the preset alone, and a test that only ever says yes would pass against a version that
+    /// never asked at all.
     /// </summary>
     [Fact]
-    public void DeletingASavedPreset_TakesItOutOfTheListAndOffDisk()
+    public void DeletingASavedPreset_NeedsConfirmingAndThenTakesItOffDisk()
     {
         var vm = Create();
         _dialogs.NextText = "Doomed";
         vm.SavePresetCommand.Execute(null);
-
         var saved = vm.Presets.Single(p => p.Name == "Doomed");
-        _dialogs.ConfirmAnswer = true;
 
+        _dialogs.ConfirmAnswer = false;
+        vm.DeletePresetCommand.Execute(saved);
+
+        Assert.Single(_dialogs.ConfirmPrompts);
+        Assert.Contains(vm.Presets, p => p.Name == "Doomed");
+        Assert.Single(new PresetStore(_directory).Custom);
+
+        _dialogs.ConfirmAnswer = true;
         vm.DeletePresetCommand.Execute(saved);
 
         Assert.DoesNotContain(vm.Presets, p => p.Name == "Doomed");
         Assert.Empty(new PresetStore(_directory).Custom);
+    }
+
+    /// <summary>
+    /// The CanExecute predicate greys the menu entry out, but it is not what stops a deletion:
+    /// RelayCommand&lt;T&gt;.Execute never consults CanExecute, so anything holding the command
+    /// can call straight through it. The IsBuiltIn check at the top of DeletePreset is the
+    /// guard that actually refuses.
+    ///
+    /// What it protects is the question, not the file. PresetStore.Delete already ignores a
+    /// built-in name, so dropping the check would not remove anything -- it would ask the user
+    /// "Delete the saved style Classic?" and then silently do nothing whichever way they
+    /// answered. Never asking is the behaviour, so that is what this asserts.
+    /// </summary>
+    [Fact]
+    public void DeletingABuiltInPreset_IsRefusedWithoutEvenAsking()
+    {
+        var vm = Create();
+        _dialogs.NextText = "Mine";
+        vm.SavePresetCommand.Execute(null);
+
+        var builtIn = vm.Presets.First(p => p.IsBuiltIn);
+        _dialogs.ConfirmAnswer = true;
+
+        vm.DeletePresetCommand.Execute(builtIn);
+
+        Assert.Empty(_dialogs.ConfirmPrompts);
+        Assert.Contains(vm.Presets, p => p.Name == builtIn.Name);
+        Assert.Equal(StylePresets.BuiltIn.Count, vm.Presets.Count(p => p.IsBuiltIn));
+
+        // The saved preset alongside it is untouched too: refusing a built-in must not turn
+        // into deleting whatever the store happened to have.
+        Assert.Single(new PresetStore(_directory).Custom);
     }
 
     [Fact]
@@ -674,7 +716,18 @@ public class MainViewModelTests : IDisposable
 
         public string? AskForText(string title, string prompt, string initialValue) => NextText;
 
-        public bool Confirm(string title, string message) => ConfirmAnswer;
+        /// <summary>
+        /// Every yes/no question asked, by message. Whether a question was put to the user at
+        /// all is behaviour in its own right: refusing to delete a built-in style means never
+        /// asking about it, not asking and then quietly doing nothing.
+        /// </summary>
+        public List<string> ConfirmPrompts { get; } = [];
+
+        public bool Confirm(string title, string message)
+        {
+            ConfirmPrompts.Add(message);
+            return ConfirmAnswer;
+        }
 
         /// <summary>Records every scannability warning raised, and answers with <see cref="RiskAnswer"/>.</summary>
         public List<string> RiskPrompts { get; } = [];
