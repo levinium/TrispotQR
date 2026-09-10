@@ -6,7 +6,9 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using TrispotQR.Core.Payloads;
+using TrispotQR.Core.Presets;
 using TrispotQR.UI.Controls;
+using TrispotQR.UI.Services;
 using TrispotQR.ViewModels;
 
 namespace TrispotQR.UI.Tests;
@@ -143,5 +145,46 @@ public class FieldBoxTests
         DispatcherPump.Drain();
 
         Assert.False(box.Classes.Contains(":error"));
+    }
+
+    [AvaloniaFact]
+    public void TheMessageUnderTheBoxTakesTheDangerColourOfTheThemeThatIsShowing()
+    {
+        // The border and the message have to agree. They did not: the border came from a style
+        // and followed the variant, while the message was assigned once from a lookup that
+        // named ThemeVariant.Default, so a dark window drew the light theme's #C62828 text
+        // inside a dark #FF7B7B border, which is the muddy result the dark palette exists to
+        // avoid. Both halves of that are checked here: the right colour to begin with, and the
+        // right colour again after the appearance changes under an open window.
+        var editor = new LinkEditor { Address = string.Empty };
+
+        try
+        {
+            ThemeSwitcher.Apply(AppTheme.Light);
+            var (_, box) = Show(editor, "Address", "Web address");
+
+            var message = box.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "ErrorText");
+            Assert.Equal(editor.IssueFor("Address")!.Message, message.Text);
+            Assert.Equal(
+                VariantColor("DangerBrush", ThemeVariant.Light),
+                (message.Foreground as ISolidColorBrush)?.Color);
+
+            ThemeSwitcher.Apply(AppTheme.Dark);
+            DispatcherPump.Drain();
+
+            Assert.Equal(
+                VariantColor("DangerBrush", ThemeVariant.Dark),
+                (message.Foreground as ISolidColorBrush)?.Color);
+        }
+        finally
+        {
+            ThemeSwitcher.Apply(AppTheme.FollowWindows);
+        }
+    }
+
+    private static Color VariantColor(string key, ThemeVariant variant)
+    {
+        Assert.True(Application.Current!.TryGetResource(key, variant, out var resource), key);
+        return ((ISolidColorBrush)resource!).Color;
     }
 }

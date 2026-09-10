@@ -197,31 +197,10 @@ public partial class FieldBox : UserControl
             return;
         }
 
+        // The colour of this message comes from the :error and :warning styles in the XAML,
+        // not from here. An imperative lookup has to name a theme variant, and a colour set
+        // once when the issue appears cannot follow a later theme change.
         ErrorText.Text = issue.Message;
         ErrorText.IsVisible = true;
-        ErrorText.Foreground = LookUpSeverityBrush(issue.Severity);
-    }
-
-    /// <summary>
-    /// this.FindResource does not exist on a plain UserControl (only TryFindResource does),
-    /// and TryFindResource walks the logical tree looking for the nearest dictionary that
-    /// has the key -- which is empty the first time Refresh runs, because the very first
-    /// call happens from the DataContextChanged handler fired by the object initializer
-    /// that sets DataContext, before the box has a parent at all. A scratch test proved it:
-    /// TryFindResource silently returned false and left the text at the TextBlock's default
-    /// black, with every other assertion (including the text itself) still green.
-    ///
-    /// DangerBrush and WarningBrush are declared directly on Application.Resources rather
-    /// than on any window or template, precisely so a lookup can go straight there instead
-    /// of depending on how much of the tree happens to exist yet.
-    /// </summary>
-    private static Avalonia.Media.IBrush? LookUpSeverityBrush(IssueSeverity severity)
-    {
-        var key = severity == IssueSeverity.Error ? "DangerBrush" : "WarningBrush";
-
-        return Avalonia.Application.Current?.TryGetResource(
-                key, Avalonia.Styling.ThemeVariant.Default, out var brush) == true
-            ? brush as Avalonia.Media.IBrush
-            : null;
     }
 }

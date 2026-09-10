@@ -26,6 +26,24 @@
       <Setter Property="BorderBrush" Value="{DynamicResource WarningBrush}"/>
       <Setter Property="BorderThickness" Value="1.5"/>
     </Style>
+
+    <!-- The message under the box takes its colour the same way the border does, rather than
+         from a lookup in Refresh. Two reasons, both of which only became visible once the
+         palette gained a dark variant: a hand-written lookup has to name a ThemeVariant and
+         picked the wrong one, and an assignment made once when the issue appears cannot follow
+         a later theme change. A setter resolves against whichever variant is actually showing
+         and re-resolves when that changes.
+
+         The empty-logical-tree problem that argued for the imperative lookup is not an issue
+         here: styling is applied when the box is attached, which is also the only time anyone
+         can see it, and the BorderBrush setters above have always resolved these same two keys
+         that way. -->
+    <Style Selector="local|FieldBox:error TextBlock#ErrorText">
+      <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+    </Style>
+    <Style Selector="local|FieldBox:warning TextBlock#ErrorText">
+      <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+    </Style>
   </UserControl.Styles>
 
   <StackPanel>

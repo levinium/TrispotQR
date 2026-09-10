@@ -31,14 +31,24 @@ public class ThemeTests
         return ((ISolidColorBrush)value!).Color;
     }
 
-    /// <summary>The colour of the checkerboard's first square, which is all that has to differ.</summary>
-    private static Color CheckerGroundOf(ThemeVariant variant)
+    /// <summary>The colour of every square the checkerboard is drawn from, ground first.</summary>
+    private static Color[] CheckerColoursOf(ThemeVariant variant)
     {
         Assert.True(Application.Current!.TryGetResource("CheckerBrush", variant, out var value));
         var group = (DrawingGroup)((DrawingBrush)value!).Drawing!;
-        var ground = (GeometryDrawing)group.Children[0];
-        return ((ISolidColorBrush)ground.Brush!).Color;
+        return group.Children
+            .Cast<GeometryDrawing>()
+            .Select(d => ((ISolidColorBrush)d.Brush!).Color)
+            .ToArray();
     }
+
+    /// <summary>The colour a palette entry stands for, or null for one that is not a colour.</summary>
+    private static Color? ColourIn(object? value) => value switch
+    {
+        Color colour => colour,
+        ISolidColorBrush brush => brush.Color,
+        _ => null,
+    };
 
     [AvaloniaFact]
     public void EveryChromeKeyIsDefinedInBothVariants()
@@ -47,18 +57,35 @@ public class ThemeTests
         // the other palette and that one element stays light in a dark window. Asserting on
         // the whole key set is the only way to catch it, since nobody writes a test for the
         // one brush they forgot.
-        var light = Variant("Light").Keys.Select(k => k.ToString()!).OrderBy(k => k).ToArray();
-        var dark = Variant("Dark").Keys.Select(k => k.ToString()!).OrderBy(k => k).ToArray();
+        var lightFile = Variant("Light");
+        var darkFile = Variant("Dark");
+        var light = lightFile.Keys.Select(k => k.ToString()!).OrderBy(k => k).ToArray();
+        var dark = darkFile.Keys.Select(k => k.ToString()!).OrderBy(k => k).ToArray();
 
         Assert.NotEmpty(light);
         Assert.Equal(light, dark);
 
-        // And the same keys are reachable through the running application, which is what any
-        // DynamicResource in a window actually asks.
+        // And every key gives back its own variant's colour through the running application,
+        // which is what a DynamicResource in a window actually asks. Checking only that the
+        // lookup succeeds would prove far less than it looks: the Default entry answers a
+        // variant the palette has forgotten to declare, so a palette that had lost its whole
+        // Dark dictionary would still resolve every key, in light.
         foreach (var key in light)
         {
-            Assert.True(Application.Current!.TryGetResource(key, ThemeVariant.Light, out _), key);
-            Assert.True(Application.Current!.TryGetResource(key, ThemeVariant.Dark, out _), key);
+            AssertResolvesToItsOwnVariant(key, ThemeVariant.Light, lightFile);
+            AssertResolvesToItsOwnVariant(key, ThemeVariant.Dark, darkFile);
+        }
+    }
+
+    private static void AssertResolvesToItsOwnVariant(string key, ThemeVariant variant, ResourceDictionary file)
+    {
+        Assert.True(Application.Current!.TryGetResource(key, variant, out var resolved), key);
+
+        // CheckerBrush is the one entry that is not a flat colour; its own test covers it.
+        var expected = ColourIn(file[key]);
+        if (expected is not null)
+        {
+            Assert.Equal(expected, ColourIn(resolved));
         }
     }
 
@@ -146,7 +173,16 @@ public class ThemeTests
     {
         // The checkerboard is app chrome, so it follows the theme, unlike the colours of a
         // generated code. A white checkerboard on a dark window would read as a lit panel
-        // rather than as nothing at all.
-        Assert.NotEqual(CheckerGroundOf(ThemeVariant.Light), CheckerGroundOf(ThemeVariant.Dark));
+        // rather than as nothing at all. Every square it is drawn from has to move, not only
+        // the ground: a dark ground behind pale squares is no less wrong than a pale one.
+        var light = CheckerColoursOf(ThemeVariant.Light);
+        var dark = CheckerColoursOf(ThemeVariant.Dark);
+
+        Assert.Equal(light.Length, dark.Length);
+        Assert.NotEmpty(light);
+        foreach (var (l, d) in light.Zip(dark))
+        {
+            Assert.NotEqual(l, d);
+        }
     }
 }
