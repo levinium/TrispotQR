@@ -26,6 +26,21 @@
     <ApplicationIcon Condition="Exists('..\TrispotQR.UI\Assets\app.ico')">..\TrispotQR.UI\Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <!-- The same fix TrispotQR.App carries, and needed here for the same reason. SkiaSharp's and
+       HarfBuzzSharp's native packages ship a .pdb beside each native library (85 MB and
+       20 MB of debug symbols with no runtime purpose), and they arrive through
+       NativeCopyLocalItems, which DebugType=none does not govern. Without this, v1.1.0's first
+       zips came out at 70 MB instead of 45, almost all of it those two files.
+
+       AfterTargets="ResolvePackageAssets" alone is enough: the first target that reads the item
+       depends on that one, so MSBuild's own graph orders this before anything consumes it.
+       TrispotQR.App's comment records why no BeforeTargets guess belongs here. -->
+  <Target Name="RemoveNativePdbs" AfterTargets="ResolvePackageAssets">
+    <ItemGroup>
+      <NativeCopyLocalItems Remove="@(NativeCopyLocalItems)" Condition="'%(NativeCopyLocalItems.Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />

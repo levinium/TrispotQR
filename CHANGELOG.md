@@ -42,7 +42,7 @@ the same settings folder, and keeps your saved styles: upgrading is a straight r
 The reason for the change is Mac and Linux, which WPF cannot reach. Those builds are not
 released yet, but CI now builds the app and runs its tests on all three operating systems.
 
-The self-contained download is 48 MB, down from 65.
+The self-contained download is 45 MB, down from 65.
 
 **Logos are saved with a style.** Saving a favorite used to drop its logo, because the only
 thing it could record was where the file happened to sit on disk, and that path stops being
@@ -69,7 +69,7 @@ row rather than a button elsewhere, and a saved style carries a small remove but
   The confirmation was never shown at all, and the clipboard offered only PNG, which those
   applications will not paste. It now offers a plain bitmap as well, flattened onto white so
   they do not paste a black box.
-- The confirmation itself was invisible in dark mode, being near-black text furniture on a
+- The confirmation itself was nearly invisible in dark mode: a near-black pill on a
   near-black page. It now inverts with the theme.
 - Swatch outlines were too faint to see, particularly in dark mode.
 - US spelling throughout the interface.

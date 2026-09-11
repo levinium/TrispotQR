@@ -14,15 +14,16 @@ uploaded, nothing is tracked, and nothing is installed.
 
 ## Download
 
-**[Download TrispotQR-v1.1.0-win-x64.zip](https://github.com/levinium/TrispotQR/releases/download/v1.1.0/TrispotQR-v1.1.0-win-x64.zip)** (48 MB)
+**[Download TrispotQR-v1.1.0-win-x64.zip](https://github.com/levinium/TrispotQR/releases/download/v1.1.0/TrispotQR-v1.1.0-win-x64.zip)** (45 MB)
 
 Unzip it anywhere and run `TrispotQR.exe`. That is the whole installation. There is no setup
 step, no admin prompt and no registry entry, because the .NET runtime it needs is inside the
 file. Delete it and it is gone. You need 64-bit Windows and nothing else.
 
 If your machine already has the .NET 10 runtime, the
-[framework-dependent build](https://github.com/levinium/TrispotQR/releases/latest) is 12 MB
-instead. Take the big one unless you know you want that.
+[framework-dependent build](https://github.com/levinium/TrispotQR/releases/latest) is 13 MB
+instead. It is a folder of files rather than one, so keep them together. Take the big one
+unless you know you want that.
 
 Upgrading from 1.0.0 is a straight replacement: saved styles and settings live outside the
 app and carry over untouched.
