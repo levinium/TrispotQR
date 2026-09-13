@@ -180,3 +180,7 @@ parse is moved aside and the app starts on the built-in styles rather than refus
 | Net.Codecrete.QrCodeGenerator | MIT | QR encoding |
 | ZXing.Net | Apache 2.0 | decoding, for the scannability check |
 | SkiaSharp | MIT | rasterising, so the renderer is not tied to Windows |
+
+## License
+
+MIT. See [LICENSE](LICENSE).

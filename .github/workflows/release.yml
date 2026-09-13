@@ -1,0 +1,109 @@
+# Publish a release when a version tag is pushed.
+#
+#   git tag v1.1.1 && git push origin v1.1.1
+#
+# Releases are built here rather than on a developer's machine, so the artifact
+# people download is demonstrably the one this repository produced. The workflow
+# logs are public and the tag names the exact commit.
+#
+# The tag is checked against <Version> in the Desktop project rather than
+# trusted: a mismatch would publish one version as a binary reporting another,
+# and the download page would disagree with the About box forever after.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  PROJECT: src/TrispotQR.Desktop/TrispotQR.Desktop.csproj
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Check the tag matches the version in the build
+        shell: pwsh
+        run: |
+          # Where-Object because the file has several PropertyGroups and only
+          # one carries a Version; the others come back as empty strings.
+          $version = ([xml](Get-Content $env:PROJECT)).Project.PropertyGroup.Version |
+                     Where-Object { $_ } | Select-Object -First 1
+
+          $tag = "${{ github.ref_name }}" -replace '^v', ''
+
+          if ($version -ne $tag) {
+            throw "Tag $tag does not match <Version> $version. Bump the csproj, or retag."
+          }
+
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding ascii
+          Write-Host "Version $version matches the tag."
+
+      # publish.ps1 runs the whole test suite and refuses to produce anything if
+      # a test fails, so that gate applies to releases too and not only to
+      # somebody remembering to run it. It builds both flavours into dist\.
+      - name: Publish
+        shell: pwsh
+        run: ./publish.ps1
+
+      # publish.ps1 leaves loose files; the release has always shipped zips, and
+      # the names below are the ones previous releases used. Changing them would
+      # break every link anybody has already written down.
+      - name: Package
+        shell: pwsh
+        run: |
+          $v = $env:VERSION
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+
+          $selfContained = "out/TrispotQR-v$v-win-x64.zip"
+          $frameworkDependent = "out/TrispotQR-v$v-win-x64-framework-dependent.zip"
+
+          # The self-contained build is dist\ MINUS the nested folder holding
+          # the other one, or the first archive would contain the second.
+          # Compress-Archive has no -Exclude of its own, so the filtering is
+          # done by Get-ChildItem and the surviving items are handed over.
+          $items = Get-ChildItem 'dist' -Exclude 'framework-dependent'
+          if (-not $items) { throw 'publish.ps1 produced nothing in dist.' }
+
+          Compress-Archive -Path $items.FullName -DestinationPath $selfContained `
+                           -CompressionLevel Optimal
+
+          Compress-Archive -Path 'dist/framework-dependent/*' -DestinationPath $frameworkDependent `
+                           -CompressionLevel Optimal
+
+          Get-ChildItem out -Filter '*.zip' | ForEach-Object {
+            "{0,-52} {1:N1} MB" -f $_.Name, ($_.Length / 1MB)
+          }
+
+      # The binaries are not code-signed, so a checksum published beside them is
+      # the one thing that lets a cautious person confirm they got the files this
+      # workflow built.
+      - name: Checksum
+        shell: pwsh
+        run: |
+          Get-ChildItem out -Filter '*.zip' | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            "$hash  $($_.Name)" | Out-File -FilePath "$($_.FullName).sha256" -Encoding ascii
+            Write-Host "$($_.Name)  SHA256: $hash"
+          }
+
+      # A draft, so the artifacts can be looked at before anybody can download
+      # them. Publishing is a second, separate, deliberate action.
+      - name: Create the release
+        uses: softprops/action-gh-release@v3
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            out/*.zip
+            out/*.sha256
