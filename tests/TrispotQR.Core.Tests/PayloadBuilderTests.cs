@@ -93,8 +93,8 @@ public class PayloadBuilderTests
     {
         var card = new ContactCard
         {
-            FirstName = "Mark",
-            LastName = "Levy",
+            FirstName = "Jordan",
+            LastName = "Reed",
             Organization = "Northgate Studios",
             Title = "IT Director",
             Phone = "212-555-1234",
@@ -108,8 +108,8 @@ public class PayloadBuilderTests
         Assert.Equal("BEGIN:VCARD", lines[0]);
         Assert.Equal("VERSION:3.0", lines[1]);
         Assert.Equal("END:VCARD", lines[^1]);
-        Assert.Contains("N:Levy;Mark;;;", lines);
-        Assert.Contains("FN:Mark Levy", lines);
+        Assert.Contains("N:Reed;Jordan;;;", lines);
+        Assert.Contains("FN:Jordan Reed", lines);
         Assert.Contains("ORG:Northgate Studios", lines);
         Assert.Contains("TITLE:IT Director", lines);
         Assert.Contains("TEL;TYPE=CELL:+12125551234", lines);
