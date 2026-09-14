@@ -131,10 +131,10 @@ into Word, PowerPoint or an email.
 
 Light and dark, following Windows by default.
 
-![Main window in dark mode](docs/screenshots/main-window-dark.png)
+![Main window in light mode](docs/screenshots/main-window-light.png)
 
-Settings cover appearance, warnings, where files are saved, the size new codes start at, and
-whether your last style comes back when you reopen.
+Settings cover appearance, warnings, where files are saved, the size new codes start at,
+whether your last style comes back when you reopen, and automatic update checks.
 
 ![Settings](docs/screenshots/settings.png)
 
