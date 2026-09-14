@@ -14,6 +14,11 @@ public static class UpdateStartup
     /// <summary>
     /// Waits for the replaced copy to exit, so its backup file is free to delete. The common case
     /// is that it has already gone.
+    ///
+    /// Never throws: this runs before the window exists, so any exception is a crash on the first
+    /// launch of the new version. And by the time this runs Windows may have given the old id to
+    /// an unrelated process, possibly one this user cannot open, so it only waits for a process
+    /// with this app's name that started no later than this one.
     /// </summary>
     public static void WaitForPredecessor(string[] args)
     {
@@ -25,11 +30,33 @@ public static class UpdateStartup
 
         try
         {
+            using var current = Process.GetCurrentProcess();
             using var previous = Process.GetProcessById(pid);
+
+            if (!string.Equals(previous.ProcessName, current.ProcessName, StringComparison.OrdinalIgnoreCase)
+                || StartedAfter(previous, current))
+            {
+                return;
+            }
+
             previous.WaitForExit(Patience);
         }
-        catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+        catch (Exception)
         {
+            // Gone, unreadable, or access denied: in every case there is nothing worth waiting for.
+        }
+    }
+
+    /// <summary>A start time that cannot be read is not evidence either way, so it does not rule the process out.</summary>
+    private static bool StartedAfter(Process candidate, Process current)
+    {
+        try
+        {
+            return candidate.StartTime > current.StartTime;
+        }
+        catch (Exception)
+        {
+            return false;
         }
     }
 

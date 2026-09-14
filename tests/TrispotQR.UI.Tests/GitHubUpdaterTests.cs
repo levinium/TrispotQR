@@ -315,6 +315,46 @@ public sealed class GitHubUpdaterTests : IDisposable
         Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(2));
     }
 
+    [Fact]
+    public void WaitingForAProcessThatCannotBeOpenedReturnsWithoutThrowing()
+    {
+        // The replaced copy has gone and Windows gave its id to something this user may not
+        // touch. This runs before the window exists, so a throw here is a crash on launch.
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Process access rights are a Windows matter.");
+
+        var started = DateTime.UtcNow;
+
+        UpdateStartup.WaitForPredecessor([UpdateStartup.UpdatedArgument, "4"]);
+
+        Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(3));
+    }
+
+    [Fact]
+    public void WaitingForAnUnrelatedProcessThatReusedTheIdReturnsAtOnce()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "The stand-in process is a Windows command.");
+
+        using var unrelated = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", "/c ping -n 30 127.0.0.1")
+        {
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+        })!;
+
+        try
+        {
+            var started = DateTime.UtcNow;
+
+            UpdateStartup.WaitForPredecessor([UpdateStartup.UpdatedArgument, unrelated.Id.ToString()]);
+
+            Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(3));
+        }
+        finally
+        {
+            unrelated.Kill(entireProcessTree: true);
+        }
+    }
+
     private sealed class Collector(List<double> into) : IProgress<double>
     {
         public void Report(double value) => into.Add(value);
