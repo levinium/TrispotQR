@@ -290,6 +290,34 @@ public partial class MainViewModelTests
     }
 
     [Fact]
+    public async Task Updates_ACheckAnsweringLateLeavesADownloadInProgressAlone()
+    {
+        // A menu check asked while the notice was Available, answering only after Update now was
+        // clicked. Resetting to Available would orphan the download and offer it a second time.
+        var pendingStage = new TaskCompletionSource<InstallResult>();
+        var updater = new FakeUpdater { Verdict = Newer(), StageWith = _ => pendingStage.Task };
+        var vm = CreateWithUpdater(updater);
+        await vm.CheckForUpdatesAtStartupAsync();
+
+        var pendingCheck = new TaskCompletionSource<UpdateVerdict>();
+        updater.CheckWith = () => pendingCheck.Task;
+        var lateCheck = vm.CheckForUpdatesNowAsync();
+
+        var staging = vm.StageUpdateAsync();
+        Assert.Equal(UpdateNoticeState.Downloading, vm.UpdateState);
+
+        pendingCheck.SetResult(Newer());
+        await lateCheck;
+
+        Assert.Equal(UpdateNoticeState.Downloading, vm.UpdateState);
+        Assert.Equal(Now, new AppSettingsStore(_directory).Load().LastUpdateCheckUtc);
+
+        pendingStage.SetResult(new InstallResult(InstallOutcome.Staged));
+        await staging;
+        Assert.Equal(UpdateNoticeState.Ready, vm.UpdateState);
+    }
+
+    [Fact]
     public async Task Updates_TurningTheSettingOffClearsTheNotice()
     {
         // Otherwise the notice stays after being told to stop looking, the opposite of what the
@@ -332,6 +360,9 @@ public partial class MainViewModelTests
 
         public List<CancellationToken> StageTokens { get; } = [];
 
+        /// <summary>When set, the next checks answer with the task this hands back instead of <see cref="Verdict"/>.</summary>
+        public Func<Task<UpdateVerdict>>? CheckWith { get; set; }
+
         public int Checks { get; private set; }
 
         public int Stages { get; private set; }
@@ -345,7 +376,7 @@ public partial class MainViewModelTests
         public Task<UpdateVerdict> CheckAsync(CancellationToken ct = default)
         {
             Checks++;
-            return Task.FromResult(Verdict);
+            return CheckWith is { } check ? check() : Task.FromResult(Verdict);
         }
 
         public InstallResult CanInstall() => Readiness;

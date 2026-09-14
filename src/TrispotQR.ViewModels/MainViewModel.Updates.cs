@@ -159,6 +159,13 @@ public sealed partial class MainViewModel
             _settingsStore.Save(_settings with { Style = _style });
         }
 
+        // The check may have been asked before Update now was clicked and answered after. A
+        // download the user started, or one that is ready, outranks anything a check can say.
+        if (UpdateState is UpdateNoticeState.Downloading or UpdateNoticeState.Ready)
+        {
+            return;
+        }
+
         if (verdict.IsAvailable)
         {
             var readiness = _updater.CanInstall();
