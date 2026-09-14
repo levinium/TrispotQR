@@ -188,6 +188,12 @@ public class UpdateNoticeTests
 
                 Assert.True(notice.IsVisible);
                 Assert.True(notice.Bounds.Height <= 80, $"the notice is {notice.Bounds.Height:0} px tall");
+
+                // The user found the primary button "strangely big" beside the 12pt text sharing its
+                // line. Kept close to that line's height: a full-size Fluent button is about 32 px.
+                var primary = Named<Button>(session.Window, "UpdatePrimaryButton");
+                Assert.True(primary.Bounds.Height <= 26, $"the Update now button is {primary.Bounds.Height:0} px tall");
+                Assert.Equal(12, primary.FontSize);
             },
             updater: new AlwaysNewer());
     }

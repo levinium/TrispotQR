@@ -318,7 +318,7 @@
 
             <DockPanel Grid.Column="2" Grid.Row="1" Grid.ColumnSpan="2" Margin="10,0,6,8">
               <Button x:Name="UpdatePrimaryButton" DockPanel.Dock="Right" Classes="accent"
-                      Padding="12,5" Margin="8,0,0,0" VerticalAlignment="Center"
+                      FontSize="12" Padding="10,3" MinHeight="0" Margin="8,0,0,0" VerticalAlignment="Center"
                       Content="{Binding UpdatePrimaryLabel}"
                       Command="{Binding UpdatePrimaryCommand}"
                       IsVisible="{Binding !IsUpdateDownloading}" />
