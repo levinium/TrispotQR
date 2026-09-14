@@ -49,15 +49,48 @@ public sealed class AvaloniaImageClipboard(TopLevel topLevel) : IImageClipboard
         // actually probe for on paste. CreateBytesPlatformFormat is the one whose doc comment
         // says the identifier is passed through as-is, so "PNG" reaches the platform the same
         // way it does from WPF.
-        var data = BuildTransfer(image);
+        Place(clipboard.SetDataAsync, clipboard.FlushAsync, BuildTransfer(image));
+    }
 
+    /// <summary>
+    /// Puts a transfer on the clipboard and then flushes it there.
+    /// </summary>
+    /// <remarks>
+    /// Separated from <see cref="Copy"/> so the flush can be asserted. Nothing headless can see
+    /// the Windows clipboard, and leaving the flush out breaks copy and paste across the whole
+    /// machine rather than anything in this app, so it is exactly the line a later tidy-up could
+    /// delete with every test still green.
+    ///
+    /// The two operations arrive as delegates rather than as the clipboard itself because
+    /// Avalonia makes <c>IClipboard</c> unimplementable outside Avalonia: its reference assembly
+    /// carries a hidden member no user type can supply, so a recording fake does not compile.
+    /// </remarks>
+    internal static void Place(Func<IAsyncDataTransfer?, Task> setData, Func<Task> flush, IAsyncDataTransfer data)
+    {
         // Sync over async, deliberately. IImageClipboard.Copy is synchronous because the view
         // model's copy command is, and the clipboard call must run on the UI thread. Waiting on
         // the task outright would deadlock, since the work it needs is queued on this very
         // thread, so the dispatcher is pumped while waiting. The timeout turns a wedged
         // clipboard into an exception the view model already knows how to report, rather than a
         // frozen window.
-        DispatcherWait.For(clipboard.SetDataAsync(data), Timeout);
+        DispatcherWait.For(setData(data), Timeout);
+
+        // Then flush, which is not optional. On Windows SetDataAsync hands the clipboard a live
+        // COM object that stays in this process (OleSetClipboard) and renders each format only
+        // when somebody asks for it. Left like that, every clipboard operation on the machine
+        // has to call into this app first: other apps pasting, but also other apps COPYING,
+        // since replacing the clipboard notifies its current owner, and the clipboard history
+        // and PowerToys watchers that read every change. Measured with the process frozen for
+        // eight seconds right after a copy: another app's plain text copy blocked for 5.5
+        // seconds and then silently failed, leaving nothing to paste. Any stall in this app
+        // became broken copy and paste everywhere, and the copied image vanished outright the
+        // moment the app closed.
+        //
+        // FlushAsync (OleFlushClipboard) renders every format onto the system clipboard now and
+        // releases the object, so the clipboard stops depending on this process at all. It is
+        // what WpfImageClipboard's SetDataObject(data, copy: true) always did, which is why the
+        // WPF app never had this problem.
+        DispatcherWait.For(flush(), Timeout);
     }
 
     /// <summary>

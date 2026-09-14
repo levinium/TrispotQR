@@ -157,6 +157,41 @@ public class AvaloniaImageClipboardTests
     }
 
     [AvaloniaFact]
+    public void FlushesTheCopyOntoTheClipboardRightAfterPlacingIt()
+    {
+        // The reported bug: with TrispotQR open, copy and paste broke across the whole machine.
+        // Without a flush, Windows keeps the copy as a live object inside this process, so every
+        // other app's copy and paste has to call into it first; with the process frozen for
+        // eight seconds after a copy, another app's text copy blocked for five and then failed.
+        // The flush is what cuts that dependency, and nothing a headless test can observe would
+        // notice it missing, so the call itself is what gets pinned.
+        //
+        // Order matters as much as presence. Flushing first would flush whatever was on the
+        // clipboard before and leave this copy live, which reads identically in a list of calls
+        // that only checked both happened.
+        //
+        // Recorded through delegates because Avalonia's IClipboard cannot be implemented by a
+        // test fake. Each completes at once, which also keeps DispatcherWait from pushing a
+        // frame this test would have to pump.
+        var calls = new List<string>();
+
+        AvaloniaImageClipboard.Place(
+            _ =>
+            {
+                calls.Add("SetData");
+                return Task.CompletedTask;
+            },
+            () =>
+            {
+                calls.Add("Flush");
+                return Task.CompletedTask;
+            },
+            AvaloniaImageClipboard.BuildTransfer(new RasterImage(2, 2, new byte[2 * 2 * 4])));
+
+        Assert.Equal(new[] { "SetData", "Flush" }, calls);
+    }
+
+    [AvaloniaFact]
     public void RefusesANullImage()
     {
         var window = new Window { Width = 100, Height = 100 };
