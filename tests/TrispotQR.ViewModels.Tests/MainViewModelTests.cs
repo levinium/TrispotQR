@@ -10,7 +10,7 @@ using TrispotQR.ViewModels;
 
 namespace TrispotQR.ViewModels.Tests;
 
-public class MainViewModelTests : IDisposable
+public partial class MainViewModelTests : IDisposable
 {
     private readonly string _directory;
     private readonly FakeDialogService _dialogs = new();
@@ -953,10 +953,13 @@ public class MainViewModelTests : IDisposable
 
         public void ShowError(string title, string message) => LastError = message;
 
-        public void ShowInformation(string title, string message)
-        {
-        }
+        public List<string> Informations { get; } = [];
 
-        public AppSettings? EditSettings(AppSettings current) => null;
+        public void ShowInformation(string title, string message) => Informations.Add(message);
+
+        /// <summary>What the settings window hands back. Null means the user cancelled.</summary>
+        public AppSettings? NextSettings { get; set; }
+
+        public AppSettings? EditSettings(AppSettings current) => NextSettings;
     }
 }

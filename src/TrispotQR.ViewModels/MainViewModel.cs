@@ -22,7 +22,7 @@ namespace TrispotQR.ViewModels;
 /// a background thread and reports back when it lands. That keeps typing smooth while
 /// still giving live feedback.
 /// </summary>
-public sealed class MainViewModel : ObservableObject
+public sealed partial class MainViewModel : ObservableObject
 {
     /// <summary>Long enough to swallow a burst of typing, short enough to feel immediate.</summary>
     private static readonly TimeSpan RenderDebounce = TimeSpan.FromMilliseconds(150);
@@ -53,7 +53,7 @@ public sealed class MainViewModel : ObservableObject
     private int _scanGeneration;
     private string _statusDetail = string.Empty;
 
-    public MainViewModel(IDialogService dialogs, IUiTimer timer, IImageClipboard clipboard, PresetStore? presets = null, AppSettingsStore? settingsStore = null)
+    public MainViewModel(IDialogService dialogs, IUiTimer timer, IImageClipboard clipboard, PresetStore? presets = null, AppSettingsStore? settingsStore = null, IUpdater? updater = null, Func<DateTimeOffset>? clock = null)
     {
         _dialogs = dialogs;
         _presets = presets ?? new PresetStore();
@@ -129,6 +129,8 @@ public sealed class MainViewModel : ObservableObject
         // prefilled: a starting value would be the first thing a user has to delete, and
         // is easy to miss and accidentally publish.
         Render();
+
+        InitializeUpdates(updater, clock);
 
         if (_presets.LoadWarning is { } warning)
         {
@@ -606,6 +608,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         _settings = updated;
+        ClearUpdateNoticeIfChecksWereTurnedOff();
         _settingsStore.Save(_settings with { Style = _style });
 
         OnPropertyChanged(nameof(PixelSize));
