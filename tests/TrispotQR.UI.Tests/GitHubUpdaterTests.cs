@@ -397,11 +397,28 @@ public sealed class GitHubUpdaterTests : IDisposable
         File.WriteAllBytes(Exe + ".new", NewExe);
         File.WriteAllBytes(Exe + ".partial", NewExe[..4]);
 
-        UpdateStartup.CleanUp(Exe);
+        UpdateStartup.CleanUp(Exe, anotherCopyIsRunning: () => false);
 
         Assert.False(File.Exists(Exe + ".old"));
         Assert.False(File.Exists(Exe + ".new"));
         Assert.False(File.Exists(Exe + ".partial"));
+        Assert.True(File.Exists(Exe));
+    }
+
+    [Fact]
+    public void CleanUpLeavesAnotherRunningCopysDownloadsAlone()
+    {
+        // The other copy may have an update staged and waiting for it to close. Deleting its .new
+        // would leave it nothing to install. Only a completed swap leaves .old, so that one goes.
+        File.WriteAllBytes(Exe + ".old", OldExe);
+        File.WriteAllBytes(Exe + ".new", NewExe);
+        File.WriteAllBytes(Exe + ".partial", NewExe[..4]);
+
+        UpdateStartup.CleanUp(Exe, anotherCopyIsRunning: () => true);
+
+        Assert.False(File.Exists(Exe + ".old"));
+        Assert.True(File.Exists(Exe + ".new"));
+        Assert.True(File.Exists(Exe + ".partial"));
         Assert.True(File.Exists(Exe));
     }
 

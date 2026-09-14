@@ -31,8 +31,9 @@ public sealed record UpdatePlan(string Current, string Staged, string Backup, st
     }
 
     /// <summary>
-    /// Safe to delete unconditionally at startup: an exe is running under the real name, so the
-    /// backup is superseded and any staged or partial download was never installed.
+    /// Every file an update can leave beside the exe. Once an exe runs under the real name the
+    /// backup is superseded, but a staged or partial download may belong to another copy that is
+    /// still running, so startup deletes those only when no other copy is.
     /// </summary>
     public IEnumerable<string> Leftovers()
     {

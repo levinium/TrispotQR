@@ -88,7 +88,10 @@ Carried over from Mullion unchanged in substance, because the order is the safet
    normally so the session is saved.
 4. **Clean up.** The new process waits for the old one to exit (only if that id still belongs to a
    TrispotQR process, and never failing the launch), then deletes `.old` and any stray `.new` or `.partial`.
-   Fixed names, so a crash between any two steps leaves files the next launch recognizes.
+   Every launch does this, but `.new` and `.partial` are deleted only when no other process is running from
+   the same exe, since another copy may have an update staged for its own close; when in doubt they stay
+   until a later launch that runs alone. Fixed names, so a crash between any two steps leaves files the next
+   launch recognizes.
 
 Additions for TrispotQR:
 

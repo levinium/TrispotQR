@@ -63,8 +63,14 @@ public static class UpdateStartup
     /// <summary>
     /// Deletes a previous update's backup and any download that was never installed. A file still
     /// held by the exiting process is left for the next launch.
+    ///
+    /// The backup always goes, since only a completed swap leaves one. The staged and partial
+    /// downloads go only when this is the only copy running from this exe: another copy may have
+    /// an update staged and waiting for it to close, and deleting that would leave it nothing to
+    /// install. Skipping is never unsafe, because Apply installs only a file its own process
+    /// verified, and the next launch that runs alone cleans up.
     /// </summary>
-    public static void CleanUp(string? exePath = null)
+    public static void CleanUp(string? exePath = null, Func<bool>? anotherCopyIsRunning = null)
     {
         var exe = exePath ?? Environment.ProcessPath;
         if (exe is null)
@@ -72,15 +78,73 @@ public static class UpdateStartup
             return;
         }
 
-        foreach (var leftover in UpdatePlan.For(exe).Leftovers())
+        var plan = UpdatePlan.For(exe);
+        Delete(plan.Backup);
+
+        if ((anotherCopyIsRunning ?? (() => AnotherCopyIsRunning(exe)))())
         {
+            return;
+        }
+
+        Delete(plan.Staged);
+        Delete(plan.Partial);
+    }
+
+    private static void Delete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Whether any other process with this app's name runs from the same exe. Every doubt counts
+    /// as yes: a failed lookup, or a process whose path cannot be read, only means a download is
+    /// kept a little longer, while a wrong no deletes another copy's staged update.
+    /// </summary>
+    private static bool AnotherCopyIsRunning(string exe)
+    {
+        try
+        {
+            using var current = Process.GetCurrentProcess();
+            var candidates = Process.GetProcessesByName(current.ProcessName);
+
             try
             {
-                File.Delete(leftover);
+                return candidates.Any(candidate => candidate.Id != current.Id && RunsFrom(candidate, exe));
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            finally
             {
+                foreach (var candidate in candidates)
+                {
+                    candidate.Dispose();
+                }
             }
+        }
+        catch (Exception)
+        {
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Ignoring case, which can only err towards a match. A path that cannot be read (access
+    /// denied, or the process has just exited) is not evidence either way, so it counts as a match.
+    /// </summary>
+    private static bool RunsFrom(Process candidate, string exe)
+    {
+        try
+        {
+            return candidate.MainModule?.FileName is not { } path
+                || string.Equals(Path.GetFullPath(path), Path.GetFullPath(exe), StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception)
+        {
+            return true;
         }
     }
 }
