@@ -82,6 +82,16 @@ public sealed record AppSettings
     /// </summary>
     public IReadOnlyList<string> RecentColors { get; init; } = [];
 
+    /// <summary>
+    /// Whether the app looks for a newer release at launch, at most once a day. A preference, on
+    /// by default. Asking from the gear menu works either way: this governs what the app does
+    /// unasked.
+    /// </summary>
+    public bool CheckForUpdates { get; init; } = true;
+
+    /// <summary>When a check last completed with an answer. Session state.</summary>
+    public DateTimeOffset? LastUpdateCheckUtc { get; init; }
+
     public static AppSettings Default { get; } = new();
 }
 

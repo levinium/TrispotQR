@@ -354,6 +354,8 @@ public class PresetStoreTests : IDisposable
             WindowWidth = 1400,
             WindowHeight = 900,
             RecentColors = ["#112233", "#445566"],
+            CheckForUpdates = false,
+            LastUpdateCheckUtc = new DateTimeOffset(2026, 9, 14, 9, 30, 0, TimeSpan.Zero),
         };
 
         store.Save(settings);
@@ -379,6 +381,21 @@ public class PresetStoreTests : IDisposable
         Assert.Equal(settings.DefaultPixelSize, reloaded.DefaultPixelSize);
         Assert.Equal(settings.RememberLastStyle, reloaded.RememberLastStyle);
         Assert.Equal(settings.RecentColors, reloaded.RecentColors);
+        Assert.Equal(settings.CheckForUpdates, reloaded.CheckForUpdates);
+        Assert.Equal(settings.LastUpdateCheckUtc, reloaded.LastUpdateCheckUtc);
+    }
+
+    [Fact]
+    public void Settings_ASettingsFileFromBeforeUpdatesStillChecksForThem()
+    {
+        // Every existing settings.json predates these members. Missing must mean the default,
+        // which is on, or everyone upgrading from 1.1.0 would silently never hear of 1.3.0.
+        File.WriteAllText(Path.Combine(_directory, "settings.json"), """{ "WindowWidth": 1000 }""");
+
+        var loaded = new AppSettingsStore(_directory).Load();
+
+        Assert.True(loaded.CheckForUpdates);
+        Assert.Null(loaded.LastUpdateCheckUtc);
     }
 
     [Fact]
