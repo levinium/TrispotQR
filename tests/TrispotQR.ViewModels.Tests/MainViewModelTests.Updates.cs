@@ -246,6 +246,50 @@ public partial class MainViewModelTests
     }
 
     [Fact]
+    public async Task Updates_ADownloadThatFinishesAfterCancelIsNeitherReadyNorInstalled()
+    {
+        // Cancellation can be noticed too late, after the file already verified. The user said
+        // stop, so that result must not bring the notice back or install on close.
+        var pending = new TaskCompletionSource<InstallResult>();
+        var updater = new FakeUpdater { Verdict = Newer(), StageWith = _ => pending.Task };
+        var vm = CreateWithUpdater(updater);
+        await vm.CheckForUpdatesAtStartupAsync();
+
+        var staging = vm.StageUpdateAsync();
+        vm.DismissUpdateCommand.Execute(null);
+        pending.SetResult(new InstallResult(InstallOutcome.Staged));
+        await staging;
+
+        Assert.Equal(UpdateNoticeState.None, vm.UpdateState);
+        vm.ApplyStagedUpdateOnExit();
+        Assert.Empty(updater.Applies);
+    }
+
+    [Fact]
+    public async Task Updates_ACancelledDownloadFinishingLateLeavesTheNextDownloadAlone()
+    {
+        var downloads = new Queue<TaskCompletionSource<InstallResult>>([new(), new()]);
+        var first = downloads.Peek();
+        var updater = new FakeUpdater { Verdict = Newer(), StageWith = _ => downloads.Dequeue().Task };
+        var vm = CreateWithUpdater(updater);
+        await vm.CheckForUpdatesAtStartupAsync();
+
+        var firstStaging = vm.StageUpdateAsync();
+        vm.DismissUpdateCommand.Execute(null);
+
+        await vm.CheckForUpdatesNowAsync();
+        _ = vm.StageUpdateAsync();
+
+        first.SetResult(new InstallResult(InstallOutcome.Canceled));
+        await firstStaging;
+
+        Assert.Equal(UpdateNoticeState.Downloading, vm.UpdateState);
+
+        vm.DismissUpdateCommand.Execute(null);
+        Assert.True(updater.StageTokens[1].IsCancellationRequested);
+    }
+
+    [Fact]
     public async Task Updates_TurningTheSettingOffClearsTheNotice()
     {
         // Otherwise the notice stays after being told to stop looking, the opposite of what the
@@ -283,6 +327,11 @@ public partial class MainViewModelTests
 
         public double? ProgressToReport { get; init; }
 
+        /// <summary>When set, holds each download open until the test completes the task it hands back.</summary>
+        public Func<CancellationToken, Task<InstallResult>>? StageWith { get; init; }
+
+        public List<CancellationToken> StageTokens { get; } = [];
+
         public int Checks { get; private set; }
 
         public int Stages { get; private set; }
@@ -304,12 +353,13 @@ public partial class MainViewModelTests
         public Task<InstallResult> StageAsync(ReleaseInfo release, IProgress<double>? progress, CancellationToken ct = default)
         {
             Stages++;
+            StageTokens.Add(ct);
             if (ProgressToReport is { } p)
             {
                 progress?.Report(p);
             }
 
-            return Task.FromResult(StageResult);
+            return StageWith is { } stage ? stage(ct) : Task.FromResult(StageResult);
         }
 
         public bool Apply(bool restart)

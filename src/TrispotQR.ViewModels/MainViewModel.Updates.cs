@@ -209,7 +209,19 @@ public sealed partial class MainViewModel
         UpdateState = UpdateNoticeState.Downloading;
 
         var result = await _updater.StageAsync(_verdict.Release, ProgressReporter(), download.Token);
-        _download = null;
+
+        // A cancelled download never changes anything, whatever it returned: the user already
+        // said stop, and a later download may own the notice by now.
+        var stillCurrent = ReferenceEquals(_download, download);
+        if (stillCurrent)
+        {
+            _download = null;
+        }
+
+        if (!stillCurrent || download.IsCancellationRequested)
+        {
+            return;
+        }
 
         if (result.IsStaged)
         {
