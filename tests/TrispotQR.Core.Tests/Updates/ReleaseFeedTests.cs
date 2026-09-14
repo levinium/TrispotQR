@@ -96,6 +96,19 @@ public class ReleaseFeedTests
     }
 
     [Fact]
+    public void CuttingTheBodyNeverSplitsACharacter()
+    {
+        // The emoji is two UTF-16 units straddling the limit, so a cut at exactly the limit would
+        // keep its first half alone.
+        var body = new string('a', ReleaseFeed.MaxNotesLength - 1) + "\U0001F600";
+
+        var info = ReleaseFeed.Parse($$"""{ "tag_name": "v1.3.0", "body": "{{body}}" }""");
+
+        Assert.Equal(ReleaseFeed.MaxNotesLength - 1, info!.Notes!.Length);
+        Assert.False(char.IsSurrogate(info.Notes[^1]));
+    }
+
+    [Fact]
     public void AnUnreadableSizeIsReadAsZeroNotThrown()
     {
         var info = ReleaseFeed.Parse("""{ "tag_name": "v1.0.0", "assets": [{ "name": "test.exe", "browser_download_url": "https://example.org/test.exe", "size": 1.5, "state": "uploaded" }] }""");

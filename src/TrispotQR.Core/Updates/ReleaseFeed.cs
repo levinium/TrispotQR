@@ -53,7 +53,9 @@ public static class ReleaseFeed
             var notes = Text(root, "body");
             if (notes is { Length: > MaxNotesLength })
             {
-                notes = notes[..MaxNotesLength];
+                // One unit earlier when the cut would keep the first half of a two-unit character alone.
+                var length = char.IsHighSurrogate(notes[MaxNotesLength - 1]) ? MaxNotesLength - 1 : MaxNotesLength;
+                notes = notes[..length];
             }
 
             return new ReleaseInfo(tag, Text(root, "html_url"), Flag(root, "draft"), Flag(root, "prerelease"), Assets(root), notes);
