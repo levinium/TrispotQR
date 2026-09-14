@@ -1,4 +1,5 @@
 using TrispotQR.Core.Presets;
+using TrispotQR.Core.Updates;
 
 namespace TrispotQR.ViewModels;
 
@@ -36,4 +37,28 @@ public interface IDialogService
     /// part is deciding what to persist afterwards.
     /// </summary>
     AppSettings? EditSettings(AppSettings current);
+
+    /// <summary>
+    /// Shows a release's notes and returns how the window was closed.
+    ///
+    /// The default opens the release page instead, which is what What's new did before notes were shown
+    /// in the app, so a toolkit without a notes window keeps working unchanged.
+    /// </summary>
+    /// <param name="title">The window title, naming the version.</param>
+    /// <param name="notes">The parsed notes. Empty when the release published none.</param>
+    /// <param name="primaryLabel">The notice's primary action, or null when it has none right now (while downloading).</param>
+    ReleaseNotesChoice ShowReleaseNotes(string title, IReadOnlyList<NoteBlock> notes, string? primaryLabel) => ReleaseNotesChoice.ViewOnline;
+}
+
+/// <summary>How the release notes window was closed.</summary>
+public enum ReleaseNotesChoice
+{
+    /// <summary>Closed without choosing anything, including by Escape or the title bar.</summary>
+    Close,
+
+    /// <summary>The notice's primary action, named on the button (Update now, Download, Restart now, Try again).</summary>
+    Primary,
+
+    /// <summary>Open the release page in the browser.</summary>
+    ViewOnline,
 }

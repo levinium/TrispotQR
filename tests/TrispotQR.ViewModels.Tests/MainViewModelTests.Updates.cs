@@ -13,6 +13,9 @@ public partial class MainViewModelTests
     private static UpdateVerdict Newer() =>
         UpdateDecision.For("1.2.0", new ReleaseInfo("v1.3.0", ReleaseUrl, Assets: []));
 
+    private static UpdateVerdict NewerWithNotes(string? notes) =>
+        UpdateDecision.For("1.2.0", new ReleaseInfo("v1.3.0", ReleaseUrl, Assets: [], Notes: notes));
+
     private static UpdateVerdict Current() =>
         UpdateDecision.For("1.3.0", new ReleaseInfo("v1.3.0", ReleaseUrl, Assets: []));
 
@@ -342,6 +345,132 @@ public partial class MainViewModelTests
 
         Assert.False(vm.CanCheckForUpdates);
         Assert.False(vm.IsUpdateNoticeVisible);
+    }
+
+    [Fact]
+    public async Task Updates_WhatsNewShowsTheNotesInsteadOfOpeningTheBrowser()
+    {
+        var updater = new FakeUpdater { Verdict = NewerWithNotes("## Fixes\n\n- One") };
+        var vm = CreateWithUpdater(updater);
+        await vm.CheckForUpdatesAtStartupAsync();
+
+        vm.WhatsNewCommand.Execute(null);
+
+        var shown = Assert.Single(_dialogs.ReleaseNotesShown);
+        Assert.Equal("What's new in Trispot QR 1.3.0", shown.Title);
+        Assert.Collection(shown.Notes,
+            block => Assert.IsType<NoteHeading>(block),
+            block => Assert.Single(Assert.IsType<NoteBulletList>(block).Items));
+        Assert.Equal("Update now", shown.PrimaryLabel);
+        Assert.Empty(updater.OpenedUrls);
+    }
+
+    [Fact]
+    public async Task Updates_WhatsNewWithNoPublishedNotesStillOpensTheWindow()
+    {
+        var vm = CreateWithUpdater(new FakeUpdater { Verdict = NewerWithNotes(null) });
+        await vm.CheckForUpdatesAtStartupAsync();
+
+        vm.WhatsNewCommand.Execute(null);
+
+        var shown = Assert.Single(_dialogs.ReleaseNotesShown);
+        Assert.Empty(shown.Notes);
+    }
+
+    [Fact]
+    public async Task Updates_UpdateNowFromTheNotesStartsTheDownload()
+    {
+        var updater = new FakeUpdater { Verdict = NewerWithNotes("- One") };
+        var vm = CreateWithUpdater(updater);
+        await vm.CheckForUpdatesAtStartupAsync();
+        _dialogs.ReleaseNotesAnswer = ReleaseNotesChoice.Primary;
+
+        vm.WhatsNewCommand.Execute(null);
+
+        Assert.Equal(1, updater.Stages);
+    }
+
+    [Fact]
+    public async Task Updates_DownloadFromTheNotesOpensTheReleasePageWhenTheFolderIsReadOnly()
+    {
+        var updater = new FakeUpdater
+        {
+            Verdict = NewerWithNotes("- One"),
+            Readiness = new InstallResult(InstallOutcome.NotWritable, "Trispot QR is installed where it cannot update itself."),
+        };
+        var vm = CreateWithUpdater(updater);
+        await vm.CheckForUpdatesAtStartupAsync();
+        _dialogs.ReleaseNotesAnswer = ReleaseNotesChoice.Primary;
+
+        vm.WhatsNewCommand.Execute(null);
+
+        Assert.Equal("Download", Assert.Single(_dialogs.ReleaseNotesShown).PrimaryLabel);
+        Assert.Equal([ReleaseUrl], updater.OpenedUrls);
+        Assert.Equal(0, updater.Stages);
+    }
+
+    [Fact]
+    public async Task Updates_ViewOnGitHubFromTheNotesOpensTheReleasePage()
+    {
+        var updater = new FakeUpdater { Verdict = NewerWithNotes("- One") };
+        var vm = CreateWithUpdater(updater);
+        await vm.CheckForUpdatesAtStartupAsync();
+        _dialogs.ReleaseNotesAnswer = ReleaseNotesChoice.ViewOnline;
+
+        vm.WhatsNewCommand.Execute(null);
+
+        Assert.Equal([ReleaseUrl], updater.OpenedUrls);
+    }
+
+    [Fact]
+    public async Task Updates_ClosingTheNotesDoesNothing()
+    {
+        var updater = new FakeUpdater { Verdict = NewerWithNotes("- One") };
+        var vm = CreateWithUpdater(updater);
+        await vm.CheckForUpdatesAtStartupAsync();
+        _dialogs.ReleaseNotesAnswer = ReleaseNotesChoice.Close;
+
+        vm.WhatsNewCommand.Execute(null);
+
+        Assert.Equal(0, updater.Stages);
+        Assert.Empty(updater.OpenedUrls);
+        Assert.Equal(UpdateNoticeState.Available, vm.UpdateState);
+    }
+
+    [Fact]
+    public async Task Updates_WhileDownloadingTheNotesOfferNoPrimaryAction()
+    {
+        // A Primary answer with nothing offered must not start a second download.
+        var pending = new TaskCompletionSource<InstallResult>();
+        var updater = new FakeUpdater { Verdict = NewerWithNotes("- One"), StageWith = _ => pending.Task };
+        var vm = CreateWithUpdater(updater);
+        await vm.CheckForUpdatesAtStartupAsync();
+        var staging = vm.StageUpdateAsync();
+        _dialogs.ReleaseNotesAnswer = ReleaseNotesChoice.Primary;
+
+        vm.WhatsNewCommand.Execute(null);
+
+        Assert.Null(Assert.Single(_dialogs.ReleaseNotesShown).PrimaryLabel);
+        Assert.Equal(1, updater.Stages);
+        Assert.Equal(UpdateNoticeState.Downloading, vm.UpdateState);
+
+        pending.SetResult(new InstallResult(InstallOutcome.Staged));
+        await staging;
+    }
+
+    [Fact]
+    public async Task Updates_RestartNowFromTheNotesRestartsWhenReady()
+    {
+        var updater = new FakeUpdater { Verdict = NewerWithNotes("- One") };
+        var vm = CreateWithUpdater(updater);
+        await vm.CheckForUpdatesAtStartupAsync();
+        await vm.StageUpdateAsync();
+        _dialogs.ReleaseNotesAnswer = ReleaseNotesChoice.Primary;
+
+        vm.WhatsNewCommand.Execute(null);
+
+        Assert.Equal("Restart now", Assert.Single(_dialogs.ReleaseNotesShown).PrimaryLabel);
+        Assert.Equal([true], updater.Applies);
     }
 
     private sealed class FakeUpdater : IUpdater

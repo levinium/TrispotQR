@@ -120,7 +120,7 @@ public sealed partial class MainViewModel
 
         UpdatePrimaryCommand = new RelayCommand(OnUpdatePrimary,
             () => UpdateState is UpdateNoticeState.Available or UpdateNoticeState.Ready or UpdateNoticeState.Failed);
-        WhatsNewCommand = new RelayCommand(() => _updater?.OpenReleasePage(_verdict.Url));
+        WhatsNewCommand = new RelayCommand(ShowWhatsNew);
         DismissUpdateCommand = new RelayCommand(DismissUpdate);
         CheckForUpdatesCommand = new RelayCommand(
             () => _ = CheckForUpdatesNowAsync(),
@@ -184,6 +184,33 @@ public sealed partial class MainViewModel
             _dialogs.ShowInformation("Updates", verdict.Outcome == UpdateOutcome.UpToDate
                 ? $"You have the latest version, v{_updater.CurrentVersion}."
                 : "Could not check for updates right now. Check your internet connection and try again later.");
+        }
+    }
+
+    /// <summary>
+    /// Shows the release notes with the notice's primary action beside them. The window is a pause in
+    /// which a download may have finished or failed, so a Primary answer is honored only if that
+    /// action still applies once it closes.
+    /// </summary>
+    private void ShowWhatsNew()
+    {
+        if (_updater is null)
+        {
+            return;
+        }
+
+        var title = $"What's new in Trispot QR {_verdict.Version}";
+        var notes = ReleaseNotes.Parse(_verdict.Release?.Notes);
+        var primaryLabel = UpdatePrimaryCommand.CanExecute(null) ? UpdatePrimaryLabel : null;
+
+        switch (_dialogs.ShowReleaseNotes(title, notes, primaryLabel))
+        {
+            case ReleaseNotesChoice.Primary when primaryLabel is not null && UpdatePrimaryCommand.CanExecute(null):
+                OnUpdatePrimary();
+                break;
+            case ReleaseNotesChoice.ViewOnline:
+                _updater.OpenReleasePage(_verdict.Url);
+                break;
         }
     }
 

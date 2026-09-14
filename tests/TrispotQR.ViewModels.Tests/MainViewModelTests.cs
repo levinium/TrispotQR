@@ -6,6 +6,7 @@ using TrispotQR.Core.Primitives;
 using TrispotQR.Core.Qr;
 using TrispotQR.Core.Rendering;
 using TrispotQR.Core.Styling;
+using TrispotQR.Core.Updates;
 using TrispotQR.ViewModels;
 
 namespace TrispotQR.ViewModels.Tests;
@@ -961,5 +962,16 @@ public partial class MainViewModelTests : IDisposable
         public AppSettings? NextSettings { get; set; }
 
         public AppSettings? EditSettings(AppSettings current) => NextSettings;
+
+        /// <summary>How the release notes window is closed, standing in for the user's click.</summary>
+        public ReleaseNotesChoice ReleaseNotesAnswer { get; set; } = ReleaseNotesChoice.Close;
+
+        public List<(string Title, IReadOnlyList<NoteBlock> Notes, string? PrimaryLabel)> ReleaseNotesShown { get; } = [];
+
+        public ReleaseNotesChoice ShowReleaseNotes(string title, IReadOnlyList<NoteBlock> notes, string? primaryLabel)
+        {
+            ReleaseNotesShown.Add((title, notes, primaryLabel));
+            return ReleaseNotesAnswer;
+        }
     }
 }
