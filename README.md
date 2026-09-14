@@ -1,3 +1,5 @@
+<img src="assets/trispotqr.png" width="72" alt="">
+
 # Trispot QR
 
 **Make a QR code, style it, and know it scans before you print it.**
@@ -31,15 +33,35 @@ Get-FileHash .\TrispotQR.exe -Algorithm SHA256
 
 ### Updates
 
-Once a day, when it starts, Trispot QR asks GitHub whether a newer version has been published,
-and shows a notice only if one has. **Update now** downloads it, checks it against the published
-fingerprint and swaps it in, either straight away with **Restart now** or when you next close the
-app. The check is one request for a public file; nothing about you, your machine or your codes is
-sent. Turn it off in Settings, or check by hand from the gear menu. **What's new** shows the
-release's notes in a window inside the app, with a link to the full page on GitHub.
+Trispot QR keeps itself up to date. Once a day, when it starts, it asks GitHub whether a newer
+version has been published. If nothing is new you see nothing. If something is, a small notice
+appears at the top of the form:
+
+- **Update now** downloads the new `TrispotQR.exe` in the background, with a progress bar and a
+  Cancel button.
+- **What's new** shows that release's notes in a window inside the app, with a link to the full
+  page on GitHub.
+- The **×** button (Later) hides the notice until the next check.
+
+Once the download is ready, **Restart now** swaps it in and reopens the app. Or keep working: the
+update installs itself when you next close Trispot QR. Saved styles and settings carry over either
+way. Restarting clears only what is typed in the box.
+
+**It will not install anything it cannot verify.** Every release publishes a SHA-256 checksum
+beside the exe. The download is checked against it before it is kept, and checked again just
+before it replaces the running copy. A download that does not match is thrown away and nothing
+changes. If the swap itself fails, the old version is put back.
+
+**Where the app cannot replace itself,** for example in a folder you do not have permission to
+write to, the button reads **Download** instead and opens the release page, so you can fetch the
+new version by hand.
+
+**It is private and optional.** The check is one request for a public file on GitHub. Nothing about
+you, your machine or your codes is sent. Turn automatic checks off in Settings, or check whenever
+you like with **Check for updates** in the gear menu.
 
 Coming from 1.0.0 or 1.1.0, download 1.2.0 once by hand, since those versions predate the updater.
-Saved styles and settings carry over.
+From then on it updates itself.
 
 ### Mac and Linux
 
