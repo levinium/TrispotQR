@@ -62,7 +62,11 @@ internal static class UiHarness
     /// half of the logo panel that only exists once an image has been chosen. Null, the default,
     /// keeps every other test on the real service.
     /// </param>
-    public static T WithWindow<T>(Func<Session, T> work, IDialogService? dialogs = null)
+    /// <param name="updater">
+    /// Stands in for the release check, so a test can have an update to show. Null, the default,
+    /// gives the model no updater at all, and so no network.
+    /// </param>
+    public static T WithWindow<T>(Func<Session, T> work, IDialogService? dialogs = null, IUpdater? updater = null)
     {
         var directory = Path.Combine(Path.GetTempPath(), $"TrispotQR-ui-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
@@ -82,7 +86,8 @@ internal static class UiHarness
                 new AvaloniaUiTimer(),
                 new AvaloniaImageClipboard(window),
                 new PresetStore(directory),
-                new AppSettingsStore(directory));
+                new AppSettingsStore(directory),
+                updater);
 
             window.DataContext = model;
             window.Width = 1180;
@@ -99,14 +104,15 @@ internal static class UiHarness
     }
 
     /// <summary>The same, for a body that asserts as it goes rather than returning a value.</summary>
-    public static void WithWindow(Action<Session> work, IDialogService? dialogs = null) =>
+    public static void WithWindow(Action<Session> work, IDialogService? dialogs = null, IUpdater? updater = null) =>
         WithWindow<object?>(
             session =>
             {
                 work(session);
                 return null;
             },
-            dialogs);
+            dialogs,
+            updater);
 
     /// <summary>
     /// The realised content editor, scoped to exactly what the "what goes in the code"

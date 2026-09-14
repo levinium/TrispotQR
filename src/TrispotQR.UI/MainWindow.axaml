@@ -216,6 +216,8 @@
                   Data="M19.14,12.94a7.07,7.07,0,0,0,0-1.88l2-1.58a0.5,0.5,0,0,0,.12-0.61l-1.9-3.29a0.5,0.5,0,0,0-.6-0.22l-2.39,1a7,7,0,0,0-1.62-.94l-0.36-2.54A0.5,0.5,0,0,0,13.9,2H10.1a0.5,0.5,0,0,0-.49.42L9.25,4.96a7,7,0,0,0-1.62.94l-2.39-1a0.5,0.5,0,0,0-.6.22L2.74,8.41a0.5,0.5,0,0,0,.12.61l2,1.58a7.07,7.07,0,0,0,0,1.88l-2,1.58a0.5,0.5,0,0,0-.12.61l1.9,3.29a0.5,0.5,0,0,0,.6.22l2.39-1a7,7,0,0,0,1.62.94l0.36,2.54a0.5,0.5,0,0,0,.49.42h3.8a0.5,0.5,0,0,0,.49-0.42l0.36-2.54a7,7,0,0,0,1.62-.94l2.39,1a0.5,0.5,0,0,0,.6-0.22l1.9-3.29a0.5,0.5,0,0,0-.12-0.61ZM12,15.6A3.6,3.6,0,1,1,15.6,12,3.6,3.6,0,0,1,12,15.6Z" />
             <Button.Flyout>
               <MenuFlyout Placement="Bottom">
+                <MenuItem Header="Check for updates" Click="OnCheckForUpdatesClicked"
+                          IsVisible="{Binding CanCheckForUpdates}" />
                 <MenuItem Header="Settings..." Click="OnSettingsClicked" />
                 <Separator />
                 <MenuItem Header="About Trispot QR" Click="OnAboutClicked" />
@@ -223,6 +225,35 @@
             </Button.Flyout>
           </Button>
         </StackPanel>
+
+        <!-- Shown only when a newer release exists. Nothing is ever on screen to report that
+             there is no news. Its text and buttons change as the update moves from available
+             through downloading to ready; the view model owns those states. -->
+        <Border x:Name="UpdateNotice" IsVisible="{Binding IsUpdateNoticeVisible}"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                CornerRadius="6" Padding="12">
+          <StackPanel Spacing="8">
+            <TextBlock x:Name="UpdateHeadlineText" Text="{Binding UpdateHeadline}"
+                       FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock x:Name="UpdateDetailText" Text="{Binding UpdateDetail}"
+                       TextWrapping="Wrap" FontSize="12"
+                       Foreground="{DynamicResource MutedTextBrush}"
+                       IsVisible="{Binding UpdateDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <ProgressBar x:Name="UpdateProgressBar" Minimum="0" Maximum="1"
+                         Value="{Binding UpdateProgress}" IsVisible="{Binding IsUpdateDownloading}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button x:Name="UpdatePrimaryButton" Content="{Binding UpdatePrimaryLabel}"
+                      Command="{Binding UpdatePrimaryCommand}"
+                      IsVisible="{Binding !IsUpdateDownloading}" />
+              <Button x:Name="WhatsNewButton" Content="What's new"
+                      Command="{Binding WhatsNewCommand}" />
+              <Button x:Name="DismissUpdateButton" Content="{Binding UpdateDismissLabel}"
+                      Command="{Binding DismissUpdateCommand}"
+                      IsVisible="{Binding CanDismissUpdate}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
 
         <StackPanel Spacing="6">
           <TextBlock Text="What goes in the code" Classes="heading" />

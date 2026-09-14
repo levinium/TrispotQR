@@ -63,7 +63,8 @@ public partial class MainWindow : Window
         _model = new MainViewModel(
             new AvaloniaDialogService(this),
             new AvaloniaUiTimer(),
-            new AvaloniaImageClipboard(this));
+            new AvaloniaImageClipboard(this),
+            updater: new GitHubUpdater());
 
         DataContext = _model;
 
@@ -99,11 +100,27 @@ public partial class MainWindow : Window
         var settings = _model.LoadedSettings;
         Width = settings.WindowWidth;
         Height = settings.WindowHeight;
+
+        // After the window is up, so a slow network never delays the first paint. The check
+        // never throws. Asked of DataContext, like every other handler here, so the tests'
+        // substituted model is the one asked.
+        Opened += async (_, _) =>
+        {
+            if (DataContext is MainViewModel model)
+            {
+                await model.CheckForUpdatesAtStartupAsync();
+            }
+        };
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         _model.SaveSession(Width, Height);
+
+        // After the session is saved. A downloaded update that was never restarted into is put
+        // in place now, so the next launch is the new version and nobody lost what they typed.
+        _watchedModel?.ApplyStagedUpdateOnExit();
+
         base.OnClosing(e);
     }
 
@@ -153,6 +170,7 @@ public partial class MainWindow : Window
         {
             _watchedModel.Presets.CollectionChanged -= OnPresetsChanged;
             _watchedModel.Announcement -= OnAnnouncement;
+            _watchedModel.RestartRequested -= OnRestartRequested;
         }
 
         _watchedModel = DataContext as MainViewModel;
@@ -161,6 +179,7 @@ public partial class MainWindow : Window
         {
             _watchedModel.Presets.CollectionChanged += OnPresetsChanged;
             _watchedModel.Announcement += OnAnnouncement;
+            _watchedModel.RestartRequested += OnRestartRequested;
         }
 
         RefillStrip();
@@ -201,6 +220,18 @@ public partial class MainWindow : Window
     /// </summary>
     private void OnSettingsClicked(object? sender, RoutedEventArgs e) =>
         (DataContext as MainViewModel)?.OpenSettings();
+
+    /// <summary>The new version is already in place and started; closing normally saves the session.</summary>
+    private void OnRestartRequested(object? sender, EventArgs e) => Close();
+
+    /// <summary>async void because that is what a click handler is; the check never throws.</summary>
+    private async void OnCheckForUpdatesClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel model)
+        {
+            await model.CheckForUpdatesNowAsync();
+        }
+    }
 
     /// <summary>
     /// async void because that is what a click handler is. ShowDialog's task completes when
