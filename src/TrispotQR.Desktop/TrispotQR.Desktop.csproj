@@ -16,7 +16,7 @@
          From 1.1.0 this is also the version of the product as a whole: publish.ps1 ships this
          project, so TrispotQR.App's own <Version> now describes only the WPF build nobody
          downloads, and stays at 1.0.0 until Phase 2f retires it. -->
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Product>Trispot QR</Product>
 
     <!-- What Explorer, the taskbar and a pinned shortcut show. Points at the copy in
@@ -40,6 +40,22 @@
       <NativeCopyLocalItems Remove="@(NativeCopyLocalItems)" Condition="'%(NativeCopyLocalItems.Extension)' == '.pdb'" />
     </ItemGroup>
   </Target>
+
+  <!-- Where the app looks for a newer release, and where it sends people to get one by hand.
+       Defaults to this project's own releases. Pass -p:UpdateFeedUrl=https://... to point a
+       fork at its own, or -p:UpdateFeedUrl= with nothing after it to build an app that never
+       checks: a global property that is set, even to empty, is not overridden by these lines.
+       Written into the exe as assembly metadata, which GitHubUpdater reads back. A test runner
+       is a different entry assembly with no such metadata, so the test suite never checks. -->
+  <PropertyGroup>
+    <UpdateFeedUrl Condition="'$(UpdateFeedUrl)' == ''">https://api.github.com/repos/levinium/TrispotQR/releases/latest</UpdateFeedUrl>
+    <UpdatePageUrl Condition="'$(UpdatePageUrl)' == ''">https://github.com/levinium/TrispotQR/releases/latest</UpdatePageUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="UpdateFeedUrl" Value="$(UpdateFeedUrl)" />
+    <AssemblyMetadata Include="UpdatePageUrl" Value="$(UpdatePageUrl)" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
