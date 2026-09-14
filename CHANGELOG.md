@@ -44,7 +44,8 @@ across once, on first run, and the old folder is left alone rather than moved.
 version exists and shows a notice only if one does. Update now downloads it, verifies it against
 the checksum published with the release, and swaps it in, either on Restart now or when the app
 next closes, so nothing typed is lost. The check sends nothing about you or your machine. It can be
-turned off in Settings, and run by hand from the gear menu.
+turned off in Settings, and run by hand from the gear menu. What's new shows the release notes in a
+window inside the app rather than sending you to a browser.
 
 **Downloads are now just `TrispotQR.exe`,** with a `.sha256` checksum beside it, rather than zips.
 The framework-dependent build is discontinued: it carried native libraries beside the exe, which an

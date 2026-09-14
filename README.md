@@ -35,7 +35,8 @@ Once a day, when it starts, Trispot QR asks GitHub whether a newer version has b
 and shows a notice only if one has. **Update now** downloads it, checks it against the published
 fingerprint and swaps it in, either straight away with **Restart now** or when you next close the
 app. The check is one request for a public file; nothing about you, your machine or your codes is
-sent. Turn it off in Settings, or check by hand from the gear menu.
+sent. Turn it off in Settings, or check by hand from the gear menu. **What's new** shows the
+release's notes in a window inside the app, with a link to the full page on GitHub.
 
 Coming from 1.0.0 or 1.1.0, download 1.2.0 once by hand, since those versions predate the updater.
 Saved styles and settings carry over.
@@ -125,7 +126,7 @@ phone before a code goes to print. That is the only test that fully counts.
 Needs the .NET 10 SDK.
 
 ```powershell
-dotnet test          # 1086 tests: 866 run on Windows, Linux and macOS
+dotnet test          # 1149 tests: 926 run on Windows, Linux and macOS
 .\publish.ps1        # builds dist\TrispotQR.exe and its checksum
 ```
 
