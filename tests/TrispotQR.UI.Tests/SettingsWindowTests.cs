@@ -274,6 +274,48 @@ public class SettingsWindowTests
         }
     }
 
+    [AvaloniaFact]
+    public void TheUpdatesSwitchShowsWhatWasHandedIn()
+    {
+        WithSettings(AppSettings.Default with { CheckForUpdates = false }, window =>
+        {
+            Assert.False(Toggle(window, "CheckUpdates").IsChecked);
+        });
+
+        WithSettings(AppSettings.Default, window =>
+        {
+            Assert.True(Toggle(window, "CheckUpdates").IsChecked);
+        });
+    }
+
+    [AvaloniaFact]
+    public void TurningUpdatesOffCarriesBackOutAndKeepsWhenItLastChecked()
+    {
+        var checkedAt = new DateTimeOffset(2026, 9, 1, 8, 0, 0, TimeSpan.Zero);
+
+        WithSettings(AppSettings.Default with { LastUpdateCheckUtc = checkedAt }, window =>
+        {
+            Press(window, "CheckUpdates");
+            Press(window, "DoneButton");
+
+            Assert.False(window.Result.CheckForUpdates);
+
+            // Session state this window has no control for, and must not throw away.
+            Assert.Equal(checkedAt, window.Result.LastUpdateCheckUtc);
+        });
+    }
+
+    [AvaloniaFact]
+    public void ResetToDefaultsTurnsUpdatesBackOn()
+    {
+        WithSettings(AppSettings.Default with { CheckForUpdates = false }, window =>
+        {
+            Press(window, "ResetDefaultsButton");
+
+            Assert.True(Toggle(window, "CheckUpdates").IsChecked);
+        });
+    }
+
     private static ComboBox Theme(SettingsWindow window) => Named<ComboBox>(window, "ThemeChoice");
 
     private static TextBox Folder(SettingsWindow window) => Named<TextBox>(window, "SaveFolder");

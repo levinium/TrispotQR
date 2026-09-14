@@ -102,6 +102,15 @@
       </StackPanel>
     </Border>
 
+    <Border Classes="card">
+      <StackPanel Spacing="8">
+        <TextBlock Text="Updates" Classes="heading"/>
+        <CheckBox x:Name="CheckUpdates" Content="Check for new versions automatically"/>
+        <TextBlock Text="Once a day, Trispot QR asks GitHub whether a newer version exists. Nothing about you or your codes is sent. You can also check from the gear menu."
+                   Classes="caption" Margin="24,0,0,0"/>
+      </StackPanel>
+    </Border>
+
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
       <Button x:Name="ResetDefaultsButton" Content="Reset to defaults" Click="OnResetDefaults"/>
       <Button x:Name="CancelButton" Content="Cancel" MinWidth="92" IsCancel="True"

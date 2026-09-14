@@ -58,6 +58,7 @@ public partial class SettingsWindow : Window
 
         WarnRisky.IsChecked = settings.WarnOnRiskyCodes;
         RememberStyle.IsChecked = settings.RememberLastStyle;
+        CheckUpdates.IsChecked = settings.CheckForUpdates;
         SaveFolder.Text = settings.DefaultSaveDirectory ?? string.Empty;
 
         SizeSmall.IsChecked = settings.DefaultPixelSize == 512;
@@ -154,6 +155,7 @@ public partial class SettingsWindow : Window
         ThemeChoice.SelectedIndex = 0;
         WarnRisky.IsChecked = defaults.WarnOnRiskyCodes;
         RememberStyle.IsChecked = defaults.RememberLastStyle;
+        CheckUpdates.IsChecked = defaults.CheckForUpdates;
         SaveFolder.Text = string.Empty;
         SizeMedium.IsChecked = true;
 
@@ -170,6 +172,7 @@ public partial class SettingsWindow : Window
             Theme = SelectedTheme,
             WarnOnRiskyCodes = WarnRisky.IsChecked == true,
             RememberLastStyle = RememberStyle.IsChecked == true,
+            CheckForUpdates = CheckUpdates.IsChecked == true,
             DefaultPixelSize = SelectedSize,
             DefaultSaveDirectory = string.IsNullOrWhiteSpace(SaveFolder.Text) ? null : SaveFolder.Text,
         };
