@@ -290,47 +290,55 @@
         <!-- Shown only when a newer release exists. Nothing is ever on screen to report that
              there is no news. Its text and buttons change as the update moves from available
              through downloading to ready; the view model owns those states. A calm card with an
-             accent strip down its edge, so the one filled button is what draws the eye. -->
+             accent strip down its edge, so the one filled button is what draws the eye. Kept to two
+             lines: the headline beside the close button, then the detail and What's new with the
+             primary button at the end of that line. The form column is a fixed 360 px, too narrow
+             for the headline to share a line with the button. -->
         <Border x:Name="UpdateNotice" IsVisible="{Binding IsUpdateNoticeVisible}"
                 Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                 CornerRadius="8">
-          <Grid ColumnDefinitions="4,Auto,*,Auto">
-            <Border x:Name="UpdateAccentStrip" Grid.Column="0"
+          <Grid ColumnDefinitions="4,Auto,*,Auto" RowDefinitions="Auto,Auto">
+            <Border x:Name="UpdateAccentStrip" Grid.Column="0" Grid.RowSpan="2"
                     Background="{DynamicResource AccentBrush}" CornerRadius="7,0,0,7" />
 
-            <Border Grid.Column="1" Width="32" Height="32" CornerRadius="16"
-                    Margin="12,12,0,12" VerticalAlignment="Top"
+            <Border Grid.Column="1" Grid.RowSpan="2" Width="28" Height="28" CornerRadius="14"
+                    Margin="10,0,0,0" VerticalAlignment="Center"
                     Background="{DynamicResource HoverBrush}">
-              <Path x:Name="UpdateIcon" Width="16" Height="16" Stretch="Uniform"
+              <Path x:Name="UpdateIcon" Width="11" Height="14" Stretch="Uniform"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
                     Fill="{DynamicResource AccentBrush}"
                     Data="M11,3 H13 V13.17 L16.59,9.59 L18,11 L12,17 L6,11 L7.41,9.59 L11,13.17 Z M5,19 H19 V21 H5 Z" />
             </Border>
 
-            <StackPanel Grid.Column="2" Spacing="4" Margin="12,12,8,12">
-              <TextBlock x:Name="UpdateHeadlineText" Text="{Binding UpdateHeadline}"
-                         FontWeight="SemiBold" TextWrapping="Wrap" />
-              <TextBlock x:Name="UpdateDetailText" Text="{Binding UpdateDetail}"
-                         TextWrapping="Wrap" FontSize="12"
-                         Foreground="{DynamicResource MutedTextBrush}"
-                         IsVisible="{Binding UpdateDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              <ProgressBar x:Name="UpdateProgressBar" Minimum="0" Maximum="1"
-                           Height="4" MinHeight="4" Margin="0,6,0,0"
+            <TextBlock x:Name="UpdateHeadlineText" Grid.Column="2" Grid.Row="0"
+                       Margin="10,6,8,0" VerticalAlignment="Center"
+                       Text="{Binding UpdateHeadline}"
+                       FontWeight="SemiBold" TextWrapping="Wrap" />
+
+            <DockPanel Grid.Column="2" Grid.Row="1" Grid.ColumnSpan="2" Margin="10,0,6,8">
+              <Button x:Name="UpdatePrimaryButton" DockPanel.Dock="Right" Classes="accent"
+                      Padding="12,5" Margin="8,0,0,0" VerticalAlignment="Center"
+                      Content="{Binding UpdatePrimaryLabel}"
+                      Command="{Binding UpdatePrimaryCommand}"
+                      IsVisible="{Binding !IsUpdateDownloading}" />
+              <ProgressBar x:Name="UpdateProgressBar" DockPanel.Dock="Bottom" Minimum="0" Maximum="1"
+                           Height="4" MinHeight="4" Margin="0,4,0,0"
                            Foreground="{DynamicResource AccentBrush}"
                            Value="{Binding UpdateProgress}" IsVisible="{Binding IsUpdateDownloading}" />
-              <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,8,0,0">
-                <Button x:Name="UpdatePrimaryButton" Classes="accent"
-                        Content="{Binding UpdatePrimaryLabel}"
-                        Command="{Binding UpdatePrimaryCommand}"
-                        IsVisible="{Binding !IsUpdateDownloading}" />
+              <WrapPanel Orientation="Horizontal" ItemSpacing="10" VerticalAlignment="Center">
+                <TextBlock x:Name="UpdateDetailText" Text="{Binding UpdateDetail}"
+                           TextWrapping="Wrap" FontSize="12" VerticalAlignment="Center"
+                           Foreground="{DynamicResource MutedTextBrush}"
+                           IsVisible="{Binding UpdateDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 <Button x:Name="WhatsNewButton" Classes="link" Content="What's new"
-                        VerticalAlignment="Center"
+                        FontSize="12" VerticalAlignment="Center"
                         Command="{Binding WhatsNewCommand}" />
-              </StackPanel>
-            </StackPanel>
+              </WrapPanel>
+            </DockPanel>
 
-            <Button x:Name="DismissUpdateButton" Grid.Column="3" Classes="dismiss"
-                    Width="28" Height="28" Padding="0" Margin="0,8,8,0"
+            <Button x:Name="DismissUpdateButton" Grid.Column="3" Grid.Row="0" Classes="dismiss"
+                    Width="28" Height="28" Padding="0" Margin="0,6,6,0"
                     VerticalAlignment="Top"
                     Command="{Binding DismissUpdateCommand}"
                     IsVisible="{Binding CanDismissUpdate}"

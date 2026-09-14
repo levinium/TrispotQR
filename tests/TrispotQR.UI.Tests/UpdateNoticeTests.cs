@@ -174,6 +174,52 @@ public class UpdateNoticeTests
     }
 
     [AvaloniaFact]
+    public void TheNoticeStaysCompact()
+    {
+        // The user asked for the card to be vertically smaller once the actions moved up beside the
+        // text. Pinned as a ceiling rather than an exact size, so font metrics can vary a little
+        // across machines without failing, while a regression back to a separate button row cannot
+        // hide: that layout measured about 118 px.
+        UiHarness.WithWindow(
+            session =>
+            {
+                DispatcherPump.Drain();
+                var notice = Named<Border>(session.Window, "UpdateNotice");
+
+                Assert.True(notice.IsVisible);
+                Assert.True(notice.Bounds.Height <= 80, $"the notice is {notice.Bounds.Height:0} px tall");
+            },
+            updater: new AlwaysNewer());
+    }
+
+    [AvaloniaFact]
+    public void TheDownloadIconIsCenteredInItsCircle()
+    {
+        // Reported by eye: the arrow sat left of center. A glyph taller than it is wide, drawn Uniform
+        // into a square box, is placed at the box's left edge. So check both halves of the fix: the
+        // glyph fills its own box, and that box is centered in the circle.
+        UiHarness.WithWindow(
+            session =>
+            {
+                DispatcherPump.Drain();
+                var icon = Named<Avalonia.Controls.Shapes.Path>(session.Window, "UpdateIcon");
+                var circle = (Control)icon.Parent!;
+
+                var drawn = icon.RenderedGeometry!.Bounds;
+                Assert.True(Math.Abs(drawn.Width - icon.Bounds.Width) < 0.75,
+                    $"glyph {drawn.Width:0.00} wide in a {icon.Bounds.Width:0.00} box");
+                Assert.True(Math.Abs(drawn.Height - icon.Bounds.Height) < 0.75,
+                    $"glyph {drawn.Height:0.00} tall in a {icon.Bounds.Height:0.00} box");
+
+                var centerX = icon.Bounds.X + (icon.Bounds.Width / 2);
+                var centerY = icon.Bounds.Y + (icon.Bounds.Height / 2);
+                Assert.True(Math.Abs(centerX - (circle.Bounds.Width / 2)) < 0.75, $"icon center x {centerX:0.00} in a {circle.Bounds.Width:0} circle");
+                Assert.True(Math.Abs(centerY - (circle.Bounds.Height / 2)) < 0.75, $"icon center y {centerY:0.00} in a {circle.Bounds.Height:0} circle");
+            },
+            updater: new AlwaysNewer());
+    }
+
+    [AvaloniaFact]
     public void UpdateNowStagesAndTheButtonBecomesRestart()
     {
         UiHarness.WithWindow(
