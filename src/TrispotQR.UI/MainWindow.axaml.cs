@@ -113,13 +113,21 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>
+    /// Saves the session and installs a ready update through the model the window is showing,
+    /// not the private field. In the app they are the same object; in the UI tests the data
+    /// context is a model over temporary stores, which is what makes closing a window in a test
+    /// safe for the developer's real settings.
+    /// </summary>
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        _model.SaveSession(Width, Height);
+        var model = DataContext as MainViewModel;
+
+        model?.SaveSession(Width, Height);
 
         // After the session is saved. A downloaded update that was never restarted into is put
         // in place now, so the next launch is the new version and nobody lost what they typed.
-        _watchedModel?.ApplyStagedUpdateOnExit();
+        model?.ApplyStagedUpdateOnExit();
 
         base.OnClosing(e);
     }

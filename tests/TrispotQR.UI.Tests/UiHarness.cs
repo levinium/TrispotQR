@@ -21,10 +21,13 @@ namespace TrispotQR.UI.Tests;
 /// same shape as Open()"; and one test that simply constructed a bare MainWindow with neither
 /// protection. This is the temporary-store one, which was the right of the three.
 ///
-/// Why it matters beyond tidiness: MainWindow.OnClosing calls SaveSession on the model held in
-/// its own private field, which always points at the real %APPDATA%\TrispotQR\settings.json,
-/// so any test that ever closes a window overwrites the developer's real settings. Nothing
-/// here ever closes one, and having a single place that opens them is what keeps that true.
+/// Why it matters beyond tidiness: the model MainWindow builds for itself reads and writes the
+/// real %APPDATA%\TrispotQR\settings.json. This harness puts a temporary-store model in its
+/// place as the data context, and MainWindow.OnClosing saves the session and installs a ready
+/// update through the data context, so a test may close a window: the save lands in this run's
+/// temporary directory and the developer's real settings are left alone. Only a window opened
+/// some other way, with its own model still in place, would write the real file on close, and
+/// having a single place that opens windows is what keeps that from happening.
 /// </summary>
 internal static class UiHarness
 {
