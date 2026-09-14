@@ -139,6 +139,16 @@ public class ReleaseNotesWindowTests
         DispatcherWait.For(task, TimeSpan.FromSeconds(5));
     }
 
+    [Theory]
+    [InlineData(null, 1.0, 640.0)] // No screen known, as on the headless platform.
+    [InlineData(1080.0, 1.0, 640.0)] // A tall screen leaves the usual limit alone.
+    [InlineData(600.0, 1.0, 540.0)] // A short screen keeps room for the title bar and a margin.
+    [InlineData(1200.0, 2.0, 540.0)] // Device pixels, so a scaled screen is shorter than it looks.
+    public void TheWindowIsNeverTallerThanTheScreenItOpensOn(double? workingAreaHeight, double scaling, double expected)
+    {
+        Assert.Equal(expected, ReleaseNotesWindow.HeightLimit(workingAreaHeight, scaling));
+    }
+
     /// <summary>
     /// Opens the window on a shown owner and pumps until it is there, for the same reason
     /// MessageWindowTests does: ShowDialog adds the child to OwnedWindows a frame or two late.

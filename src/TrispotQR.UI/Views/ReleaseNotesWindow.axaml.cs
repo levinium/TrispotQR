@@ -19,6 +19,11 @@ public partial class ReleaseNotesWindow : Window
 {
     private const string EmptyText = "No notes were published for this release.";
 
+    /// <summary>The MaxHeight the window's markup sets, kept when the screen is tall enough for it.</summary>
+    private const double UsualMaxHeight = 640;
+
+    private const double TitleBarAndMargin = 60;
+
     /// <summary>Tried in order, so each platform lands on a monospace face it actually has.</summary>
     private static readonly FontFamily CodeFont = new("Cascadia Mono, Consolas, Menlo, monospace");
 
@@ -59,8 +64,31 @@ public partial class ReleaseNotesWindow : Window
             window.PrimaryButton.IsVisible = true;
         }
 
+        // The dialog opens centred on its owner, so the owner's screen is the one it has to fit.
+        // Headless there is no screen, and the usual limit stands.
+        var screen = owner.Screens.ScreenFromWindow(owner);
+        window.MaxHeight = HeightLimit(screen?.WorkingArea.Height, screen?.Scaling ?? 1);
+
         await window.ShowDialog(owner);
         return window._choice;
+    }
+
+    /// <summary>
+    /// The window's height limit, in device-independent units: the usual 640, or less on a screen
+    /// too short for it. The window cannot be resized, so on a small or heavily scaled display a
+    /// long release would otherwise put Close and the primary button below the screen's edge.
+    /// </summary>
+    /// <param name="workingAreaHeight">The screen's working area in device pixels, or null when no screen is known.</param>
+    /// <param name="scaling">That screen's scaling, which turns its device pixels into device-independent units.</param>
+    internal static double HeightLimit(double? workingAreaHeight, double scaling)
+    {
+        if (workingAreaHeight is not { } height || scaling <= 0)
+        {
+            return UsualMaxHeight;
+        }
+
+        // Room for the title bar, which the working area includes but the window's height does not, and a margin.
+        return Math.Min(UsualMaxHeight, height / scaling - TitleBarAndMargin);
     }
 
     /// <summary>One control per block. Each carries a class, so tests can find it by what it is.</summary>
