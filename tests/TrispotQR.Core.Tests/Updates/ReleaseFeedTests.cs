@@ -75,7 +75,7 @@ public class ReleaseFeedTests
         var info = ReleaseFeed.Parse("""{ "tag_name": "v1.0.0", "assets": [{ "name": "test.exe", "browser_download_url": "https://example.org/test.exe", "size": 1.5, "state": "uploaded" }] }""");
 
         Assert.NotNull(info);
-        Assert.Single(info.Assets!);
-        Assert.Equal(0, info.Assets.Single().Size);
+        Assert.NotNull(info.Assets);
+        Assert.Equal(0, Assert.Single(info.Assets).Size);
     }
 }

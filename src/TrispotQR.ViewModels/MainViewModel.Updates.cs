@@ -282,8 +282,10 @@ public sealed partial class MainViewModel
 
     private void ClearUpdateNoticeIfChecksWereTurnedOff()
     {
-        // Available and Failed are what checking produced. Downloading and Ready are something
-        // the user started, and turning off automatic checks does not undo that.
+        // Clears Available and Failed, the notices that offer an update a check found. Failed can
+        // come from a download or restart the user started, but it is still that offer, now with
+        // a reason. Downloading and Ready are left alone: they are work the user started, and
+        // turning off automatic checks does not undo that.
         if (!_settings.CheckForUpdates && UpdateState is UpdateNoticeState.Available or UpdateNoticeState.Failed)
         {
             UpdateState = UpdateNoticeState.None;

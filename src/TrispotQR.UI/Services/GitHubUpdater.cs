@@ -186,8 +186,10 @@ public sealed class GitHubUpdater : IUpdater
 
             return new(InstallOutcome.Staged);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
+            // Only the caller's own cancel. A timeout inside the HTTP client also surfaces as a
+            // cancellation, and that is a download that did not finish.
             Discard(plan.Partial);
             return new(InstallOutcome.Canceled);
         }

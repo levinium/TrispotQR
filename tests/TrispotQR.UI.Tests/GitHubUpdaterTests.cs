@@ -246,6 +246,27 @@ public sealed class GitHubUpdaterTests : IDisposable
     }
 
     [Fact]
+    public async Task ADownloadThatTimesOutIsAFailureNotACancel()
+    {
+        // HttpClient reports its own timeout as a cancellation nobody asked for. Calling that
+        // Canceled would hide the notice as though the user had clicked Cancel.
+        var updater = new GitHubUpdater(
+            feedUrl: Feed,
+            currentVersion: "1.2.0",
+            exePath: Exe,
+            open: (url, ct) => url == ExeUrl ? throw new TaskCanceledException("The request timed out.") : Open(url, ct),
+            launch: (_, _) => true,
+            onUiThread: work => work(),
+            isWindows: () => true);
+
+        var result = await updater.StageAsync(await FoundRelease(updater), null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(InstallOutcome.DownloadFailed, result.Outcome);
+        Assert.False(File.Exists(Exe + ".partial"));
+        Assert.False(File.Exists(Exe + ".new"));
+    }
+
+    [Fact]
     public async Task ADownloadThatBreaksPartWayNeverAppearsUnderTheStagedName()
     {
         // Another copy of the app that is already Ready installs whatever is called .new when it

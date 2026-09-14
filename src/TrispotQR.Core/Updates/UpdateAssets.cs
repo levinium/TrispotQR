@@ -36,7 +36,7 @@ public static class UpdateAssets
             return false;
         }
 
-        var first = text.TrimStart('﻿')
+        var first = text.TrimStart('\uFEFF')
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .FirstOrDefault();
 
