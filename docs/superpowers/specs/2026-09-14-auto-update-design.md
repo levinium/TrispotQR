@@ -59,7 +59,7 @@ A banner at the top of the form, under the version label and gear, shown **only*
 available. Nothing is ever on screen to say there is no news.
 
 - *Available:* "Trispot QR 1.2.0 is available." with **Update now**, **What's new** (opens the release page)
-  and **Later** (hides it until next launch).
+  and **Later** (hides it until the next check, which is at most once a day).
 - *Downloading:* a progress bar and "Downloading 42%".
 - *Ready:* "Version 1.2.0 is ready." with **Restart now**, and the note that it also installs itself when
   TrispotQR is closed. Restarting clears whatever is typed in the content box, since content is not
@@ -69,7 +69,8 @@ available. Nothing is ever on screen to say there is no news.
 - *Failed:* a one-line reason (download did not finish, checksum did not match) and the app carries on
   untouched.
 
-Turning the setting off clears any notice already showing.
+Turning the setting off clears a notice the check produced (available or failed), but not a download the user
+started.
 
 ### 3. The install
 
@@ -77,14 +78,16 @@ Carried over from Mullion unchanged in substance, because the order is the safet
 
 1. **Can it install at all?** A published single file (no `TrispotQR.Core.dll` beside the exe), on Windows,
    in a folder a write probe succeeds in. Asked before the button is offered.
-2. **Stage.** Read the published checksum first, then stream `TrispotQR.exe` to `TrispotQR.exe.new` beside the
-   running exe, hashing as it goes, capped at 256 MB. A mismatch deletes the file. Nothing about the
-   installed app has changed at this point.
-3. **Apply**, on Restart now or on close. Windows will not let a running exe be overwritten but will let it be
-   renamed: rename `TrispotQR.exe` to `TrispotQR.exe.old`, rename `.new` into its place, and if that second
-   rename fails, rename the old one back. On Restart now, start the new exe with `--updated <pid>` and close
-   the window normally so the session is saved.
-4. **Clean up.** The new process waits for the old one to exit, then deletes `.old` and any stray `.new`.
+2. **Stage.** Read the published checksum first, then stream `TrispotQR.exe` to `TrispotQR.exe.partial` beside
+   the running exe, hashing as it goes, capped at 256 MB. A mismatch or a failed download deletes the file;
+   only a match is renamed to `TrispotQR.exe.new`. Nothing about the installed app has changed at this point.
+3. **Apply**, on Restart now or on close, and only for a `.new` this running copy staged and that still has
+   the hash it verified. Windows will not let a running exe be overwritten but will let it be renamed: rename
+   `TrispotQR.exe` to `TrispotQR.exe.old`, rename `.new` into its place, and if that second rename fails,
+   rename the old one back. On Restart now, start the new exe with `--updated <pid>` and close the window
+   normally so the session is saved.
+4. **Clean up.** The new process waits for the old one to exit (only if that id still belongs to a
+   TrispotQR process, and never failing the launch), then deletes `.old` and any stray `.new` or `.partial`.
    Fixed names, so a crash between any two steps leaves files the next launch recognizes.
 
 Additions for TrispotQR:
