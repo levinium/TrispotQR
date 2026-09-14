@@ -850,8 +850,8 @@ public partial class MainViewModelTests : IDisposable
         sms.Text = "See you Friday";
 
         var contact = vm.ContentEditors.OfType<ContactEditor>().Single();
-        contact.FirstName = "Mark";
-        contact.LastName = "Levy";
+        contact.FirstName = "Jordan";
+        contact.LastName = "Reed";
 
         foreach (var editor in vm.ContentEditors)
         {
