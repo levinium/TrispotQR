@@ -16,8 +16,9 @@ public partial class MainViewModelTests
     private static UpdateVerdict NewerWithNotes(string? notes) =>
         UpdateDecision.For("1.2.0", new ReleaseInfo("v1.3.0", ReleaseUrl, Assets: [], Notes: notes));
 
+    // The fake updater runs 1.2.0, so "current" is a feed whose latest release is that same version.
     private static UpdateVerdict Current() =>
-        UpdateDecision.For("1.3.0", new ReleaseInfo("v1.3.0", ReleaseUrl, Assets: []));
+        UpdateDecision.For("1.2.0", new ReleaseInfo("v1.2.0", "https://example.org/releases/v1.2.0", Assets: []));
 
     private MainViewModel CreateWithUpdater(FakeUpdater updater, AppSettings? settings = null)
     {
@@ -54,7 +55,7 @@ public partial class MainViewModelTests
         Assert.True(vm.IsUpdateNoticeVisible);
         Assert.Contains("1.3.0", vm.UpdateHeadline);
         Assert.Equal("Update now", vm.UpdatePrimaryLabel);
-        Assert.Equal("You're on v1.3.0.", vm.UpdateDetail);
+        Assert.Equal("You're on v1.2.0.", vm.UpdateDetail);
         Assert.True(vm.CanDismissUpdate);
     }
 
@@ -117,7 +118,7 @@ public partial class MainViewModelTests
         await vm.CheckForUpdatesNowAsync();
 
         Assert.Equal(1, updater.Checks);
-        Assert.Contains(_dialogs.Informations, m => m.Contains("latest version") && m.Contains("1.3.0"));
+        Assert.Contains(_dialogs.Informations, m => m.Contains("latest version") && m.Contains("v1.2.0"));
     }
 
     [Fact]
@@ -527,7 +528,8 @@ public partial class MainViewModelTests
 
         public List<string?> OpenedUrls { get; } = [];
 
-        public string CurrentVersion => "1.3.0";
+        /// <summary>The version <see cref="Newer"/> offers an update from, and <see cref="Current"/> is up to date on.</summary>
+        public string CurrentVersion => "1.2.0";
 
         public Task<UpdateVerdict> CheckAsync(CancellationToken ct = default)
         {
