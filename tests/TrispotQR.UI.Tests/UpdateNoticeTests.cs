@@ -5,10 +5,12 @@ using Avalonia.Controls.Presenters;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using TrispotQR.Core.Presets;
 using TrispotQR.Core.Updates;
 using TrispotQR.UI.Services;
+using TrispotQR.UI.Views;
 using TrispotQR.ViewModels;
 
 namespace TrispotQR.UI.Tests;
@@ -284,9 +286,58 @@ public class UpdateNoticeTests
             updater: updater);
     }
 
+    [AvaloniaFact]
+    public void WhatsNewOpensTheNotesInsideTheApp()
+    {
+        // The real dialog service, so this fails if AvaloniaDialogService does not implement
+        // ShowReleaseNotes: the interface's default would answer ViewOnline and open the browser.
+        var updater = new AlwaysNewer();
+
+        UiHarness.WithWindow(
+            session =>
+            {
+                string? title = null;
+                string? heading = null;
+
+                // The click runs the command, and the command waits inside DispatcherWait.For until
+                // the notes window closes, so the click itself only returns afterwards. The looking
+                // and closing therefore come from a timer posting to the UI thread, the shape
+                // DialogServiceTests.TheQueuedStartupMessageIsActuallyShownOnceTheWindowOpens uses.
+                // What it sees is recorded and asserted once the click is back.
+                using var inspect = new Timer(
+                    _ => Dispatcher.UIThread.Post(() =>
+                    {
+                        if (session.Window.OwnedWindows.OfType<ReleaseNotesWindow>().FirstOrDefault() is not { } notes)
+                        {
+                            return;
+                        }
+
+                        title = notes.Title;
+                        heading = notes.GetVisualDescendants().OfType<SelectableTextBlock>()
+                            .Where(b => b.Classes.Contains("note-heading"))
+                            .Select(ReleaseNotesWindowTests.TextOf)
+                            .FirstOrDefault();
+                        notes.Close();
+                    }),
+                    null,
+                    TimeSpan.FromMilliseconds(50),
+                    TimeSpan.FromMilliseconds(50));
+
+                var whatsNew = Named<Button>(session.Window, "WhatsNewButton");
+                UiHarness.Click(session.Window, UiHarness.At(whatsNew, 0.5, 0.5));
+
+                Assert.Equal("What's new in Trispot QR 9.9.9", title);
+                Assert.Equal("Fixes", heading);
+                Assert.Equal(0, updater.ReleasePagesOpened);
+            },
+            updater: updater);
+    }
+
     private sealed class AlwaysNewer : IUpdater
     {
         public int Checks { get; private set; }
+
+        public int ReleasePagesOpened { get; private set; }
 
         /// <summary>The restart flag of every Apply, in order.</summary>
         public List<bool> Applies { get; } = [];
@@ -296,7 +347,7 @@ public class UpdateNoticeTests
         public Task<UpdateVerdict> CheckAsync(CancellationToken ct = default)
         {
             Checks++;
-            return Task.FromResult(UpdateDecision.For("1.2.0", new ReleaseInfo("v9.9.9", "https://example.org/releases/v9.9.9", Assets: [])));
+            return Task.FromResult(UpdateDecision.For("1.2.0", new ReleaseInfo("v9.9.9", "https://example.org/releases/v9.9.9", Assets: [], Notes: "## Fixes\n\n- Something was fixed.")));
         }
 
         public InstallResult CanInstall() => new(InstallOutcome.Staged);
@@ -310,8 +361,6 @@ public class UpdateNoticeTests
             return true;
         }
 
-        public void OpenReleasePage(string? url)
-        {
-        }
+        public void OpenReleasePage(string? url) => ReleasePagesOpened++;
     }
 }

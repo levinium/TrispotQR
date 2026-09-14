@@ -1,0 +1,84 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TrispotQR.UI.Views.ReleaseNotesWindow"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        SizeToContent="Height"
+        Width="560"
+        MaxHeight="640"
+        Background="{DynamicResource PageBrush}">
+
+  <Window.Styles>
+    <!-- The same button treatments as the update notice's buttons in MainWindow. Window scoped, so
+         this window carries its own copy. -->
+    <Style Selector="Button.accent">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="14,6"/>
+    </Style>
+    <Style Selector="Button.accent /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+      <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+    <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+    </Style>
+    <Style Selector="Button.accent:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+    </Style>
+
+    <Style Selector="Button.link">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.link /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource AccentHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.link:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource AccentHoverBrush}"/>
+    </Style>
+  </Window.Styles>
+
+  <!-- The notes take whatever height is left, so the heading and the buttons never scroll away. -->
+  <Grid Margin="20" RowDefinitions="Auto,*,Auto">
+
+    <TextBlock x:Name="TitleText" Grid.Row="0" FontSize="18" FontWeight="SemiBold"
+               TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}"/>
+
+    <Border Grid.Row="1" Margin="0,12,0,16"
+            Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource SubtleBorderBrush}"
+            BorderThickness="1" CornerRadius="6">
+      <ScrollViewer x:Name="NotesScroller" HorizontalScrollBarVisibility="Disabled">
+        <!-- Filled in the code behind, one control per block of notes. -->
+        <StackPanel x:Name="NotesPanel" Spacing="10" Margin="14"/>
+      </ScrollViewer>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+      <Button x:Name="ViewOnlineButton" Grid.Column="0" Classes="link" Content="View on GitHub"
+              VerticalAlignment="Center" Click="OnViewOnline"/>
+
+      <!-- Neither button is the default, so Enter cannot start a download by accident. -->
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+        <Button x:Name="CloseButton" Content="Close" IsCancel="True" Click="OnClose"/>
+        <Button x:Name="PrimaryButton" Classes="accent" IsVisible="False" Click="OnPrimary"/>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>

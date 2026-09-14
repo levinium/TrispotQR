@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using TrispotQR.Core.Presets;
+using TrispotQR.Core.Updates;
 using TrispotQR.UI.Views;
 using TrispotQR.ViewModels;
 
@@ -193,6 +194,18 @@ public sealed class AvaloniaDialogService : IDialogService
         }
 
         return DispatcherWait.For(SettingsWindow.ShowAsync(_owner, current), DialogTimeout);
+    }
+
+    public ReleaseNotesChoice ShowReleaseNotes(string title, IReadOnlyList<NoteBlock> notes, string? primaryLabel)
+    {
+        // Offers a choice, so like any question it cannot be queued for a window that is not up
+        // yet. Close is the answer that changes nothing.
+        if (!CanShowDialog)
+        {
+            return ReleaseNotesChoice.Close;
+        }
+
+        return DispatcherWait.For(ReleaseNotesWindow.ShowAsync(_owner, title, notes, primaryLabel), DialogTimeout);
     }
 
     public bool Confirm(string title, string message) => Ask(title, message, "OK", "Cancel", defaultToProceed: true);
