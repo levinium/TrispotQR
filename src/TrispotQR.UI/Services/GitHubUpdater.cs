@@ -35,6 +35,9 @@ public sealed class GitHubUpdater : IUpdater
     private readonly Func<bool> _isWindows;
     private readonly Action<string> _openBrowser;
 
+    /// <summary>The SHA-256 of the file this instance last staged and verified; null when there is none.</summary>
+    private string? _stagedHash;
+
     /// <param name="open">How a URL is fetched. Tests serve bytes from memory.</param>
     /// <param name="launch">How the replacement is started. Tests record instead of starting.</param>
     /// <param name="onUiThread">How progress reaches the UI thread. Tests run it inline.</param>
@@ -153,6 +156,9 @@ public sealed class GitHubUpdater : IUpdater
         var plan = UpdatePlan.For(_exePath!);
         var uiProgress = progress is null ? null : new UiThreadProgress(progress, _onUiThread);
 
+        // A new attempt supersedes whatever an earlier one vouched for.
+        _stagedHash = null;
+
         try
         {
             // The checksum first: downloading 50 MB before finding nothing to check it against
@@ -164,24 +170,30 @@ public sealed class GitHubUpdater : IUpdater
                 return new(InstallOutcome.VerificationFailed, "That release publishes no checksum, so the download cannot be verified.");
             }
 
-            var actual = await DownloadAsync(exe, plan.Staged, uiProgress, ct).ConfigureAwait(false);
+            // Written under the partial name and renamed only once it matches. Another copy of
+            // the app that is already Ready installs whatever carries the staged name when it
+            // closes, so an unverified or half-written file must never be called that.
+            var actual = await DownloadAsync(exe, plan.Partial, uiProgress, ct).ConfigureAwait(false);
 
             if (!UpdateAssets.Matches(expected, actual))
             {
-                Discard(plan.Staged);
+                Discard(plan.Partial);
                 return new(InstallOutcome.VerificationFailed, "The download did not match the published checksum, so it was discarded.");
             }
+
+            File.Move(plan.Partial, plan.Staged, overwrite: true);
+            _stagedHash = actual.ToLowerInvariant();
 
             return new(InstallOutcome.Staged);
         }
         catch (OperationCanceledException)
         {
-            Discard(plan.Staged);
+            Discard(plan.Partial);
             return new(InstallOutcome.Canceled);
         }
         catch (Exception)
         {
-            Discard(plan.Staged);
+            Discard(plan.Partial);
             return new(InstallOutcome.DownloadFailed, "The download did not finish. Nothing was changed.");
         }
     }
@@ -190,17 +202,21 @@ public sealed class GitHubUpdater : IUpdater
     /// Renames the running exe aside, renames the staged one into its place, and optionally starts
     /// it. If the second rename fails the first is undone. The window in which neither file holds
     /// the real name is one rename wide.
+    ///
+    /// Only a file this instance downloaded and verified is installed, and only if it still hashes
+    /// the same: two copies of the app share one folder, and the staged name is not proof of
+    /// anything on its own.
     /// </summary>
     public bool Apply(bool restart)
     {
-        if (_exePath is null)
+        if (_exePath is null || _stagedHash is null)
         {
             return false;
         }
 
         var plan = UpdatePlan.For(_exePath);
 
-        if (!File.Exists(plan.Staged))
+        if (!UpdateAssets.Matches(_stagedHash, HashFile(plan.Staged)))
         {
             return false;
         }
@@ -234,6 +250,8 @@ public sealed class GitHubUpdater : IUpdater
 
             return false;
         }
+
+        _stagedHash = null;
 
         if (restart)
         {
@@ -308,6 +326,20 @@ public sealed class GitHubUpdater : IUpdater
 
         progress?.Report(1);
         return UpdateAssets.Format(sha.GetHashAndReset());
+    }
+
+    /// <summary>The lowercase SHA-256 of a file, or null when it is missing or cannot be read.</summary>
+    private static string? HashFile(string path)
+    {
+        try
+        {
+            using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return UpdateAssets.Format(SHA256.HashData(file));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static void Discard(string path)

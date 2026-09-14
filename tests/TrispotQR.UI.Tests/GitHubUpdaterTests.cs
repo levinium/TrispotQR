@@ -26,6 +26,11 @@ public sealed class GitHubUpdaterTests : IDisposable
     private readonly List<(string Path, IReadOnlyList<string> Args)> _launched = [];
     private int _uiThreadHops;
 
+    /// <summary>A URL whose body stops with an error part way through.</summary>
+    private string? _breaksMidStream;
+
+    private bool _stagedExistedMidDownload;
+
     public GitHubUpdaterTests()
     {
         Directory.CreateDirectory(_folder);
@@ -60,6 +65,12 @@ public sealed class GitHubUpdaterTests : IDisposable
     private Task<Stream> Open(string url, CancellationToken ct)
     {
         _requested.Add(url);
+
+        if (url == _breaksMidStream && _web.TryGetValue(url, out var partial))
+        {
+            return Task.FromResult<Stream>(new BreaksHalfway(partial, () => _stagedExistedMidDownload |= File.Exists(Exe + ".new")));
+        }
+
         return _web.TryGetValue(url, out var bytes)
             ? Task.FromResult<Stream>(new MemoryStream(bytes))
             : throw new HttpRequestException($"404 {url}");
@@ -235,6 +246,66 @@ public sealed class GitHubUpdaterTests : IDisposable
     }
 
     [Fact]
+    public async Task ADownloadThatBreaksPartWayNeverAppearsUnderTheStagedName()
+    {
+        // Another copy of the app that is already Ready installs whatever is called .new when it
+        // closes. A half-written file must never carry that name, not even while it is written.
+        var updater = Updater();
+        var release = await FoundRelease(updater);
+        _breaksMidStream = ExeUrl;
+
+        var result = await updater.StageAsync(release, null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(InstallOutcome.DownloadFailed, result.Outcome);
+        Assert.False(_stagedExistedMidDownload, "the download was written under the staged name");
+        Assert.False(File.Exists(Exe + ".partial"));
+        Assert.False(File.Exists(Exe + ".new"));
+        Assert.Equal(OldExe, File.ReadAllBytes(Exe));
+    }
+
+    [Fact]
+    public async Task StagingLeavesNoPartialFileBehind()
+    {
+        var updater = Updater();
+
+        var result = await updater.StageAsync(await FoundRelease(updater), null, TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsStaged, result.Detail);
+        Assert.True(File.Exists(Exe + ".new"));
+        Assert.False(File.Exists(Exe + ".partial"));
+    }
+
+    [Fact]
+    public void ApplyRefusesAStagedFileThisCopyDidNotVerify()
+    {
+        // A .new left by another copy of the app, or by one that was closed part way through a
+        // download, is not something this copy has any reason to trust.
+        File.WriteAllBytes(Exe + ".new", NewExe);
+
+        Assert.False(Updater().Apply(restart: true));
+
+        Assert.Equal(OldExe, File.ReadAllBytes(Exe));
+        Assert.True(File.Exists(Exe + ".new"));
+        Assert.False(File.Exists(Exe + ".old"));
+        Assert.Empty(_launched);
+    }
+
+    [Fact]
+    public async Task ApplyRefusesAStagedFileThatChangedAfterItWasVerified()
+    {
+        var updater = Updater();
+        await updater.StageAsync(await FoundRelease(updater), null, TestContext.Current.CancellationToken);
+
+        File.WriteAllBytes(Exe + ".new", Encoding.ASCII.GetBytes("truncated"));
+
+        Assert.False(updater.Apply(restart: true));
+
+        Assert.Equal(OldExe, File.ReadAllBytes(Exe));
+        Assert.False(File.Exists(Exe + ".old"));
+        Assert.Empty(_launched);
+    }
+
+    [Fact]
     public async Task ApplySwapsTheExeAndRestartsWithTheOldProcessId()
     {
         var updater = Updater();
@@ -280,14 +351,21 @@ public sealed class GitHubUpdaterTests : IDisposable
         var updater = Updater();
         await updater.StageAsync(await FoundRelease(updater), null, TestContext.Current.CancellationToken);
 
+        // A stale backup, which Apply deletes only once the staged file has re-verified. Its
+        // absence afterwards shows the renames were really attempted, not refused up front.
+        File.WriteAllBytes(Exe + ".old", [0]);
+
+        // FileShare.Read, not None: Apply must still be able to read the file to re-hash it, and
+        // an open handle without delete sharing is enough to make the rename fail.
         bool applied;
-        using (File.Open(Exe + ".new", FileMode.Open, FileAccess.Read, FileShare.None))
+        using (File.Open(Exe + ".new", FileMode.Open, FileAccess.Read, FileShare.Read))
         {
             applied = updater.Apply(restart: true);
         }
 
         Assert.False(applied);
         Assert.Equal(OldExe, File.ReadAllBytes(Exe));
+        Assert.False(File.Exists(Exe + ".old"));
         Assert.Empty(_launched);
     }
 
@@ -296,11 +374,13 @@ public sealed class GitHubUpdaterTests : IDisposable
     {
         File.WriteAllBytes(Exe + ".old", OldExe);
         File.WriteAllBytes(Exe + ".new", NewExe);
+        File.WriteAllBytes(Exe + ".partial", NewExe[..4]);
 
         UpdateStartup.CleanUp(Exe);
 
         Assert.False(File.Exists(Exe + ".old"));
         Assert.False(File.Exists(Exe + ".new"));
+        Assert.False(File.Exists(Exe + ".partial"));
         Assert.True(File.Exists(Exe));
     }
 
@@ -358,5 +438,21 @@ public sealed class GitHubUpdaterTests : IDisposable
     private sealed class Collector(List<double> into) : IProgress<double>
     {
         public void Report(double value) => into.Add(value);
+    }
+
+    /// <summary>Serves the first half of a body, then fails the way a dropped connection does.</summary>
+    private sealed class BreaksHalfway(byte[] bytes, Action beforeBreaking) : MemoryStream(bytes[..(bytes.Length / 2)])
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            var read = await base.ReadAsync(buffer, cancellationToken);
+            if (read == 0)
+            {
+                beforeBreaking();
+                throw new IOException("The connection was reset.");
+            }
+
+            return read;
+        }
     }
 }

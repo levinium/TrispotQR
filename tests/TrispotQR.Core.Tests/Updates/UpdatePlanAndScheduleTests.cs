@@ -15,8 +15,9 @@ public class UpdatePlanAndScheduleTests
         Assert.Equal(exe, plan.Current);
         Assert.Equal(exe + ".new", plan.Staged);
         Assert.Equal(exe + ".old", plan.Backup);
+        Assert.Equal(exe + ".partial", plan.Partial);
         Assert.Equal(Path.GetDirectoryName(exe), plan.Directory);
-        Assert.Equal([plan.Backup, plan.Staged], plan.Leftovers());
+        Assert.Equal([plan.Backup, plan.Staged, plan.Partial], plan.Leftovers());
     }
 
     [Fact]
