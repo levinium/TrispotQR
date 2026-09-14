@@ -126,7 +126,7 @@ phone before a code goes to print. That is the only test that fully counts.
 Needs the .NET 10 SDK.
 
 ```powershell
-dotnet test          # 1149 tests: 926 run on Windows, Linux and macOS
+dotnet test          # 1156 tests: 936 run on Windows, Linux and macOS
 .\publish.ps1        # builds dist\TrispotQR.exe and its checksum
 ```
 
