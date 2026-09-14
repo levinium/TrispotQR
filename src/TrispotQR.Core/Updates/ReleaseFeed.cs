@@ -84,7 +84,7 @@ public static class ReleaseFeed
                 continue;
             }
 
-            var size = asset.TryGetProperty("size", out var s) && s.ValueKind == JsonValueKind.Number ? s.GetInt64() : 0;
+            var size = asset.TryGetProperty("size", out var s) && s.ValueKind == JsonValueKind.Number && s.TryGetInt64(out var n) ? n : 0;
             found.Add(new ReleaseAsset(name, url, size));
         }
 
