@@ -26,9 +26,11 @@ namespace TrispotQR.UI.Services;
 /// than avoided. Frames nest last-in-first-out: a wait started from inside a pumped wait --
 /// ShowError raised from a catch block that is itself running under a pump, say -- pushes a
 /// second frame, and the outer loop cannot return until the inner one has. That terminates,
-/// because every frame carries its own timeout and its own exit condition, and because the
-/// exit flag is only ever cleared on the UI thread, so a frame that has already returned can
-/// only be re-flagged harmlessly by a late timer callback.
+/// because every frame carries its own exit condition, and because the exit flag is only ever
+/// cleared on the UI thread, so a frame that has already returned can only be re-flagged
+/// harmlessly by a late timer callback. A frame waiting on code ends when its task completes,
+/// its timeout passes or the dispatcher shuts down. A dialog frame waits on a person with no
+/// timeout at all, so it ends when the dialog closes or the dispatcher shuts down.
 ///
 /// What reentrancy would genuinely cost is a user re-triggering a command through the owner
 /// window mid-wait -- two save dialogs, or the window closed out from under the wait. Every

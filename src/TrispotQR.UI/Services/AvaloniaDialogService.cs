@@ -11,8 +11,21 @@ namespace TrispotQR.UI.Services;
 /// <summary>Everything the view model needs from the world outside it, in Avalonia terms.</summary>
 public sealed class AvaloniaDialogService : IDialogService
 {
-    /// <summary>Generous, because the wait is on a person rather than on code.</summary>
-    private static readonly TimeSpan DialogTimeout = TimeSpan.FromMinutes(10);
+    /// <summary>
+    /// No limit, because the wait is on a person rather than on code. A person may take as long
+    /// as they like over a modal: reading release notes slowly, or leaving a save dialog open over
+    /// lunch, is ordinary use. DispatcherWait throws when a frame's timeout passes with the task
+    /// unfinished, and nothing above these calls catches that, so any finite value here could only
+    /// turn an unhurried reader into a crash.
+    /// </summary>
+    private static readonly TimeSpan DialogTimeout = Timeout.InfiniteTimeSpan;
+
+    /// <summary>
+    /// Finite, because resolving a remembered folder waits on code rather than on a person. Both
+    /// callers catch every exception from the lookup, so a timeout here only costs the picker its
+    /// preselected folder.
+    /// </summary>
+    private static readonly TimeSpan FolderLookupTimeout = TimeSpan.FromMinutes(10);
 
     private readonly Window _owner;
 
@@ -96,7 +109,7 @@ public sealed class AvaloniaDialogService : IDialogService
             try
             {
                 options.SuggestedStartLocation = DispatcherWait.For(
-                    _owner.StorageProvider.TryGetFolderFromPathAsync(directory), DialogTimeout);
+                    _owner.StorageProvider.TryGetFolderFromPathAsync(directory), FolderLookupTimeout);
             }
             catch (Exception)
             {
@@ -147,7 +160,7 @@ public sealed class AvaloniaDialogService : IDialogService
             try
             {
                 options.SuggestedStartLocation = DispatcherWait.For(
-                    _owner.StorageProvider.TryGetFolderFromPathAsync(directory), DialogTimeout);
+                    _owner.StorageProvider.TryGetFolderFromPathAsync(directory), FolderLookupTimeout);
             }
             catch (Exception)
             {

@@ -46,6 +46,22 @@ public class DispatcherWaitTests
     }
 
     [AvaloniaFact]
+    public void WaitsWithoutATimeoutAndReturnsTheResultWhenGivenAnInfiniteTimeout()
+    {
+        // AvaloniaDialogService waits on a person with Timeout.InfiniteTimeSpan, so the pump must
+        // accept it as "no deadline" rather than throwing or treating it as already expired. The
+        // job is posted before the call, so the task is still incomplete when the wait begins and
+        // only the pump can complete it: the test cannot pass by timing alone.
+        var tcs = new TaskCompletionSource<int>();
+
+        Dispatcher.UIThread.Post(() => tcs.SetResult(7));
+
+        var result = DispatcherWait.For(tcs.Task, Timeout.InfiniteTimeSpan);
+
+        Assert.Equal(7, result);
+    }
+
+    [AvaloniaFact]
     public void ThrowsTimeoutExceptionRatherThanHangingWhenNothingEverCompletesTheTask()
     {
         // Nothing is ever posted to complete this task, so the only way this test finishes is
