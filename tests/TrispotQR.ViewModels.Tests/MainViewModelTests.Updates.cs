@@ -359,8 +359,8 @@ public partial class MainViewModelTests
         var shown = Assert.Single(_dialogs.ReleaseNotesShown);
         Assert.Equal("What's new in Trispot QR 1.3.0", shown.Title);
         Assert.Collection(shown.Notes,
-            block => Assert.IsType<NoteHeading>(block),
-            block => Assert.Single(Assert.IsType<NoteBulletList>(block).Items));
+            block => Assert.Equal("Fixes", Assert.Single(Assert.IsType<NoteHeading>(block).Spans).Text),
+            block => Assert.Equal("One", Assert.Single(Assert.Single(Assert.IsType<NoteBulletList>(block).Items)).Text));
         Assert.Equal("Update now", shown.PrimaryLabel);
         Assert.Empty(updater.OpenedUrls);
     }
@@ -456,6 +456,32 @@ public partial class MainViewModelTests
 
         pending.SetResult(new InstallResult(InstallOutcome.Staged));
         await staging;
+    }
+
+    [Fact]
+    public async Task Updates_PrimaryFromTheNotesIsIgnoredWhenTheOfferChangedWhileTheyWereOpen()
+    {
+        // The notes opened mid-download with no button, and the download finished while they were
+        // up. A Primary answer must not restart the app from a window that never offered it.
+        var pending = new TaskCompletionSource<InstallResult>();
+        var updater = new FakeUpdater { Verdict = NewerWithNotes("- One"), StageWith = _ => pending.Task };
+        var vm = CreateWithUpdater(updater);
+        await vm.CheckForUpdatesAtStartupAsync();
+        var staging = vm.StageUpdateAsync();
+        _dialogs.ReleaseNotesAnswer = ReleaseNotesChoice.Primary;
+        _dialogs.OnShowReleaseNotes = () =>
+        {
+            // The download's continuation is posted to xUnit's context, which runs on other
+            // threads, so waiting here is deterministic and cannot deadlock.
+            pending.SetResult(new InstallResult(InstallOutcome.Staged));
+            staging.Wait();
+            Assert.Equal(UpdateNoticeState.Ready, vm.UpdateState);
+        };
+
+        vm.WhatsNewCommand.Execute(null);
+
+        Assert.Empty(updater.Applies);
+        Assert.Equal(UpdateNoticeState.Ready, vm.UpdateState);
     }
 
     [Fact]

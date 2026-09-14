@@ -968,9 +968,13 @@ public partial class MainViewModelTests : IDisposable
 
         public List<(string Title, IReadOnlyList<NoteBlock> Notes, string? PrimaryLabel)> ReleaseNotesShown { get; } = [];
 
+        /// <summary>Runs while the notes window is "open", so a test can change things before it answers.</summary>
+        public Action? OnShowReleaseNotes { get; set; }
+
         public ReleaseNotesChoice ShowReleaseNotes(string title, IReadOnlyList<NoteBlock> notes, string? primaryLabel)
         {
             ReleaseNotesShown.Add((title, notes, primaryLabel));
+            OnShowReleaseNotes?.Invoke();
             return ReleaseNotesAnswer;
         }
     }

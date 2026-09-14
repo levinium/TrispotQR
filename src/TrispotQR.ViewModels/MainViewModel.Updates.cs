@@ -189,8 +189,9 @@ public sealed partial class MainViewModel
 
     /// <summary>
     /// Shows the release notes with the notice's primary action beside them. The window is a pause in
-    /// which a download may have finished or failed, so a Primary answer is honored only if that
-    /// action still applies once it closes.
+    /// which a download may have finished or failed, so a Primary answer is honored only when a button
+    /// was offered and it still names the action the notice's button would run now. Otherwise the
+    /// user would get an action they were never shown, such as a restart.
     /// </summary>
     private void ShowWhatsNew()
     {
@@ -205,7 +206,7 @@ public sealed partial class MainViewModel
 
         switch (_dialogs.ShowReleaseNotes(title, notes, primaryLabel))
         {
-            case ReleaseNotesChoice.Primary when primaryLabel is not null && UpdatePrimaryCommand.CanExecute(null):
+            case ReleaseNotesChoice.Primary when primaryLabel is not null && primaryLabel == UpdatePrimaryLabel:
                 OnUpdatePrimary();
                 break;
             case ReleaseNotesChoice.ViewOnline:
