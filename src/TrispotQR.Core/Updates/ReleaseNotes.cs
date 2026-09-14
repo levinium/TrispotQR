@@ -44,11 +44,18 @@ public static class ReleaseNotes
         var paragraph = new List<string>();
         List<string>? items = null;
 
+        // A block or item with no text left after inline parsing ("## ", "- ", a lone "``") is dropped
+        // here, so no consumer draws a blank heading or an empty bullet.
         void EndParagraph()
         {
             if (paragraph.Count > 0)
             {
-                blocks.Add(new NoteParagraph(Inline(string.Join(' ', paragraph))));
+                var spans = Inline(string.Join(' ', paragraph));
+                if (spans.Count > 0)
+                {
+                    blocks.Add(new NoteParagraph(spans));
+                }
+
                 paragraph.Clear();
             }
         }
@@ -57,7 +64,12 @@ public static class ReleaseNotes
         {
             if (items is not null)
             {
-                blocks.Add(new NoteBulletList(items.Select(Inline).ToList()));
+                var parsed = items.Select(Inline).Where(spans => spans.Count > 0).ToList();
+                if (parsed.Count > 0)
+                {
+                    blocks.Add(new NoteBulletList(parsed));
+                }
+
                 items = null;
             }
         }
@@ -80,7 +92,10 @@ public static class ReleaseNotes
             {
                 EndParagraph();
                 EndList();
-                blocks.Add(new NoteHeading(Inline(heading)));
+                if (Inline(heading) is { Count: > 0 } spans)
+                {
+                    blocks.Add(new NoteHeading(spans));
+                }
             }
             else if (rest is not null && rest.Length >= 2 && rest[0] is '-' or '*' or '+' && rest[1] == ' ')
             {
@@ -156,10 +171,20 @@ public static class ReleaseNotes
         return text;
     }
 
-    /// <summary>Splits one block's text into styled spans.</summary>
+    /// <summary>
+    /// Splits one block's text into styled spans.
+    ///
+    /// Kept linear, because the notes are parsed on the UI thread and a hostile body at the feed's length
+    /// cap would otherwise freeze the popup. Whether a position can close a marker does not depend on
+    /// where the marker opened, and openers are met left to right, so once a search for a closer comes
+    /// up empty every later search of that kind would too. Each kind remembers where it failed, a found
+    /// closer moves the scan past everything it searched, and so no stretch of text is searched twice.
+    /// </summary>
     private static IReadOnlyList<NoteSpan> Inline(string text)
     {
-        var spans = new List<NoteSpan>();
+        var spans = new Spans();
+        var noCloserFrom = new[] { int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue };
+        var noParenFrom = int.MaxValue;
         var i = 0;
 
         while (i < text.Length)
@@ -168,26 +193,27 @@ public static class ReleaseNotes
 
             if (c == '`')
             {
+                // A failed search means no backtick remains, so it cannot repeat.
                 var close = text.IndexOf('`', i + 1);
                 if (close > 0)
                 {
-                    Add(spans, text[(i + 1)..close], NoteSpanStyle.Code);
+                    spans.Add(text.AsSpan((i + 1)..close), NoteSpanStyle.Code);
                     i = close + 1;
                     continue;
                 }
             }
             else if (c is '*' or '_' && i + 1 < text.Length && text[i + 1] == c)
             {
-                var close = Closer(text, i, 2);
+                var close = Closer(text, i, 2, noCloserFrom);
                 if (close > 0)
                 {
-                    Add(spans, text[(i + 2)..close], NoteSpanStyle.Bold);
+                    spans.Add(text.AsSpan((i + 2)..close), NoteSpanStyle.Bold);
                     i = close + 2;
                 }
                 else
                 {
                     // Both markers are literal, or the second would be mistaken for an opener.
-                    Add(spans, text.Substring(i, 2), NoteSpanStyle.Plain);
+                    spans.Add(text.AsSpan(i, 2), NoteSpanStyle.Plain);
                     i += 2;
                 }
 
@@ -195,47 +221,59 @@ public static class ReleaseNotes
             }
             else if (c is '*' or '_')
             {
-                var close = Closer(text, i, 1);
+                var close = Closer(text, i, 1, noCloserFrom);
                 if (close > 0)
                 {
-                    Add(spans, text[(i + 1)..close], NoteSpanStyle.Plain);
+                    spans.Add(text.AsSpan((i + 1)..close), NoteSpanStyle.Plain);
                     i = close + 1;
                     continue;
                 }
             }
             else if (c == '[')
             {
-                var labelEnd = text.IndexOf("](", i + 1, StringComparison.Ordinal);
-                var urlEnd = labelEnd > 0 ? text.IndexOf(')', labelEnd + 2) : -1;
-                if (urlEnd > 0)
+                // The label runs to the next bracket of either kind. A label holding a bracket is not
+                // a link, so in "[x] done and [link](u)" the first bracket stays literal and the real
+                // link is found when the scan reaches its own opening bracket.
+                var labelEnd = text.IndexOfAny(['[', ']'], i + 1);
+                if (labelEnd > 0 && text[labelEnd] == ']' && labelEnd + 1 < text.Length && text[labelEnd + 1] == '('
+                    && labelEnd + 2 < noParenFrom)
                 {
-                    Add(spans, text[(i + 1)..labelEnd], NoteSpanStyle.Plain);
-                    i = urlEnd + 1;
-                    continue;
+                    var urlEnd = text.IndexOf(')', labelEnd + 2);
+                    if (urlEnd > 0)
+                    {
+                        spans.Add(text.AsSpan((i + 1)..labelEnd), NoteSpanStyle.Plain);
+                        i = urlEnd + 1;
+                        continue;
+                    }
+
+                    noParenFrom = labelEnd + 2;
                 }
             }
 
-            Add(spans, c.ToString(), NoteSpanStyle.Plain);
+            spans.Add(text.AsSpan(i, 1), NoteSpanStyle.Plain);
             i++;
         }
 
-        return spans;
+        return spans.ToList();
     }
 
     /// <summary>
     /// Where the emphasis marker of <paramref name="width"/> characters opening at
     /// <paramref name="open"/> closes, or -1 when it does not. An opener must be followed by text and a
     /// closer preceded by it, so "2 * 3" is arithmetic. Underscores must also sit at a word's edge, so
-    /// snake_case_name is a name.
+    /// snake_case_name is a name. <paramref name="noCloserFrom"/> holds, per marker kind, the position
+    /// from which an earlier search already found nothing.
     /// </summary>
-    private static int Closer(string text, int open, int width)
+    private static int Closer(string text, int open, int width, int[] noCloserFrom)
     {
         var marker = text[open];
         var underscore = marker == '_';
         var start = open + width;
+        var kind = (underscore ? 2 : 0) + width - 1;
 
         if (start >= text.Length || char.IsWhiteSpace(text[start])
-            || (underscore && open > 0 && char.IsLetterOrDigit(text[open - 1])))
+            || (underscore && open > 0 && char.IsLetterOrDigit(text[open - 1]))
+            || start + 1 >= noCloserFrom[kind])
         {
             return -1;
         }
@@ -256,6 +294,7 @@ public static class ReleaseNotes
             return j;
         }
 
+        noCloserFrom[kind] = start + 1;
         return -1;
     }
 
@@ -274,21 +313,46 @@ public static class ReleaseNotes
         return (after >= text.Length || text[after] != marker) && text[index - 1] != marker;
     }
 
-    /// <summary>Appends a span, dropping empty text and merging with a neighbour of the same style.</summary>
-    private static void Add(List<NoteSpan> spans, string text, NoteSpanStyle style)
+    /// <summary>
+    /// Collects spans, dropping empty text and merging neighbours of the same style. The span being
+    /// built stays in a buffer, because plain text arrives a character at a time and joining strings
+    /// on every character would copy the whole run each time.
+    /// </summary>
+    private sealed class Spans
     {
-        if (text.Length == 0)
+        private readonly List<NoteSpan> _done = [];
+        private readonly StringBuilder _text = new();
+        private NoteSpanStyle _style;
+
+        public void Add(ReadOnlySpan<char> text, NoteSpanStyle style)
         {
-            return;
+            if (text.IsEmpty)
+            {
+                return;
+            }
+
+            if (_style != style)
+            {
+                Flush();
+                _style = style;
+            }
+
+            _text.Append(text);
         }
 
-        if (spans.Count > 0 && spans[^1].Style == style)
+        public List<NoteSpan> ToList()
         {
-            spans[^1] = spans[^1] with { Text = spans[^1].Text + text };
+            Flush();
+            return _done;
         }
-        else
+
+        private void Flush()
         {
-            spans.Add(new NoteSpan(text, style));
+            if (_text.Length > 0)
+            {
+                _done.Add(new NoteSpan(_text.ToString(), _style));
+                _text.Clear();
+            }
         }
     }
 }

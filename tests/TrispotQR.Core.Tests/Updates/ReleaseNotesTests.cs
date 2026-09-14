@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using TrispotQR.Core.Updates;
 
 namespace TrispotQR.Tests.Updates;
@@ -161,6 +162,53 @@ public class ReleaseNotesTests
     public void ALinkBecomesItsLabel()
     {
         Assert.Equal([Plain("the release page")], SpansOfOnlyParagraph("[the release page](https://example.org)"));
+    }
+
+    [Fact]
+    public void BracketsBeforeALinkStayLiteral()
+    {
+        Assert.Equal([Plain("[x] done and link")], SpansOfOnlyParagraph("[x] done and [link](u)"));
+    }
+
+    [Fact]
+    public void AnEmptyHeadingIsDropped()
+    {
+        Assert.Empty(ReleaseNotes.Parse("## "));
+    }
+
+    [Fact]
+    public void AnEmptyBulletIsDropped()
+    {
+        var list = Assert.IsType<NoteBulletList>(Assert.Single(ReleaseNotes.Parse("- \n- one")));
+
+        Assert.Equal([Plain("one")], Assert.Single(list.Items));
+    }
+
+    [Fact]
+    public void AListOfOnlyEmptyBulletsIsDropped()
+    {
+        Assert.Empty(ReleaseNotes.Parse("- \n-  "));
+    }
+
+    [Theory]
+    [InlineData(" _a")]
+    [InlineData("*a")]
+    [InlineData("`a")]
+    [InlineData("[a")]
+    [InlineData("[a](")]
+    [InlineData("**a")]
+    public void APathologicalBodyParsesQuickly(string unit)
+    {
+        // The view model parses on the UI thread, so a hostile body at the feed's length cap must
+        // not freeze the popup. The bound is generous so a slow CI runner does not flake.
+        var body = string.Concat(Enumerable.Repeat(unit, ReleaseFeed.MaxNotesLength / unit.Length + 1))[..ReleaseFeed.MaxNotesLength];
+        ReleaseNotes.Parse(unit);
+
+        var clock = Stopwatch.StartNew();
+        ReleaseNotes.Parse(body);
+        clock.Stop();
+
+        Assert.True(clock.ElapsedMilliseconds < 200, $"Parsing took {clock.ElapsedMilliseconds} ms.");
     }
 
     [Theory]
