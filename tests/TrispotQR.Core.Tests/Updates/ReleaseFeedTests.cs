@@ -70,6 +70,32 @@ public class ReleaseFeedTests
     }
 
     [Fact]
+    public void ReadsTheNotesFromTheBody()
+    {
+        var info = ReleaseFeed.Parse("""{ "tag_name": "v1.3.0", "body": "## Notes\n\nHello" }""");
+
+        Assert.Equal("## Notes\n\nHello", info!.Notes);
+    }
+
+    [Theory]
+    [InlineData("""{ "tag_name": "v1.3.0" }""")]
+    [InlineData("""{ "tag_name": "v1.3.0", "body": null }""")]
+    public void AMissingBodyReadsAsNoNotes(string json)
+    {
+        Assert.Null(ReleaseFeed.Parse(json)!.Notes);
+    }
+
+    [Fact]
+    public void AnEnormousBodyIsCutToTheLimit()
+    {
+        var body = new string('a', ReleaseFeed.MaxNotesLength + 500);
+
+        var info = ReleaseFeed.Parse($$"""{ "tag_name": "v1.3.0", "body": "{{body}}" }""");
+
+        Assert.Equal(ReleaseFeed.MaxNotesLength, info!.Notes!.Length);
+    }
+
+    [Fact]
     public void AnUnreadableSizeIsReadAsZeroNotThrown()
     {
         var info = ReleaseFeed.Parse("""{ "tag_name": "v1.0.0", "assets": [{ "name": "test.exe", "browser_download_url": "https://example.org/test.exe", "size": 1.5, "state": "uploaded" }] }""");

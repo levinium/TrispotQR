@@ -5,13 +5,14 @@ namespace TrispotQR.Core.Updates;
 /// <summary>A file published with a release.</summary>
 public sealed record ReleaseAsset(string Name, string Url, long Size);
 
-/// <summary>A published release, reduced to what the decision and the installer need.</summary>
+/// <summary>A published release, reduced to what the decision, the installer and the notes popup need.</summary>
 public sealed record ReleaseInfo(
     string? Tag,
     string? Url,
     bool IsDraft = false,
     bool IsPreRelease = false,
-    IReadOnlyList<ReleaseAsset>? Assets = null);
+    IReadOnlyList<ReleaseAsset>? Assets = null,
+    string? Notes = null);
 
 /// <summary>
 /// Reads GitHub's "latest release" document.
@@ -22,6 +23,9 @@ public sealed record ReleaseInfo(
 /// </summary>
 public static class ReleaseFeed
 {
+    /// <summary>Guards a text control against an enormous body; real notes come nowhere near it.</summary>
+    public const int MaxNotesLength = 20000;
+
     public static ReleaseInfo? Parse(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -46,7 +50,13 @@ public static class ReleaseFeed
                 return null;
             }
 
-            return new ReleaseInfo(tag, Text(root, "html_url"), Flag(root, "draft"), Flag(root, "prerelease"), Assets(root));
+            var notes = Text(root, "body");
+            if (notes is { Length: > MaxNotesLength })
+            {
+                notes = notes[..MaxNotesLength];
+            }
+
+            return new ReleaseInfo(tag, Text(root, "html_url"), Flag(root, "draft"), Flag(root, "prerelease"), Assets(root), notes);
         }
         catch (JsonException)
         {
