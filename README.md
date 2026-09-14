@@ -14,30 +14,41 @@ uploaded, nothing is tracked, and nothing is installed.
 
 ## Download
 
-**[Download TrispotQR-v1.1.0-win-x64.zip](https://github.com/levinium/TrispotQR/releases/download/v1.1.0/TrispotQR-v1.1.0-win-x64.zip)** (45 MB)
+**[Download TrispotQR.exe](https://github.com/levinium/TrispotQR/releases/latest/download/TrispotQR.exe)** (about 48 MB)
 
-Unzip it anywhere and run `TrispotQR.exe`. That is the whole installation. There is no setup
-step, no admin prompt and no registry entry, because the .NET runtime it needs is inside the
-file. Delete it and it is gone. You need 64-bit Windows and nothing else.
+Save it anywhere and run it. That is the whole installation. There is no setup step, no admin
+prompt and no registry entry, because the .NET runtime it needs is inside the file. Delete it and
+it is gone. You need 64-bit Windows and nothing else.
 
-If your machine already has the .NET 10 runtime, the
-[framework-dependent build](https://github.com/levinium/TrispotQR/releases/latest) is 13 MB
-instead. It is a folder of files rather than one, so keep them together. Take the big one
-unless you know you want that.
+The app is not code-signed, so the first time you run it Windows may say it protected your PC.
+Choose **More info**, then **Run anyway**. To confirm you have exactly the file this project
+published, compare its fingerprint with the `TrispotQR.exe.sha256` file on the
+[release page](https://github.com/levinium/TrispotQR/releases/latest):
 
-Upgrading from 1.0.0 is a straight replacement: saved styles and settings live outside the
-app and carry over untouched.
+```powershell
+Get-FileHash .\TrispotQR.exe -Algorithm SHA256
+```
+
+### Updates
+
+Once a day, when it starts, Trispot QR asks GitHub whether a newer version has been published,
+and shows a notice only if one has. **Update now** downloads it, checks it against the published
+fingerprint and swaps it in, either straight away with **Restart now** or when you next close the
+app. The check is one request for a public file; nothing about you, your machine or your codes is
+sent. Turn it off in Settings, or check by hand from the gear menu.
+
+Coming from 1.0.0 or 1.1.0, download 1.2.0 once by hand, since those versions predate the updater.
+Saved styles and settings carry over.
 
 ### Mac and Linux
 
-Close, but not yet released. As of 1.1.0 the app is built on Avalonia rather than WPF, which
-is what makes other platforms possible at all, and CI builds the desktop app and runs its
-whole test suite on Linux and macOS as well as Windows on every push.
+Close, but not yet released. The app is built on Avalonia, which is what makes other platforms
+possible at all, and CI builds the desktop app and runs its whole test suite on Linux and macOS
+as well as Windows on every push.
 
-What is missing is not code but evidence: nobody has yet opened the built app on either
-platform, and a build that compiles and passes headless tests is not the same as one whose
-file dialogs, clipboard and fonts have been seen to work. Those builds ship once that has
-actually been checked.
+What is missing is not code but evidence: nobody has yet opened the built app on either platform,
+and a build that compiles and passes headless tests is not the same as one whose file dialogs,
+clipboard and fonts have been seen to work. Those builds ship once that has actually been checked.
 
 ## Why not just use a website?
 
@@ -114,8 +125,8 @@ phone before a code goes to print. That is the only test that fully counts.
 Needs the .NET 10 SDK.
 
 ```powershell
-dotnet test          # 960 tests: 740 run on Windows, Linux and macOS
-.\publish.ps1        # builds dist\TrispotQR.exe
+dotnet test          # 1074 tests: 854 run on Windows, Linux and macOS
+.\publish.ps1        # builds dist\TrispotQR.exe and its checksum
 ```
 
 `publish.ps1` runs the tests first and refuses to publish if any fail.

@@ -1,60 +1,71 @@
 <#
 .SYNOPSIS
-    Builds TrispotQR for distribution.
+    Builds TrispotQR.exe for distribution, with its checksum.
 
 .DESCRIPTION
-    Runs the test suite, then produces two builds in dist\:
+    Runs every test suite, then produces exactly two files in dist\:
 
-      dist\TrispotQR.exe                      self-contained, needs nothing installed
-      dist\framework-dependent\TrispotQR.exe  small, needs the .NET 10 runtime
+      dist\TrispotQR.exe          self-contained single file, needs nothing installed
+      dist\TrispotQR.exe.sha256   its SHA-256, in sha256sum format
 
-    The self-contained build is the one to copy onto another machine or a shared drive:
-    it carries the .NET runtime inside it, so the target machine needs nothing installed.
-    The framework-dependent build leaves the runtime out, which is most of the difference
-    between them; both still carry Skia's native library, which cannot be trimmed.
+    These are the files a release publishes, and the same two the app's updater downloads: it
+    refuses an exe whose hash does not match the checksum published beside it. The release
+    workflow runs this script, so a desk build and a published one are made the same way.
 
-    From 1.1.0 this publishes TrispotQR.Desktop, the Avalonia app, rather than
-    TrispotQR.App, the WPF one that 1.0.0 shipped. They are the same product and share the
-    settings folder, so a saved style survives the change; the Avalonia build is the one
-    with the current feature set, and the only one that can be built for Mac and Linux.
+    The framework-dependent build is gone as of 1.2.0. It needed native libraries beside the
+    exe, and an updater that replaces one file cannot safely update a folder of them.
 
 .PARAMETER SkipTests
     Publishes without running the tests first. Use only when the suite has just passed.
+
+.PARAMETER UpdateFeedUrl
+    Where the built app looks for newer releases. Defaults to this project's own. Pass a fork's
+    feed, a local test server's address, or "" to build an app that never checks.
+
+.PARAMETER UpdatePageUrl
+    Where the app sends people to download by hand. Only meaningful with -UpdateFeedUrl.
 #>
 
 [CmdletBinding()]
 param(
-    [switch]$SkipTests
+    [switch]$SkipTests,
+    [string]$UpdateFeedUrl,
+    [string]$UpdatePageUrl,
+    [string]$OutputDirectory
 )
 
 $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
 $project = Join-Path $root 'src\TrispotQR.Desktop\TrispotQR.Desktop.csproj'
-$dist = Join-Path $root 'dist'
+$dist = if ($OutputDirectory) { $OutputDirectory } else { Join-Path $root 'dist' }
 
-# Read straight out of the csproj, which is the single source of truth. Printed at the end
-# so whatever gets handed over is always identifiable. See CHANGELOG.md to release.
-#
-# Where-Object because the file has several PropertyGroups and only one carries a Version;
-# the others come back as empty strings.
+# Where-Object because the file has several PropertyGroups and only one carries a Version.
 $version = ([xml](Get-Content $project)).Project.PropertyGroup.Version | Where-Object { $_ }
 if (-not $version) { throw 'No <Version> found in the project file.' }
 Write-Host "Building Trispot QR v$version" -ForegroundColor Cyan
 
 if (-not $SkipTests) {
     Write-Host 'Running tests...' -ForegroundColor Cyan
-    dotnet test $root -c Release --nologo
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Tests failed. Nothing was published.'
-    }
+    dotnet test (Join-Path $root 'TrispotQR.slnx') -c Release --nologo
+    if ($LASTEXITCODE -ne 0) { throw 'Tests failed. Nothing was published.' }
 }
 
-if (Test-Path $dist) {
-    Remove-Item $dist -Recurse -Force
+# PSBoundParameters rather than truthiness: "" is a meaning here (never check), and a plain
+# `if ($UpdateFeedUrl)` cannot tell it apart from not passing the parameter at all. [string[]]
+# and the leading commas keep a one-element array from unrolling into a string that splats one
+# character at a time.
+[string[]] $updates = @()
+if ($PSBoundParameters.ContainsKey('UpdateFeedUrl')) {
+    $updates += , "-p:UpdateFeedUrl=$UpdateFeedUrl"
+    $page = if ($PSBoundParameters.ContainsKey('UpdatePageUrl')) { $UpdatePageUrl } else { $UpdateFeedUrl }
+    $updates += , "-p:UpdatePageUrl=$page"
+    Write-Host "  Update feed: $(if ($UpdateFeedUrl) { $UpdateFeedUrl } else { 'none, this build never checks' })"
 }
 
-Write-Host 'Publishing self-contained build...' -ForegroundColor Cyan
+if (Test-Path $dist) { Remove-Item $dist -Recurse -Force }
+
+Write-Host 'Publishing...' -ForegroundColor Cyan
 dotnet publish $project `
     -c Release `
     -r win-x64 `
@@ -64,25 +75,21 @@ dotnet publish $project `
     -p:EnableCompressionInSingleFile=true `
     -p:DebugType=none `
     -o $dist `
-    --nologo
-if ($LASTEXITCODE -ne 0) { throw 'Self-contained publish failed.' }
+    --nologo @updates
+if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
 
-Write-Host 'Publishing framework-dependent build...' -ForegroundColor Cyan
-dotnet publish $project `
-    -c Release `
-    -r win-x64 `
-    --self-contained false `
-    -p:PublishSingleFile=true `
-    -p:DebugType=none `
-    -o (Join-Path $dist 'framework-dependent') `
-    --nologo
-if ($LASTEXITCODE -ne 0) { throw 'Framework-dependent publish failed.' }
+$exe = Join-Path $dist 'TrispotQR.exe'
+if (-not (Test-Path $exe)) { throw "Expected $exe but it is not there." }
+
+# Anything else beside the exe means the single file is not single, and the updater, which
+# replaces only the exe, would leave those files stale.
+$strays = Get-ChildItem $dist -File | Where-Object { $_.Name -ne 'TrispotQR.exe' }
+if ($strays) { throw "Unexpected files beside the exe: $($strays.Name -join ', ')" }
+
+$hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+"$hash  TrispotQR.exe" | Out-File -FilePath (Join-Path $dist 'TrispotQR.exe.sha256') -Encoding ascii -NoNewline
 
 Write-Host ''
 Write-Host "Done. Published Trispot QR v$version" -ForegroundColor Green
-
-Get-ChildItem $dist -Filter TrispotQR.exe -Recurse |
-    Select-Object @{ Name = 'Build'; Expression = { if ($_.Directory.Name -eq 'dist') { 'self-contained' } else { 'framework-dependent' } } },
-                  @{ Name = 'Size';  Expression = { '{0:N1} MB' -f ($_.Length / 1MB) } },
-                  FullName |
-    Format-Table -AutoSize
+Write-Host ("  {0}  {1:N1} MB" -f $exe, ((Get-Item $exe).Length / 1MB))
+Write-Host "  SHA256 $hash"

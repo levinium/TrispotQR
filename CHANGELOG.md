@@ -15,9 +15,12 @@ build, still carries a `<Version>` of its own, but it now describes only itself 
 
 1. Bump `<Version>` in `src\TrispotQR.Desktop\TrispotQR.Desktop.csproj`.
 2. Add a section below describing what changed.
-3. Run `.\publish.ps1`, which runs the tests first and refuses to publish if any fail. It
-   prints the version it built, so what you hand over is always identifiable.
-4. Copy `dist\TrispotQR.exe` wherever it is going.
+3. Commit, then tag and push: `git tag v1.2.3` and `git push origin main v1.2.3`.
+4. The Release workflow refuses a tag that does not match the version, runs every test,
+   publishes `TrispotQR.exe` with its checksum, and creates a **draft** release.
+5. Edit the draft's notes, check the files, and publish it. Installed copies see it from then on.
+
+`.\publish.ps1` builds the same two files locally, for testing a build before tagging it.
 
 Numbering follows the usual three parts, `MAJOR.MINOR.PATCH`:
 
@@ -32,6 +35,29 @@ instead of losing someone's work.
 
 That folder was called `Trispot` before the app was renamed. Anything left there is copied
 across once, on first run, and the old folder is left alone rather than moved.
+
+---
+
+## 1.2.0
+
+**Updates arrive through the app.** Once a day at launch Trispot QR asks GitHub whether a newer
+version exists and shows a notice only if one does. Update now downloads it, verifies it against
+the checksum published with the release, and swaps it in, either on Restart now or when the app
+next closes, so nothing typed is lost. The check sends nothing about you or your machine. It can be
+turned off in Settings, and run by hand from the gear menu.
+
+**Downloads are now just `TrispotQR.exe`,** with a `.sha256` checksum beside it, rather than zips.
+The framework-dependent build is discontinued: it carried native libraries beside the exe, which an
+updater that replaces one file cannot keep in step.
+
+**Fixed: with Trispot QR open, copy and paste could stop working across the whole machine.** A copied
+QR code was left as a live object inside the app, so every other app's copy and paste had to go
+through it, and any moment it was slow to answer broke clipboard use everywhere. The copied image
+also vanished when the app closed. It is now written onto the clipboard properly and survives the
+app closing.
+
+Anyone on 1.0.0 or 1.1.0 needs to download this version once by hand; it is the first with the
+updater.
 
 ---
 
