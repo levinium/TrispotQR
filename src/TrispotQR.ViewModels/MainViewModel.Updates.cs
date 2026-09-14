@@ -95,6 +95,7 @@ public sealed partial class MainViewModel
 
     public string UpdateDetail => UpdateState switch
     {
+        UpdateNoticeState.Available when _canInstallInPlace => $"You're on v{_updater?.CurrentVersion}.",
         UpdateNoticeState.Available when !_canInstallInPlace => _installBlockedReason ?? string.Empty,
         UpdateNoticeState.Ready => "Restart now, or it installs when you close Trispot QR. Restarting clears what is typed in the box; saved styles and settings carry over.",
         UpdateNoticeState.Failed => _updateFailure ?? string.Empty,

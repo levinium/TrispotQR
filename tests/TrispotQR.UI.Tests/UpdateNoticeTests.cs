@@ -1,7 +1,14 @@
+using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
+using TrispotQR.Core.Presets;
 using TrispotQR.Core.Updates;
+using TrispotQR.UI.Services;
 using TrispotQR.ViewModels;
 
 namespace TrispotQR.UI.Tests;
@@ -107,9 +114,63 @@ public class UpdateNoticeTests
                 Assert.True(Named<Border>(session.Window, "UpdateNotice").IsVisible);
                 Assert.Contains("9.9.9", Named<TextBlock>(session.Window, "UpdateHeadlineText").Text);
                 Assert.Equal("Update now", Named<Button>(session.Window, "UpdatePrimaryButton").Content);
-                Assert.Equal("Later", Named<Button>(session.Window, "DismissUpdateButton").Content);
+                Assert.Equal("You're on v1.2.0.", Named<TextBlock>(session.Window, "UpdateDetailText").Text);
+
+                // The dismiss button shows only a glyph, so its word lives in the tooltip and
+                // the accessible name.
+                var dismiss = Named<Button>(session.Window, "DismissUpdateButton");
+                Assert.Equal("Later", ToolTip.GetTip(dismiss));
+                Assert.Equal("Later", AutomationProperties.GetName(dismiss));
             },
             updater: new AlwaysNewer());
+    }
+
+    [AvaloniaFact]
+    public void TheNoticeIsPaintedFromThePaletteInBothThemes()
+    {
+        // The accent marks the card's one strip, its icon and its one primary action. The card's
+        // own edge stays the soft border, which is what keeps the notice calm on the page.
+        try
+        {
+            UiHarness.WithWindow(
+                session =>
+                {
+                    var window = session.Window;
+                    var notice = Named<Border>(window, "UpdateNotice");
+                    var strip = Named<Border>(window, "UpdateAccentStrip");
+                    var icon = Named<Avalonia.Controls.Shapes.Path>(window, "UpdateIcon");
+                    var primary = Named<Button>(window, "UpdatePrimaryButton");
+
+                    foreach (var (theme, variant) in new[]
+                    {
+                        (AppTheme.Light, ThemeVariant.Light),
+                        (AppTheme.Dark, ThemeVariant.Dark),
+                    })
+                    {
+                        ThemeSwitcher.Apply(theme);
+                        DispatcherPump.Drain();
+
+                        var presenter = primary.GetVisualDescendants().OfType<ContentPresenter>().First();
+
+                        Assert.Equal(ColourOf("AccentBrush", variant), (strip.Background as ISolidColorBrush)?.Color);
+                        Assert.Equal(ColourOf("AccentBrush", variant), (icon.Fill as ISolidColorBrush)?.Color);
+                        Assert.Equal(ColourOf("BorderBrush", variant), (notice.BorderBrush as ISolidColorBrush)?.Color);
+                        Assert.Equal(ColourOf("AccentBrush", variant), (presenter.Background as ISolidColorBrush)?.Color);
+                        Assert.Equal(ColourOf("OnAccentBrush", variant), (presenter.Foreground as ISolidColorBrush)?.Color);
+                    }
+                },
+                updater: new AlwaysNewer());
+        }
+        finally
+        {
+            ThemeSwitcher.Apply(AppTheme.FollowWindows);
+        }
+    }
+
+    private static Color ColourOf(string key, ThemeVariant variant)
+    {
+        Assert.True(Application.Current!.TryGetResource(key, variant, out var value), key);
+        return ((ISolidColorBrush)value!).Color;
     }
 
     [AvaloniaFact]

@@ -51,6 +51,7 @@ public partial class MainViewModelTests
         Assert.True(vm.IsUpdateNoticeVisible);
         Assert.Contains("1.3.0", vm.UpdateHeadline);
         Assert.Equal("Update now", vm.UpdatePrimaryLabel);
+        Assert.Equal("You're on v1.3.0.", vm.UpdateDetail);
         Assert.True(vm.CanDismissUpdate);
     }
 

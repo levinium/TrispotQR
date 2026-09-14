@@ -52,6 +52,67 @@
     <Style Selector="Button.remove:pointerover">
       <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
     </Style>
+
+    <!-- The one action a notice wants taken. Filled with the accent, text in the color the palette
+         pairs with it, so it reads as primary in both themes. Pointer-over and pressed are restated
+         because Fluent's own states would otherwise repaint the presenter gray. -->
+    <Style Selector="Button.accent">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="14,6"/>
+    </Style>
+    <Style Selector="Button.accent /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+      <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+    <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+    </Style>
+    <Style Selector="Button.accent:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+    </Style>
+
+    <!-- A secondary action that should not compete with the primary one: accent text, no chrome. -->
+    <Style Selector="Button.link">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.link /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource AccentHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.link:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource AccentHoverBrush}"/>
+    </Style>
+
+    <!-- A quiet round close button for a card's corner. Its meaning lives in the tooltip and the
+         accessible name, since it shows only a glyph. -->
+    <Style Selector="Button.dismiss /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="CornerRadius" Value="14"/>
+    </Style>
+    <Style Selector="Button.dismiss:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.dismiss:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
   </Window.Styles>
 
   <Window.Resources>
@@ -228,31 +289,58 @@
 
         <!-- Shown only when a newer release exists. Nothing is ever on screen to report that
              there is no news. Its text and buttons change as the update moves from available
-             through downloading to ready; the view model owns those states. -->
+             through downloading to ready; the view model owns those states. A calm card with an
+             accent strip down its edge, so the one filled button is what draws the eye. -->
         <Border x:Name="UpdateNotice" IsVisible="{Binding IsUpdateNoticeVisible}"
                 Background="{DynamicResource SurfaceBrush}"
-                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
-                CornerRadius="6" Padding="12">
-          <StackPanel Spacing="8">
-            <TextBlock x:Name="UpdateHeadlineText" Text="{Binding UpdateHeadline}"
-                       FontWeight="SemiBold" TextWrapping="Wrap" />
-            <TextBlock x:Name="UpdateDetailText" Text="{Binding UpdateDetail}"
-                       TextWrapping="Wrap" FontSize="12"
-                       Foreground="{DynamicResource MutedTextBrush}"
-                       IsVisible="{Binding UpdateDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-            <ProgressBar x:Name="UpdateProgressBar" Minimum="0" Maximum="1"
-                         Value="{Binding UpdateProgress}" IsVisible="{Binding IsUpdateDownloading}" />
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <Button x:Name="UpdatePrimaryButton" Content="{Binding UpdatePrimaryLabel}"
-                      Command="{Binding UpdatePrimaryCommand}"
-                      IsVisible="{Binding !IsUpdateDownloading}" />
-              <Button x:Name="WhatsNewButton" Content="What's new"
-                      Command="{Binding WhatsNewCommand}" />
-              <Button x:Name="DismissUpdateButton" Content="{Binding UpdateDismissLabel}"
-                      Command="{Binding DismissUpdateCommand}"
-                      IsVisible="{Binding CanDismissUpdate}" />
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                CornerRadius="8">
+          <Grid ColumnDefinitions="4,Auto,*,Auto">
+            <Border x:Name="UpdateAccentStrip" Grid.Column="0"
+                    Background="{DynamicResource AccentBrush}" CornerRadius="7,0,0,7" />
+
+            <Border Grid.Column="1" Width="32" Height="32" CornerRadius="16"
+                    Margin="12,12,0,12" VerticalAlignment="Top"
+                    Background="{DynamicResource HoverBrush}">
+              <Path x:Name="UpdateIcon" Width="16" Height="16" Stretch="Uniform"
+                    Fill="{DynamicResource AccentBrush}"
+                    Data="M11,3 H13 V13.17 L16.59,9.59 L18,11 L12,17 L6,11 L7.41,9.59 L11,13.17 Z M5,19 H19 V21 H5 Z" />
+            </Border>
+
+            <StackPanel Grid.Column="2" Spacing="4" Margin="12,12,8,12">
+              <TextBlock x:Name="UpdateHeadlineText" Text="{Binding UpdateHeadline}"
+                         FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock x:Name="UpdateDetailText" Text="{Binding UpdateDetail}"
+                         TextWrapping="Wrap" FontSize="12"
+                         Foreground="{DynamicResource MutedTextBrush}"
+                         IsVisible="{Binding UpdateDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <ProgressBar x:Name="UpdateProgressBar" Minimum="0" Maximum="1"
+                           Height="4" MinHeight="4" Margin="0,6,0,0"
+                           Foreground="{DynamicResource AccentBrush}"
+                           Value="{Binding UpdateProgress}" IsVisible="{Binding IsUpdateDownloading}" />
+              <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,8,0,0">
+                <Button x:Name="UpdatePrimaryButton" Classes="accent"
+                        Content="{Binding UpdatePrimaryLabel}"
+                        Command="{Binding UpdatePrimaryCommand}"
+                        IsVisible="{Binding !IsUpdateDownloading}" />
+                <Button x:Name="WhatsNewButton" Classes="link" Content="What's new"
+                        VerticalAlignment="Center"
+                        Command="{Binding WhatsNewCommand}" />
+              </StackPanel>
             </StackPanel>
-          </StackPanel>
+
+            <Button x:Name="DismissUpdateButton" Grid.Column="3" Classes="dismiss"
+                    Width="28" Height="28" Padding="0" Margin="0,8,8,0"
+                    VerticalAlignment="Top"
+                    Command="{Binding DismissUpdateCommand}"
+                    IsVisible="{Binding CanDismissUpdate}"
+                    ToolTip.Tip="{Binding UpdateDismissLabel}"
+                    AutomationProperties.Name="{Binding UpdateDismissLabel}">
+              <Path Width="10" Height="10" Stretch="Uniform"
+                    Fill="{DynamicResource MutedTextBrush}"
+                    Data="M2,0 L8,6 L14,0 L16,2 L10,8 L16,14 L14,16 L8,10 L2,16 L0,14 L6,8 L0,2 Z" />
+            </Button>
+          </Grid>
         </Border>
 
         <StackPanel Spacing="6">
