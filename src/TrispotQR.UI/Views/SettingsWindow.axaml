@@ -47,7 +47,7 @@
         <!-- Index order matches the AppTheme enum, which the code behind relies on both ways. -->
         <ComboBox x:Name="ThemeChoice" HorizontalAlignment="Stretch"
                   SelectionChanged="OnThemeChanged">
-          <ComboBoxItem Content="Follow Windows"/>
+          <ComboBoxItem Content="Follow OS theme"/>
           <ComboBoxItem Content="Light"/>
           <ComboBoxItem Content="Dark"/>
         </ComboBox>

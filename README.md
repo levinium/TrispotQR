@@ -129,7 +129,7 @@ into Word, PowerPoint or an email.
 
 ### It follows your theme
 
-Light and dark, following Windows by default.
+Light and dark, following your system setting by default.
 
 ![Main window in light mode](docs/screenshots/main-window-light.png)
 
@@ -148,7 +148,7 @@ phone before a code goes to print. That is the only test that fully counts.
 Needs the .NET 10 SDK.
 
 ```powershell
-dotnet test          # 1156 tests: 936 run on Windows, Linux and macOS
+dotnet test          # 1158 tests: 938 run on Windows, Linux and macOS
 .\publish.ps1        # builds dist\TrispotQR.exe and its checksum
 ```
 

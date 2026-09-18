@@ -58,12 +58,23 @@ public static class SkiaRasterizer
         canvas.Restore();
         canvas.Flush();
 
+        // Read back in the order asked for above, stated again explicitly. SKBitmap.FromImage,
+        // used here before, converts to Skia's platform order, which is BGRA on Windows and RGBA
+        // on macOS and Linux, so saved and copied codes came out with red and blue swapped on a
+        // Mac while the preview, drawn by Avalonia, looked right.
         var pixels = new byte[info.BytesSize];
+        var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
 
-        using (var image = surface.Snapshot())
-        using (var bitmap = SKBitmap.FromImage(image))
+        try
         {
-            Marshal.Copy(bitmap.GetPixels(), pixels, 0, pixels.Length);
+            if (!surface.ReadPixels(info, handle.AddrOfPinnedObject(), info.RowBytes, 0, 0))
+            {
+                throw new InvalidOperationException("Skia could not read back the rendered code.");
+            }
+        }
+        finally
+        {
+            handle.Free();
         }
 
         return new RasterImage(pixelSize, pixelSize, pixels);
