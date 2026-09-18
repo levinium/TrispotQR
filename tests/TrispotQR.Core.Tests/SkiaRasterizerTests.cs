@@ -149,4 +149,29 @@ public class SkiaRasterizerTests
         Assert.Equal(image.Pixels[opaque + 1], flattened.Pixels[opaque + 1]);
         Assert.Equal(image.Pixels[opaque + 2], flattened.Pixels[opaque + 2]);
     }
+
+    // The Two-tone navy. Its red and blue differ, so a red/blue swap turns it brown (#4A2A1B)
+    // rather than passing unnoticed, as black, white and grey all would.
+    private static readonly RgbColor Navy = RgbColor.FromRgb(0x1B, 0x2A, 0x4A);
+
+    [Fact]
+    public void Render_ReturnsPixelsInBgraOrderOnEveryPlatform()
+    {
+        // Reported from a Mac: saved codes had red and blue swapped. Skia's own preferred order
+        // is BGRA on Windows but RGBA on macOS and Linux, and everything downstream reads
+        // RasterImage as BGRA, so the order has to be pinned here rather than inherited.
+        var image = SkiaRasterizer.Render(Build(QrStyle.Default with { Background = Navy }), 64);
+
+        Assert.Equal([0x4A, 0x2A, 0x1B, 0xFF], image.Pixels.Take(4));
+    }
+
+    [Fact]
+    public void EncodePng_KeepsTheColorsThatWereDrawn()
+    {
+        var png = SkiaRasterizer.EncodePng(SkiaRasterizer.Render(Build(QrStyle.Default with { Background = Navy }), 64));
+
+        using var decoded = SkiaSharp.SKBitmap.Decode(png);
+
+        Assert.Equal(new SkiaSharp.SKColor(0x1B, 0x2A, 0x4A, 0xFF), decoded.GetPixel(0, 0));
+    }
 }
