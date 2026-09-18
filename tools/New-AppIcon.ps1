@@ -38,7 +38,11 @@
 
 [CmdletBinding()]
 param(
-    [string]$OutputPath = (Join-Path $PSScriptRoot '..\src\TrispotQR.App\Resources\app.ico')
+    [string]$OutputPath = (Join-Path $PSScriptRoot '..\src\TrispotQR.App\Resources\app.ico'),
+
+    # Writes the macOS master icon instead: one 1024 px PNG, from which the Mac build makes
+    # its .icns. See the note where it is drawn.
+    [string]$MacPngPath
 )
 
 Add-Type -AssemblyName System.Drawing
@@ -165,6 +169,27 @@ function New-IconPng {
     $bmp.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
     $bmp.Dispose()
     return $stream.ToArray()
+}
+
+if ($MacPngPath) {
+    # Apple's icon grid draws the tile at 824 of 1024 px and leaves the rest transparent, so
+    # every icon in the Dock sits at the same visual size. A tile filling the whole canvas
+    # would look a size larger than its neighbours.
+    $tile = 824
+    $inset = (1024 - $tile) / 2
+    $tileImage = [System.Drawing.Image]::FromStream([System.IO.MemoryStream]::new((New-IconPng -Size $tile)))
+    $canvas = New-Object System.Drawing.Bitmap 1024, 1024
+    $g = [System.Drawing.Graphics]::FromImage($canvas)
+    $g.Clear([System.Drawing.Color]::Transparent)
+    $g.DrawImage($tileImage, $inset, $inset, $tile, $tile)
+    $g.Dispose()
+
+    $resolved = [System.IO.Path]::GetFullPath($MacPngPath)
+    $canvas.Save($resolved, [System.Drawing.Imaging.ImageFormat]::Png)
+    $canvas.Dispose()
+    $tileImage.Dispose()
+    Write-Output "Wrote $resolved"
+    return
 }
 
 # Collected through a typed list, because PowerShell unrolls a byte[] when it travels

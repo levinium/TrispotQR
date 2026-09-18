@@ -1,0 +1,150 @@
+# Build the Mac app and publish it as a GitHub pre-release, for testing.
+#
+#   gh workflow run mac-preview.yml -f tag=v1.2.0-mac-preview.1
+#
+# Run by hand rather than on a tag, so it never collides with release.yml, which owns v*
+# tags and publishes the Windows exe the updater downloads. The tag is created by the release
+# step itself; tags made with the workflow's own token start no other workflows.
+#
+# A pre-release, because nobody has used the Mac build on a real Mac yet. GitHub's "latest
+# release" skips pre-releases, so the Windows updater and the README's download link never
+# see it.
+#
+# Built here because only a Mac can sign a Mac app. The signature is ad hoc (no Apple
+# developer account), which Apple silicon requires before it will run the code at all.
+# Gatekeeper still asks the user to allow it once; the release notes say how.
+name: Mac preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Pre-release tag to create, for example v1.2.0-mac-preview.1
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  PROJECT: src/TrispotQR.Desktop/TrispotQR.Desktop.csproj
+  MACOS: src/TrispotQR.Desktop/macOS
+  APP: Trispot QR.app
+
+jobs:
+  mac:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Check the tag
+        shell: bash
+        run: |
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$PROJECT" | head -n 1)
+          tag="${{ inputs.tag }}"
+          # A pre-release tag must be v<Version>-something, so it sorts with the release it
+          # previews and can never be mistaken for a stable one.
+          case "$tag" in
+            "v$version"-?*) ;;
+            *) echo "Tag $tag must start with v$version- (the project's version is $version)."; exit 1 ;;
+          esac
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            echo "Tag $tag already exists. Pick the next number."; exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: |
+          dotnet test tests/TrispotQR.Core.Tests/TrispotQR.Core.Tests.csproj -c Release
+          dotnet test tests/TrispotQR.ViewModels.Tests/TrispotQR.ViewModels.Tests.csproj -c Release
+          dotnet test tests/TrispotQR.UI.Tests/TrispotQR.UI.Tests.csproj -c Release
+
+      # macOS wants an .icns holding every size, made from the one 1024 px master that
+      # tools/New-AppIcon.ps1 draws.
+      - name: Make the icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          set_dir=out/AppIcon.iconset
+          mkdir -p "$set_dir"
+          for size in 16 32 128 256 512; do
+            sips -z $size $size "$MACOS/AppIcon-1024.png" --out "$set_dir/icon_${size}x${size}.png" > /dev/null
+            double=$((size * 2))
+            sips -z $double $double "$MACOS/AppIcon-1024.png" --out "$set_dir/icon_${size}x${size}@2x.png" > /dev/null
+          done
+          iconutil -c icns "$set_dir" -o out/AppIcon.icns
+
+      - name: Build the app bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+          for arch in arm64 x64; do
+            rid="osx-$arch"
+            bundle="out/$arch/$APP"
+
+            # Not single-file: a Mac app keeps its libraries in the bundle, and single-file
+            # would unpack them to a temporary folder on every launch instead.
+            dotnet publish "$PROJECT" -c Release -r "$rid" --self-contained true \
+              -p:DebugType=none -o "out/$arch/publish" --nologo
+
+            mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
+            cp -R "out/$arch/publish/." "$bundle/Contents/MacOS/"
+            sed "s/__VERSION__/$VERSION/g" "$MACOS/Info.plist" > "$bundle/Contents/Info.plist"
+            cp out/AppIcon.icns "$bundle/Contents/Resources/AppIcon.icns"
+
+            codesign --force --deep --sign - "$bundle"
+            codesign --verify --deep --strict "$bundle"
+
+            # ditto, not zip: it keeps the bundle's permissions and signature intact.
+            ditto -c -k --keepParent "$bundle" "out/TrispotQR-mac-$arch.zip"
+            (cd out && shasum -a 256 "TrispotQR-mac-$arch.zip" > "TrispotQR-mac-$arch.zip.sha256")
+          done
+          ls -la out/*.zip
+
+      # The runner is an Apple silicon Mac with a desktop session, so the arm64 app can
+      # actually be started. A crash at launch (a missing native library, say) fails the
+      # build here instead of on a tester's Mac. The screenshot is the first evidence of it
+      # drawing on macOS at all.
+      - name: Start the app and take a screenshot
+        shell: bash
+        run: |
+          set -uo pipefail
+          "out/arm64/$APP/Contents/MacOS/TrispotQR" > out/app.log 2>&1 &
+          pid=$!
+          sleep 20
+          screencapture -x out/screenshot.png || true
+          if ! kill -0 "$pid" 2> /dev/null; then
+            echo "The app exited within 20 seconds of starting:"; cat out/app.log; exit 1
+          fi
+          kill "$pid"
+          echo "The app was still running after 20 seconds."
+
+      - name: Keep the screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-screenshot
+          path: |
+            out/screenshot.png
+            out/app.log
+          if-no-files-found: ignore
+
+      # A draft, like release.yml's: someone looks at the screenshot and the files before
+      # anybody can download them. Publishing is a separate, deliberate step.
+      - name: Create the draft pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" \
+            --draft \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Trispot QR $VERSION for Mac (test build)" \
+            --notes-file "$MACOS/preview-notes.md" \
+            out/TrispotQR-mac-arm64.zip out/TrispotQR-mac-arm64.zip.sha256 \
+            out/TrispotQR-mac-x64.zip out/TrispotQR-mac-x64.zip.sha256
