@@ -726,8 +726,13 @@ public sealed partial class MainViewModel : ObservableObject
             // What the user typed takes precedence, because "that is not a valid web
             // address" is more useful than "scannable". A code can scan perfectly and
             // still be wrong.
+            // A clean pass still names the check only a person can do. The decoder reads a
+            // perfect render; a phone camera reads ink on paper, or pixels on a screen, at the
+            // size they will actually appear.
             StatusDetail = ContentStatus
-                ?? (result.Verdict == ScanVerdict.Good ? "This code scans cleanly." : result.Message);
+                ?? (result.Verdict == ScanVerdict.Good
+                    ? "This code scans cleanly. Before you print or publish it, scan the real thing at its final size with a phone camera."
+                    : result.Message);
 
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(Verdict));

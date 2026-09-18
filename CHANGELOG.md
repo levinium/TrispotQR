@@ -51,6 +51,10 @@ copy tells you when a new version is out, but updating it means downloading the 
 **The appearance setting "Follow Windows" is now "Follow OS theme",** since it follows whichever
 system the app is running on.
 
+**A code that passes the scan check now says what is still left to do:** scan the printed or
+published version, at its real size, with a phone camera. The app's decoder reads a perfect
+render, which is not the same as ink on paper or a small image on a screen.
+
 ---
 
 ## 1.2.0
