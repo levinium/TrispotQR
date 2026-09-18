@@ -1,11 +1,15 @@
 # Publishes a draft release when a version tag is pushed:
 #
-#   git tag v1.2.0 && git push origin v1.2.0
+#   git tag v1.3.0 && git push origin v1.3.0
 #
 # The app's updater reads the tag as the version, so the tag must be "v" plus <Version> in
-# TrispotQR.Desktop.csproj. This job checks that rather than trusting it: a mismatch would
+# TrispotQR.Desktop.csproj. The first job checks that rather than trusting it: a mismatch would
 # publish an exe that reports an older version, and every copy would keep offering the update
 # it had just installed.
+#
+# Windows and Mac build in parallel on their own runners, because only a Mac can sign a Mac
+# app. One last job gathers both and creates the release, so a failure on either side leaves
+# no half-populated release behind.
 #
 # A DRAFT, so the notes can be written and the files checked before anyone's app can see it:
 # drafts are invisible to the public releases API the updater reads.
@@ -19,7 +23,28 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches the version in the build
+        id: version
+        run: |
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/TrispotQR.Desktop/TrispotQR.Desktop.csproj | head -n 1)
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$version" != "$tag" ]; then
+            echo "Tag $tag does not match <Version> $version in TrispotQR.Desktop.csproj. Bump the version, or retag."
+            exit 1
+          fi
+          echo "Version $version matches the tag."
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  windows:
+    needs: check
     runs-on: windows-latest
 
     steps:
@@ -29,27 +54,97 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Check the tag matches the version in the build
-        shell: pwsh
-        run: |
-          $version = ([xml](Get-Content src/TrispotQR.Desktop/TrispotQR.Desktop.csproj)).Project.PropertyGroup.Version | Where-Object { $_ }
-          $tag = "${{ github.ref_name }}" -replace '^v', ''
-          if ($version -ne $tag) {
-            throw "Tag $tag does not match <Version> $version in TrispotQR.Desktop.csproj. Bump the version, or retag."
-          }
-          Write-Host "Version $version matches the tag."
-
       # publish.ps1 runs every test suite first and refuses to produce an exe if any fail, then
-      # writes the checksum beside it.
+      # writes the checksum beside it. These two file names are the ones installed copies
+      # download, so they never change.
       - name: Test and publish
         shell: pwsh
         run: ./publish.ps1
 
-      - name: Create the draft release
-        uses: softprops/action-gh-release@v3
+      - uses: actions/upload-artifact@v4
         with:
-          draft: true
-          generate_release_notes: true
-          files: |
+          name: windows
+          path: |
             dist/TrispotQR.exe
             dist/TrispotQR.exe.sha256
+          if-no-files-found: error
+
+  mac:
+    needs: check
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # The suites that run on a Mac. The WPF ones are Windows only and run in the job above.
+      - name: Test
+        run: |
+          dotnet test tests/TrispotQR.Core.Tests/TrispotQR.Core.Tests.csproj -c Release
+          dotnet test tests/TrispotQR.ViewModels.Tests/TrispotQR.ViewModels.Tests.csproj -c Release
+          dotnet test tests/TrispotQR.UI.Tests/TrispotQR.UI.Tests.csproj -c Release
+
+      - name: Package
+        run: bash tools/package-mac.sh dist-mac
+
+      # The runner is an Apple silicon Mac with a desktop session, so the app can actually be
+      # started. A crash at launch (a missing native library, say) fails the release here
+      # instead of on somebody's Mac. The screenshot is kept for a look before publishing.
+      - name: Start the app and take a screenshot
+        run: |
+          "dist-mac/arm64/Trispot QR.app/Contents/MacOS/TrispotQR" > dist-mac/app.log 2>&1 &
+          pid=$!
+          sleep 20
+          screencapture -x dist-mac/screenshot.png || true
+          if ! kill -0 "$pid" 2> /dev/null; then
+            echo "The app exited within 20 seconds of starting:"; cat dist-mac/app.log; exit 1
+          fi
+          kill "$pid"
+          echo "The app was still running after 20 seconds."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: |
+            dist-mac/TrispotQR-mac-arm64.zip
+            dist-mac/TrispotQR-mac-arm64.zip.sha256
+            dist-mac/TrispotQR-mac-x64.zip
+            dist-mac/TrispotQR-mac-x64.zip.sha256
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mac-screenshot
+          path: |
+            dist-mac/screenshot.png
+            dist-mac/app.log
+          if-no-files-found: ignore
+
+  release:
+    needs: [check, windows, mac]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: files
+          merge-multiple: true
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la files
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --verify-tag \
+            --title "Trispot QR ${{ needs.check.outputs.version }}" \
+            --generate-notes \
+            files/TrispotQR.exe files/TrispotQR.exe.sha256 \
+            files/TrispotQR-mac-arm64.zip files/TrispotQR-mac-arm64.zip.sha256 \
+            files/TrispotQR-mac-x64.zip files/TrispotQR-mac-x64.zip.sha256

@@ -17,10 +17,12 @@ build, still carries a `<Version>` of its own, but it now describes only itself 
 2. Add a section below describing what changed.
 3. Commit, then tag and push: `git tag v1.2.3` and `git push origin main v1.2.3`.
 4. The Release workflow refuses a tag that does not match the version, runs every test,
-   publishes `TrispotQR.exe` with its checksum, and creates a **draft** release.
+   builds `TrispotQR.exe` on Windows and the two Mac zips on a Mac, each with its checksum,
+   starts the Mac app once to catch a crash at launch, and creates a **draft** release.
 5. Edit the draft's notes, check the files, and publish it. Installed copies see it from then on.
 
-`.\publish.ps1` builds the same two files locally, for testing a build before tagging it.
+`.\publish.ps1` builds the Windows files locally, and `bash tools/package-mac.sh` the Mac ones on
+a Mac, for testing a build before tagging it.
 
 Numbering follows the usual three parts, `MAJOR.MINOR.PATCH`:
 
@@ -35,6 +37,19 @@ instead of losing someone's work.
 
 That folder was called `Trispot` before the app was renamed. Anything left there is copied
 across once, on first run, and the old folder is left alone rather than moved.
+
+---
+
+## 1.3.0
+
+**Trispot QR now runs on a Mac.** Download `TrispotQR-mac-arm64.zip` for Apple silicon (M1 and
+later) or `TrispotQR-mac-x64.zip` for an Intel Mac, each holding `Trispot QR.app`, for macOS 12
+(Monterey) or later. It is the same app as on Windows, built from the same code. It is not notarized
+by Apple, so macOS asks you to allow it once, the first time it opens; the README says how. A Mac
+copy tells you when a new version is out, but updating it means downloading the new version by hand.
+
+**The appearance setting "Follow Windows" is now "Follow OS theme",** since it follows whichever
+system the app is running on.
 
 ---
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- The Mac app bundle's description of itself. The Mac preview workflow copies this into
+<!-- The Mac app bundle's description of itself. tools/package-mac.sh copies this into
      Trispot QR.app/Contents and replaces __VERSION__ with the project's <Version>.
      LSMinimumSystemVersion is 12 because every native library in the bundle is built for
      macOS 12 or older: the .NET 10 runtime and the app's launcher say 12.0, Avalonia, Skia and

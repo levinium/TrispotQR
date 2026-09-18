@@ -4,19 +4,28 @@
 
 **Make a QR code, style it, and know it scans before you print it.**
 
-A standalone Windows app that generates QR codes entirely on your own machine. Nothing is
+A standalone app for Windows and Mac that generates QR codes entirely on your own machine. Nothing is
 uploaded, nothing is tracked, and nothing is installed.
 
 [![Latest release](https://img.shields.io/github/v/release/levinium/TrispotQR?label=download&color=2B5CE6)](https://github.com/levinium/TrispotQR/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/levinium/TrispotQR/total?color=2B5CE6)](https://github.com/levinium/TrispotQR/releases)
-![Platform](https://img.shields.io/badge/platform-Windows%20x64-555)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-555)
 [![CI](https://github.com/levinium/TrispotQR/actions/workflows/ci.yml/badge.svg)](https://github.com/levinium/TrispotQR/actions/workflows/ci.yml)
 
 ![Trispot QR](docs/screenshots/main-window.png)
 
 ## Download
 
-**[Download TrispotQR.exe](https://github.com/levinium/TrispotQR/releases/latest/download/TrispotQR.exe)** (about 48 MB)
+| For | Download |
+| --- | --- |
+| Windows, 64-bit | **[TrispotQR.exe](https://github.com/levinium/TrispotQR/releases/latest/download/TrispotQR.exe)** (about 48 MB) |
+| Mac with Apple silicon (M1 and later) | **[TrispotQR-mac-arm64.zip](https://github.com/levinium/TrispotQR/releases/latest/download/TrispotQR-mac-arm64.zip)** (about 47 MB) |
+| Mac with an Intel processor | **[TrispotQR-mac-x64.zip](https://github.com/levinium/TrispotQR/releases/latest/download/TrispotQR-mac-x64.zip)** (about 49 MB) |
+
+Not sure which Mac you have? Open the Apple menu and choose **About This Mac**. A chip whose name
+starts with "Apple M" means Apple silicon; a processor whose name includes Intel means Intel.
+
+### Windows
 
 Save it anywhere and run it. That is the whole installation. There is no setup step, no admin
 prompt and no registry entry, because the .NET runtime it needs is inside the file. Delete it and
@@ -29,6 +38,25 @@ published, compare its fingerprint with the `TrispotQR.exe.sha256` file on the
 
 ```powershell
 Get-FileHash .\TrispotQR.exe -Algorithm SHA256
+```
+
+### Mac
+
+You need macOS 12 (Monterey) or later. Unzip the download, drag **Trispot QR** into
+**Applications**, and open it.
+
+The app is not notarized by Apple, so the first time you open it macOS says it cannot verify it.
+You only need to allow it once:
+
+1. Choose **Done** (not Move to Trash).
+2. Open **System Settings**, then **Privacy & Security**, and scroll down.
+3. Choose **Open Anyway** next to the message about Trispot QR, and confirm with your password.
+
+From then on it opens like any other app. To check the download against the `.sha256` file on
+the [release page](https://github.com/levinium/TrispotQR/releases/latest):
+
+```sh
+shasum -a 256 TrispotQR-mac-arm64.zip
 ```
 
 ### Updates
@@ -60,18 +88,19 @@ new version by hand.
 you, your machine or your codes is sent. Turn automatic checks off in Settings, or check whenever
 you like with **Check for updates** in the gear menu.
 
-Coming from 1.0.0 or 1.1.0, download 1.2.0 once by hand, since those versions predate the updater.
-From then on it updates itself.
+**On a Mac** the app tells you about a new version the same way, but the button reads **Download**
+and opens the release page. Replace the copy in Applications with the new one; saved styles and
+settings are kept separately and carry over.
 
-### Mac and Linux
+Coming from Windows 1.0.0 or 1.1.0, download the latest version once by hand, since those versions
+predate the updater. From then on it updates itself.
 
-Close, but not yet released. The app is built on Avalonia, which is what makes other platforms
-possible at all, and CI builds the desktop app and runs its whole test suite on Linux and macOS
-as well as Windows on every push.
+### Linux
 
-What is missing is not code but evidence: nobody has yet opened the built app on either platform,
-and a build that compiles and passes headless tests is not the same as one whose file dialogs,
-clipboard and fonts have been seen to work. Those builds ship once that has actually been checked.
+Not yet released. The app is built on Avalonia, which is what made the Mac version possible, and
+CI builds it and runs its tests on Linux on every push. What is missing is evidence: nobody has
+yet used it on a Linux desktop, and passing headless tests is not the same as file dialogs,
+clipboard and fonts that have been seen to work. The Mac version shipped once that was checked.
 
 ## Why not just use a website?
 
@@ -152,7 +181,9 @@ dotnet test          # 1158 tests: 938 run on Windows, Linux and macOS
 .\publish.ps1        # builds dist\TrispotQR.exe and its checksum
 ```
 
-`publish.ps1` runs the tests first and refuses to publish if any fail.
+`publish.ps1` runs the tests first and refuses to publish if any fail. On a Mac,
+`bash tools/package-mac.sh` builds the two Mac zips. Only a Mac can, because only a Mac can sign
+a Mac app.
 
 ## How it is put together
 
@@ -163,7 +194,7 @@ src\TrispotQR.UI\          the Avalonia windows, views and controls
 src\TrispotQR.Desktop\     the executable that ships; Windows, Mac and Linux
 src\TrispotQR.App\         the original WPF app, kept as a reference until it is retired
 tests\                     four test projects; three run on Windows, Linux and macOS
-tools\                     one-off build utilities (the app icon generator)
+tools\                     build utilities (the app icon generator, the Mac packager)
 ```
 
 The WPF app is no longer what you download. It still builds and its tests still run, because
@@ -204,7 +235,7 @@ background.
 `%APPDATA%\TrispotQR\` on Windows holds `presets.json` (saved styles) and `settings.json`
 (last used style and window size). The location resolves per platform
 (`~/Library/Application Support/TrispotQR` on macOS, `$XDG_CONFIG_HOME/TrispotQR` or
-`~/.config/TrispotQR` on Linux), though only the Windows app ships today. A file that will not
+`~/.config/TrispotQR` on Linux). A file that will not
 parse is moved aside and the app starts on the built-in styles rather than refusing to open.
 
 ## Third-party components

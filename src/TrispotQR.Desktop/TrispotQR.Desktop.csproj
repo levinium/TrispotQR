@@ -16,7 +16,7 @@
          From 1.1.0 this is also the version of the product as a whole: publish.ps1 ships this
          project, so TrispotQR.App's own <Version> now describes only the WPF build nobody
          downloads, and stays at 1.0.0 until Phase 2f retires it. -->
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <Product>Trispot QR</Product>
 
     <!-- What Explorer, the taskbar and a pinned shortcut show. Points at the copy in
