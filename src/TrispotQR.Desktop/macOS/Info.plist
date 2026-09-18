@@ -2,7 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- The Mac app bundle's description of itself. The Mac preview workflow copies this into
      Trispot QR.app/Contents and replaces __VERSION__ with the project's <Version>.
-     LSMinimumSystemVersion is 14 because that is the oldest macOS .NET 10 supports. -->
+     LSMinimumSystemVersion is 12 because every native library in the bundle is built for
+     macOS 12 or older: the .NET 10 runtime and the app's launcher say 12.0, Avalonia, Skia and
+     HarfBuzz say 10.13 on Intel and 11.0 on Apple silicon. Microsoft only lists macOS 14 and
+     later as supported for .NET 10, but 14 here refused Ventura outright on a tester's Mac. -->
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key>
@@ -24,7 +27,7 @@
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>LSMinimumSystemVersion</key>
-  <string>14.0</string>
+  <string>12.0</string>
   <key>LSApplicationCategoryType</key>
   <string>public.app-category.graphics-design</string>
   <key>NSHighResolutionCapable</key>

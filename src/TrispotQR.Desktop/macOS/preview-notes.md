@@ -2,7 +2,7 @@
 
 This is Trispot QR on a Mac for the first time. It is built from the same code as the Windows release and passes the same automated tests, but it has not yet been used by a person on a real Mac. That is what this build is for. If something looks wrong or does not work, please open an issue and say which Mac and which macOS version you have.
 
-You need macOS 14 (Sonoma) or later.
+You need macOS 12 (Monterey) or later.
 
 ## Which file
 
